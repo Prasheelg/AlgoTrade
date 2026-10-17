@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AlgoTrade · Log in</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AlgoTrade">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0e13">
+<style>
+  :root { --bg: #0b0e13; --panel: #131820; --ink: #e9ecf1; --muted: #8a93a3; --line: #262e3b; --accent: #7d9bff;
+          --accent-ink: #0b0e13; --down: #ff7a7a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  form { width: 100%; max-width: 340px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+         padding: 28px 22px 22px; text-align: center; }
+  img { width: 56px; height: 56px; border-radius: 14px; }
+  h1 { font-size: 20px; margin: 12px 0 4px; }
+  p { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+  input { width: 100%; font: inherit; font-size: 24px; letter-spacing: .4em; text-align: center; padding: 12px;
+          border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { width: 100%; margin-top: 14px; font: inherit; font-weight: 600; padding: 12px; border: 0; border-radius: 10px;
+           background: var(--accent); color: var(--accent-ink); }
+  button:disabled { opacity: .6; }
+  .err { color: var(--down); font-size: 13px; min-height: 20px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<form id="f" autocomplete="off">
+  <img src="/icons/icon-192.png" alt="">
+  <h1>AlgoTrade</h1>
+  <p>Enter the dashboard PIN (DASHBOARD_PIN in .env on the PC)</p>
+  <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" required autofocus aria-label="PIN">
+  <button id="go" type="submit">Log in</button>
+  <div class="err" id="err" role="alert"></div>
+</form>
+<script>
+  document.getElementById("f").onsubmit = async e => {
+    e.preventDefault();
+    const go = document.getElementById("go"), err = document.getElementById("err");
+    go.disabled = true; err.textContent = "";
+    try {
+      const r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ pin: document.getElementById("pin").value }) });
+      if (r.ok) { location.replace("/"); return; }
+      err.textContent = (await r.json()).error || "Could not log in";
+    } catch (x) { err.textContent = "Can't reach the dashboard. Is the PC on and Tailscale connected?"; }
+    go.disabled = false;
+    document.getElementById("pin").select();
+  };
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+</script>
+</body>
+</html>

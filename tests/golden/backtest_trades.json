@@ -1,0 +1,733 @@
+{
+ "_meta": {
+  "generated_with": {
+   "numpy": "2.5.4",
+   "pandas": "3.0.6",
+   "python": "3.12.7"
+  }
+ },
+ "data": {
+  "down_IN/all_min1": [
+   {
+    "R": -1.0,
+    "entry": 769.7,
+    "entry_time": "2022-10-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 749.5,
+    "exit_time": "2022-11-11 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 577.08,
+    "entry_time": "2023-04-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 560.98,
+    "exit_time": "2023-05-18 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 549.97,
+    "entry_time": "2023-06-08 00:00:00",
+    "entry_type": "limit",
+    "exit": 528.81,
+    "exit_time": "2023-06-14 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 525.77,
+    "entry_time": "2023-06-20 00:00:00",
+    "entry_type": "limit",
+    "exit": 508.71,
+    "exit_time": "2023-07-07 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "down_IN/default": [
+   {
+    "R": -1.0,
+    "entry": 769.7,
+    "entry_time": "2022-10-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 749.5,
+    "exit_time": "2022-11-11 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 577.08,
+    "entry_time": "2023-04-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 560.98,
+    "exit_time": "2023-05-18 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 549.97,
+    "entry_time": "2023-06-08 00:00:00",
+    "entry_type": "limit",
+    "exit": 528.81,
+    "exit_time": "2023-06-14 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "down_IN/t2_filters": [
+   {
+    "R": -0.86,
+    "entry": 769.7,
+    "entry_time": "2022-10-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 752.2841,
+    "exit_time": "2022-11-09 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 0.61,
+    "entry": 577.08,
+    "entry_time": "2023-04-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 586.8739,
+    "exit_time": "2023-05-10 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 549.97,
+    "entry_time": "2023-06-08 00:00:00",
+    "entry_type": "limit",
+    "exit": 528.81,
+    "exit_time": "2023-06-14 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "range_US/all_min1": [
+   {
+    "R": 1.5,
+    "entry": 150.9,
+    "entry_time": "2022-11-02 00:00:00",
+    "entry_type": "stop",
+    "exit": 155.44,
+    "exit_time": "2022-11-07 00:00:00",
+    "score": 3,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 152.26,
+    "entry_time": "2022-11-16 00:00:00",
+    "entry_type": "limit",
+    "exit": 149.31,
+    "exit_time": "2022-11-18 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 150.16,
+    "entry_time": "2022-12-06 00:00:00",
+    "entry_type": "stop",
+    "exit": 154.72,
+    "exit_time": "2022-12-08 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 156.79,
+    "entry_time": "2022-12-12 00:00:00",
+    "entry_type": "stop",
+    "exit": 153.58,
+    "exit_time": "2022-12-19 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 141.82,
+    "entry_time": "2023-01-20 00:00:00",
+    "entry_type": "limit",
+    "exit": 138.11,
+    "exit_time": "2023-01-25 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 143.79,
+    "entry_time": "2023-02-21 00:00:00",
+    "entry_type": "limit",
+    "exit": 142.89,
+    "exit_time": "2023-02-22 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 143.31,
+    "entry_time": "2023-03-20 00:00:00",
+    "entry_type": "stop",
+    "exit": 140.26,
+    "exit_time": "2023-03-31 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 137.13,
+    "entry_time": "2023-04-13 00:00:00",
+    "entry_type": "limit",
+    "exit": 132.07,
+    "exit_time": "2023-04-13 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 132.31,
+    "entry_time": "2023-06-02 00:00:00",
+    "entry_type": "limit",
+    "exit": 131.47,
+    "exit_time": "2023-06-02 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 130.57,
+    "entry_time": "2023-06-28 00:00:00",
+    "entry_type": "stop",
+    "exit": 127.54,
+    "exit_time": "2023-07-12 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 135.04,
+    "entry_time": "2023-07-21 00:00:00",
+    "entry_type": "stop",
+    "exit": 131.65,
+    "exit_time": "2023-07-26 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 132.01,
+    "entry_time": "2023-09-04 00:00:00",
+    "entry_type": "stop",
+    "exit": 129.35,
+    "exit_time": "2023-09-18 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "range_US/default": [
+   {
+    "R": 1.5,
+    "entry": 150.9,
+    "entry_time": "2022-11-02 00:00:00",
+    "entry_type": "stop",
+    "exit": 155.44,
+    "exit_time": "2022-11-07 00:00:00",
+    "score": 3,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 150.16,
+    "entry_time": "2022-12-06 00:00:00",
+    "entry_type": "stop",
+    "exit": 154.72,
+    "exit_time": "2022-12-08 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 141.82,
+    "entry_time": "2023-01-20 00:00:00",
+    "entry_type": "limit",
+    "exit": 138.11,
+    "exit_time": "2023-01-25 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 143.79,
+    "entry_time": "2023-02-21 00:00:00",
+    "entry_type": "limit",
+    "exit": 142.89,
+    "exit_time": "2023-02-22 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 143.31,
+    "entry_time": "2023-03-20 00:00:00",
+    "entry_type": "stop",
+    "exit": 140.26,
+    "exit_time": "2023-03-31 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 130.57,
+    "entry_time": "2023-06-28 00:00:00",
+    "entry_type": "stop",
+    "exit": 127.54,
+    "exit_time": "2023-07-12 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 135.04,
+    "entry_time": "2023-07-21 00:00:00",
+    "entry_type": "stop",
+    "exit": 131.65,
+    "exit_time": "2023-07-26 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 132.01,
+    "entry_time": "2023-09-04 00:00:00",
+    "entry_type": "stop",
+    "exit": 129.35,
+    "exit_time": "2023-09-18 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "range_US/t2_filters": [
+   {
+    "R": 0.17,
+    "entry": 150.9,
+    "entry_time": "2022-11-02 00:00:00",
+    "entry_type": "stop",
+    "exit": 151.4049,
+    "exit_time": "2022-11-16 00:00:00",
+    "score": 3,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 132.01,
+    "entry_time": "2023-09-04 00:00:00",
+    "entry_type": "stop",
+    "exit": 129.35,
+    "exit_time": "2023-09-18 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "up_IN/all_min1": [
+   {
+    "R": -1.0,
+    "entry": 570.69,
+    "entry_time": "2022-10-14 00:00:00",
+    "entry_type": "limit",
+    "exit": 564.73,
+    "exit_time": "2022-10-17 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 560.5,
+    "entry_time": "2022-10-19 00:00:00",
+    "entry_type": "limit",
+    "exit": 566.63,
+    "exit_time": "2022-10-20 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 581.09,
+    "entry_time": "2022-10-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 563.57,
+    "exit_time": "2022-11-17 00:00:00",
+    "score": 3,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 557.98,
+    "entry_time": "2022-11-23 00:00:00",
+    "entry_type": "limit",
+    "exit": 564.72,
+    "exit_time": "2022-11-28 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -0.45,
+    "entry": 608.55,
+    "entry_time": "2022-12-06 00:00:00",
+    "entry_type": "stop",
+    "exit": 592.9562,
+    "exit_time": "2023-01-03 00:00:00",
+    "score": 4,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 596.12,
+    "entry_time": "2023-01-11 00:00:00",
+    "entry_type": "limit",
+    "exit": 581.3,
+    "exit_time": "2023-01-12 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 602.64,
+    "entry_time": "2023-01-19 00:00:00",
+    "entry_type": "limit",
+    "exit": 595.63,
+    "exit_time": "2023-01-24 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 601.23,
+    "entry_time": "2023-02-07 00:00:00",
+    "entry_type": "limit",
+    "exit": 594.83,
+    "exit_time": "2023-02-08 00:00:00",
+    "score": 3,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 606.38,
+    "entry_time": "2023-02-15 00:00:00",
+    "entry_type": "limit",
+    "exit": 617.64,
+    "exit_time": "2023-02-16 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 618.36,
+    "entry_time": "2023-02-20 00:00:00",
+    "entry_type": "stop",
+    "exit": 601.72,
+    "exit_time": "2023-02-27 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 0.24,
+    "entry": 622.82,
+    "entry_time": "2023-03-07 00:00:00",
+    "entry_type": "limit",
+    "exit": 629.9474,
+    "exit_time": "2023-04-04 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 657.35,
+    "entry_time": "2023-04-11 00:00:00",
+    "entry_type": "stop",
+    "exit": 685.21,
+    "exit_time": "2023-04-19 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 710.24,
+    "entry_time": "2023-05-23 00:00:00",
+    "entry_type": "stop",
+    "exit": 688.15,
+    "exit_time": "2023-05-25 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 692.65,
+    "entry_time": "2023-06-01 00:00:00",
+    "entry_type": "stop",
+    "exit": 670.28,
+    "exit_time": "2023-06-09 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 671.92,
+    "entry_time": "2023-06-16 00:00:00",
+    "entry_type": "limit",
+    "exit": 690.21,
+    "exit_time": "2023-06-29 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 696.59,
+    "entry_time": "2023-07-03 00:00:00",
+    "entry_type": "stop",
+    "exit": 725.81,
+    "exit_time": "2023-07-05 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 712.19,
+    "entry_time": "2023-07-20 00:00:00",
+    "entry_type": "limit",
+    "exit": 742.86,
+    "exit_time": "2023-07-31 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 749.51,
+    "entry_time": "2023-08-03 00:00:00",
+    "entry_type": "stop",
+    "exit": 783.74,
+    "exit_time": "2023-08-04 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 745.97,
+    "entry_time": "2023-08-11 00:00:00",
+    "entry_type": "limit",
+    "exit": 780.47,
+    "exit_time": "2023-08-18 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 779.07,
+    "entry_time": "2023-09-11 00:00:00",
+    "entry_type": "stop",
+    "exit": 756.7,
+    "exit_time": "2023-09-12 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 0.97,
+    "entry": 786.96,
+    "entry_time": "2023-09-19 00:00:00",
+    "entry_type": "stop",
+    "exit": 811.0466,
+    "exit_time": "2023-09-22 00:00:00",
+    "score": 1,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "up_IN/default": [
+   {
+    "R": -1.0,
+    "entry": 570.69,
+    "entry_time": "2022-10-14 00:00:00",
+    "entry_type": "limit",
+    "exit": 564.73,
+    "exit_time": "2022-10-17 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 581.09,
+    "entry_time": "2022-10-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 563.57,
+    "exit_time": "2022-11-17 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 557.98,
+    "entry_time": "2022-11-23 00:00:00",
+    "entry_type": "limit",
+    "exit": 564.72,
+    "exit_time": "2022-11-28 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -0.45,
+    "entry": 608.55,
+    "entry_time": "2022-12-06 00:00:00",
+    "entry_type": "stop",
+    "exit": 592.9562,
+    "exit_time": "2023-01-03 00:00:00",
+    "score": 4,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 608.17,
+    "entry_time": "2023-01-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 592.01,
+    "exit_time": "2023-01-31 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": -1.0,
+    "entry": 601.23,
+    "entry_time": "2023-02-07 00:00:00",
+    "entry_type": "limit",
+    "exit": 594.83,
+    "exit_time": "2023-02-08 00:00:00",
+    "score": 3,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 0.24,
+    "entry": 622.82,
+    "entry_time": "2023-03-07 00:00:00",
+    "entry_type": "limit",
+    "exit": 629.9474,
+    "exit_time": "2023-04-04 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.5,
+    "entry": 693.82,
+    "entry_time": "2023-06-30 00:00:00",
+    "entry_type": "stop",
+    "exit": 723.22,
+    "exit_time": "2023-07-05 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 0.64,
+    "entry": 795.11,
+    "entry_time": "2023-09-20 00:00:00",
+    "entry_type": "stop",
+    "exit": 811.0466,
+    "exit_time": "2023-09-22 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ],
+  "up_IN/t2_filters": [
+   {
+    "R": 0.2,
+    "entry": 581.09,
+    "entry_time": "2022-10-26 00:00:00",
+    "entry_type": "stop",
+    "exit": 584.6342,
+    "exit_time": "2022-11-09 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   },
+   {
+    "R": 1.9,
+    "entry": 693.82,
+    "entry_time": "2023-06-30 00:00:00",
+    "entry_type": "stop",
+    "exit": 730.9514,
+    "exit_time": "2023-07-14 00:00:00",
+    "score": 2,
+    "side": "BUY",
+    "symbol": "SYM"
+   }
+  ]
+ }
+}

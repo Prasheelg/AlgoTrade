@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AlgoTrade · Offline</title>
+<meta name="theme-color" content="#0b0e13">
+<style>
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #0b0e13; color: #e9ecf1;
+         font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 0 24px; text-align: center; }
+  img { width: 56px; height: 56px; border-radius: 14px; opacity: .8; }
+  h1 { font-size: 19px; margin: 14px 0 6px; }
+  p { color: #8a93a3; font-size: 14px; margin: 0 0 6px; max-width: 320px; }
+  button { margin-top: 18px; font: inherit; font-weight: 600; padding: 11px 26px; border: 0; border-radius: 10px;
+           background: #7d9bff; color: #0b0e13; }
+</style>
+</head>
+<body>
+<div>
+  <img src="/icons/icon-192.png" alt="">
+  <h1>Can't reach AlgoTrade</h1>
+  <p>The app talks to the dashboard running on your PC.</p>
+  <p>Check that the PC is on, the dashboard is running, and Tailscale is connected on both devices.</p>
+  <button type="button" onclick="location.replace('/')">Try again</button>
+</div>
+</body>
+</html>

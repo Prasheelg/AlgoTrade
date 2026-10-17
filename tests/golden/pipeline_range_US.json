@@ -1,0 +1,5796 @@
+{
+ "_meta": {
+  "generated_with": {
+   "numpy": "2.5.4",
+   "pandas": "3.0.6",
+   "python": "3.12.7"
+  }
+ },
+ "data": {
+  "indicators_last": {
+   "ADX": 26.312305,
+   "ATR": 1.712825,
+   "BB_LO": 123.055713,
+   "BB_UP": 137.386815,
+   "EMA200": 134.061116,
+   "EMA21": 128.893293,
+   "EMA50": 129.500028,
+   "EMA9": 127.27651,
+   "HH20": 135.144255,
+   "IDX_CLOSE": 4410.887732,
+   "IDX_EMA200": 4308.998309,
+   "KC_LO": 126.267296,
+   "KC_UP": 131.405772,
+   "LL20": 124.051155,
+   "MACD": -1.118853,
+   "MACD_SIG": -0.093901,
+   "RS": 0.912796,
+   "RSI": 30.224937,
+   "RSI2": 0.074139,
+   "ST_DIR": -1.0,
+   "TURNOVER20": 74077640.185094,
+   "VOL_AVG20": 572148.952288
+  },
+  "indicators_sum": {
+   "ADX": 13136.685,
+   "ATR": 886.8045,
+   "BB_LO": 58204.9149,
+   "BB_UP": 65106.8177,
+   "EMA200": 65873.3824,
+   "EMA21": 64539.7766,
+   "EMA50": 64824.2765,
+   "EMA9": 64422.3686,
+   "HH20": 64402.0698,
+   "IDX_CLOSE": 2039131.0125,
+   "IDX_EMA200": 2100868.0949,
+   "KC_LO": 63199.7862,
+   "KC_UP": 65860.1996,
+   "LL20": 58603.999,
+   "MACD": -136.9075,
+   "MACD_SIG": -136.5319,
+   "RS": 385.4981,
+   "RSI": 22461.4903,
+   "RSI2": 21644.0847,
+   "ST_DIR": 6.0,
+   "TURNOVER20": 32018727039.95,
+   "VOL_AVG20": 223933261.8441
+  },
+  "pivots": 44,
+  "signals_all_min1_filters": [
+   {
+    "adx": 23.7,
+    "entry": 144.5,
+    "entry_type": "stop",
+    "i": 207,
+    "key": "US|SYM|SELL|2022-10-19",
+    "qty": 30,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 145.11,
+    "rsi": 34.5,
+    "score": 1,
+    "side": "SELL",
+    "sl": 147.83,
+    "targets": [
+     139.51,
+     134.51
+    ],
+    "vol_ratio": 1.03
+   },
+   {
+    "adx": 24.8,
+    "entry": 146.81,
+    "entry_type": "stop",
+    "i": 230,
+    "key": "US|SYM|SELL|2022-11-21",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 147.35,
+    "rsi": 38.7,
+    "score": 3,
+    "side": "SELL",
+    "sl": 149.98,
+    "targets": [
+     142.06,
+     137.32
+    ],
+    "vol_ratio": 1.75
+   },
+   {
+    "adx": 24.9,
+    "entry": 145.57,
+    "entry_type": "stop",
+    "i": 231,
+    "key": "US|SYM|SELL|2022-11-22",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 146.06,
+    "rsi": 35.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 148.74,
+    "targets": [
+     140.83,
+     136.09
+    ],
+    "vol_ratio": 0.64
+   },
+   {
+    "adx": 25.9,
+    "entry": 142.7,
+    "entry_type": "stop",
+    "i": 232,
+    "key": "US|SYM|SELL|2022-11-23",
+    "qty": 30,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 143.95,
+    "rsi": 31.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 146.0,
+    "targets": [
+     137.74,
+     132.78
+    ],
+    "vol_ratio": 1.45
+   },
+   {
+    "adx": 27.7,
+    "entry": 147.52,
+    "entry_type": "limit",
+    "i": 237,
+    "key": "US|SYM|SELL|2022-11-30",
+    "qty": 32,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 146.49,
+    "rsi": 43.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 150.62,
+    "targets": [
+     142.89,
+     138.25
+    ],
+    "vol_ratio": 0.79
+   },
+   {
+    "adx": 26.6,
+    "entry": 147.47,
+    "entry_type": "limit",
+    "i": 238,
+    "key": "US|SYM|SELL|2022-12-01",
+    "qty": 33,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 146.49,
+    "rsi": 43.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 150.42,
+    "targets": [
+     143.04,
+     138.62
+    ],
+    "vol_ratio": 1.01
+   },
+   {
+    "adx": 24.9,
+    "entry": 149.69,
+    "entry_type": "limit",
+    "i": 239,
+    "key": "US|SYM|SELL|2022-12-02",
+    "qty": 32,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 148.66,
+    "rsi": 51.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 152.78,
+    "targets": [
+     145.06,
+     140.42
+    ],
+    "vol_ratio": 1.22
+   },
+   {
+    "adx": 25.3,
+    "entry": 156.79,
+    "entry_type": "stop",
+    "i": 244,
+    "key": "US|SYM|BUY|2022-12-09",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 156.54,
+    "rsi": 70.2,
+    "score": 1,
+    "side": "BUY",
+    "sl": 153.58,
+    "targets": [
+     161.61,
+     166.42
+    ],
+    "vol_ratio": 1.23
+   },
+   {
+    "adx": 25.5,
+    "entry": 146.06,
+    "entry_type": "stop",
+    "i": 254,
+    "key": "US|SYM|SELL|2022-12-23",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "MACD Trend Cross"
+    ],
+    "ref": 146.85,
+    "rsi": 37.2,
+    "score": 2,
+    "side": "SELL",
+    "sl": 149.18,
+    "targets": [
+     141.38,
+     136.71
+    ],
+    "vol_ratio": 1.07
+   },
+   {
+    "adx": 29.9,
+    "entry": 140.27,
+    "entry_type": "limit",
+    "i": 260,
+    "key": "US|SYM|SELL|2023-01-02",
+    "qty": 23,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 139.24,
+    "rsi": 22.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 144.49,
+    "targets": [
+     133.94,
+     127.6
+    ],
+    "vol_ratio": 1.27
+   },
+   {
+    "adx": 27.4,
+    "entry": 137.7,
+    "entry_type": "stop",
+    "i": 277,
+    "key": "US|SYM|SELL|2023-01-25",
+    "qty": 37,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 138.24,
+    "rsi": 32.7,
+    "score": 2,
+    "side": "SELL",
+    "sl": 140.39,
+    "targets": [
+     133.68,
+     129.65
+    ],
+    "vol_ratio": 1.16
+   },
+   {
+    "adx": 28.6,
+    "entry": 136.26,
+    "entry_type": "stop",
+    "i": 278,
+    "key": "US|SYM|SELL|2023-01-26",
+    "qty": 38,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross",
+     "Support-Resistance"
+    ],
+    "ref": 136.82,
+    "rsi": 29.9,
+    "score": 3,
+    "side": "SELL",
+    "sl": 138.88,
+    "targets": [
+     132.32,
+     128.39
+    ],
+    "vol_ratio": 0.51
+   },
+   {
+    "adx": 30.1,
+    "entry": 134.25,
+    "entry_type": "stop",
+    "i": 279,
+    "key": "US|SYM|SELL|2023-01-27",
+    "qty": 35,
+    "reasons": [
+     "Supertrend Flip"
+    ],
+    "ref": 134.87,
+    "rsi": 26.4,
+    "score": 1,
+    "side": "SELL",
+    "sl": 137.08,
+    "targets": [
+     130.01,
+     125.77
+    ],
+    "vol_ratio": 0.79
+   },
+   {
+    "adx": 35.0,
+    "entry": 137.02,
+    "entry_type": "limit",
+    "i": 286,
+    "key": "US|SYM|SELL|2023-02-07",
+    "qty": 37,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 136.13,
+    "rsi": 38.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 139.68,
+    "targets": [
+     133.03,
+     129.05
+    ],
+    "vol_ratio": 1.34
+   },
+   {
+    "adx": 27.3,
+    "entry": 141.83,
+    "entry_type": "limit",
+    "i": 290,
+    "key": "US|SYM|SELL|2023-02-13",
+    "qty": 37,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 140.93,
+    "rsi": 55.8,
+    "score": 1,
+    "side": "SELL",
+    "sl": 144.5,
+    "targets": [
+     137.81,
+     133.8
+    ],
+    "vol_ratio": 1.12
+   },
+   {
+    "adx": 28.2,
+    "entry": 145.85,
+    "entry_type": "limit",
+    "i": 295,
+    "key": "US|SYM|SELL|2023-02-20",
+    "qty": 38,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 144.98,
+    "rsi": 66.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 148.47,
+    "targets": [
+     141.92,
+     137.99
+    ],
+    "vol_ratio": 1.15
+   },
+   {
+    "adx": 27.6,
+    "entry": 144.45,
+    "entry_type": "limit",
+    "i": 296,
+    "key": "US|SYM|SELL|2023-02-21",
+    "qty": 36,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 143.54,
+    "rsi": 59.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 147.17,
+    "targets": [
+     140.37,
+     136.28
+    ],
+    "vol_ratio": 0.56
+   },
+   {
+    "adx": 23.3,
+    "entry": 142.02,
+    "entry_type": "limit",
+    "i": 299,
+    "key": "US|SYM|SELL|2023-02-24",
+    "qty": 51,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 141.09,
+    "rsi": 49.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 143.98,
+    "targets": [
+     139.09,
+     136.16
+    ],
+    "vol_ratio": 0.79
+   },
+   {
+    "adx": 22.3,
+    "entry": 136.85,
+    "entry_type": "stop",
+    "i": 301,
+    "key": "US|SYM|SELL|2023-02-28",
+    "qty": 34,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 137.94,
+    "rsi": 39.4,
+    "score": 2,
+    "side": "SELL",
+    "sl": 139.79,
+    "targets": [
+     132.44,
+     128.04
+    ],
+    "vol_ratio": 1.05
+   },
+   {
+    "adx": 22.8,
+    "entry": 135.91,
+    "entry_type": "stop",
+    "i": 302,
+    "key": "US|SYM|SELL|2023-03-01",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross",
+     "Support-Resistance"
+    ],
+    "ref": 136.46,
+    "rsi": 35.8,
+    "score": 4,
+    "side": "SELL",
+    "sl": 138.89,
+    "targets": [
+     131.43,
+     126.95
+    ],
+    "vol_ratio": 1.48
+   },
+   {
+    "adx": 23.7,
+    "entry": 134.41,
+    "entry_type": "stop",
+    "i": 303,
+    "key": "US|SYM|SELL|2023-03-02",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 135.16,
+    "rsi": 32.9,
+    "score": 3,
+    "side": "SELL",
+    "sl": 137.46,
+    "targets": [
+     129.82,
+     125.24
+    ],
+    "vol_ratio": 1.29
+   },
+   {
+    "adx": 24.7,
+    "entry": 133.71,
+    "entry_type": "stop",
+    "i": 304,
+    "key": "US|SYM|SELL|2023-03-03",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 134.75,
+    "rsi": 32.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 136.73,
+    "targets": [
+     129.17,
+     124.63
+    ],
+    "vol_ratio": 1.48
+   },
+   {
+    "adx": 27.4,
+    "entry": 137.15,
+    "entry_type": "limit",
+    "i": 310,
+    "key": "US|SYM|SELL|2023-03-13",
+    "qty": 35,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 136.22,
+    "rsi": 43.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 139.94,
+    "targets": [
+     132.98,
+     128.8
+    ],
+    "vol_ratio": 1.25
+   },
+   {
+    "adx": 25.6,
+    "entry": 138.53,
+    "entry_type": "limit",
+    "i": 311,
+    "key": "US|SYM|SELL|2023-03-14",
+    "qty": 35,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 137.6,
+    "rsi": 48.5,
+    "score": 1,
+    "side": "SELL",
+    "sl": 141.32,
+    "targets": [
+     134.35,
+     130.18
+    ],
+    "vol_ratio": 1.15
+   },
+   {
+    "adx": 35.9,
+    "entry": 125.17,
+    "entry_type": "limit",
+    "i": 357,
+    "key": "US|SYM|SELL|2023-05-17",
+    "qty": 38,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 124.31,
+    "rsi": 31.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 127.75,
+    "targets": [
+     121.29,
+     117.42
+    ],
+    "vol_ratio": 0.94
+   },
+   {
+    "adx": 35.8,
+    "entry": 125.56,
+    "entry_type": "limit",
+    "i": 358,
+    "key": "US|SYM|SELL|2023-05-18",
+    "qty": 40,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 124.73,
+    "rsi": 34.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 128.04,
+    "targets": [
+     121.83,
+     118.11
+    ],
+    "vol_ratio": 0.62
+   },
+   {
+    "adx": 34.3,
+    "entry": 127.64,
+    "entry_type": "limit",
+    "i": 359,
+    "key": "US|SYM|SELL|2023-05-19",
+    "qty": 38,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 126.78,
+    "rsi": 43.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 130.22,
+    "targets": [
+     123.77,
+     119.9
+    ],
+    "vol_ratio": 0.59
+   },
+   {
+    "adx": 22.8,
+    "entry": 126.2,
+    "entry_type": "stop",
+    "i": 373,
+    "key": "US|SYM|SELL|2023-06-08",
+    "qty": 34,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 126.48,
+    "rsi": 38.8,
+    "score": 3,
+    "side": "SELL",
+    "sl": 129.1,
+    "targets": [
+     121.86,
+     117.52
+    ],
+    "vol_ratio": 1.17
+   },
+   {
+    "adx": 23.0,
+    "entry": 124.75,
+    "entry_type": "stop",
+    "i": 374,
+    "key": "US|SYM|SELL|2023-06-09",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 125.14,
+    "rsi": 35.5,
+    "score": 3,
+    "side": "SELL",
+    "sl": 127.71,
+    "targets": [
+     120.32,
+     115.88
+    ],
+    "vol_ratio": 0.95
+   },
+   {
+    "adx": 23.9,
+    "entry": 122.58,
+    "entry_type": "stop",
+    "i": 375,
+    "key": "US|SYM|SELL|2023-06-12",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "MACD Trend Cross"
+    ],
+    "ref": 123.25,
+    "rsi": 31.4,
+    "score": 2,
+    "side": "SELL",
+    "sl": 125.61,
+    "targets": [
+     118.04,
+     113.5
+    ],
+    "vol_ratio": 1.65
+   },
+   {
+    "adx": 22.9,
+    "entry": 126.96,
+    "entry_type": "limit",
+    "i": 383,
+    "key": "US|SYM|SELL|2023-06-22",
+    "qty": 34,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 126.0,
+    "rsi": 48.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 129.85,
+    "targets": [
+     122.63,
+     118.3
+    ],
+    "vol_ratio": 0.82
+   },
+   {
+    "adx": 22.2,
+    "entry": 128.51,
+    "entry_type": "limit",
+    "i": 384,
+    "key": "US|SYM|SELL|2023-06-23",
+    "qty": 33,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 127.51,
+    "rsi": 52.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 131.52,
+    "targets": [
+     124.0,
+     119.49
+    ],
+    "vol_ratio": 0.8
+   },
+   {
+    "adx": 24.8,
+    "entry": 133.38,
+    "entry_type": "limit",
+    "i": 389,
+    "key": "US|SYM|SELL|2023-06-30",
+    "qty": 33,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 132.39,
+    "rsi": 64.8,
+    "score": 1,
+    "side": "SELL",
+    "sl": 136.37,
+    "targets": [
+     128.91,
+     124.44
+    ],
+    "vol_ratio": 0.58
+   },
+   {
+    "adx": 27.0,
+    "entry": 133.23,
+    "entry_type": "limit",
+    "i": 391,
+    "key": "US|SYM|SELL|2023-07-04",
+    "qty": 75,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 132.26,
+    "rsi": 62.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 133.95,
+    "targets": [
+     132.14,
+     131.06
+    ],
+    "vol_ratio": 0.74
+   },
+   {
+    "adx": 28.1,
+    "entry": 132.58,
+    "entry_type": "limit",
+    "i": 393,
+    "key": "US|SYM|SELL|2023-07-06",
+    "qty": 36,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 131.66,
+    "rsi": 59.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 135.31,
+    "targets": [
+     128.47,
+     124.37
+    ],
+    "vol_ratio": 0.67
+   },
+   {
+    "adx": 27.5,
+    "entry": 131.43,
+    "entry_type": "limit",
+    "i": 394,
+    "key": "US|SYM|SELL|2023-07-07",
+    "qty": 68,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 130.51,
+    "rsi": 54.9,
+    "score": 2,
+    "side": "SELL",
+    "sl": 132.89,
+    "targets": [
+     129.25,
+     127.07
+    ],
+    "vol_ratio": 1.01
+   },
+   {
+    "adx": 25.5,
+    "entry": 129.57,
+    "entry_type": "limit",
+    "i": 395,
+    "key": "US|SYM|SELL|2023-07-10",
+    "qty": 34,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 128.61,
+    "rsi": 47.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 132.43,
+    "targets": [
+     125.27,
+     120.98
+    ],
+    "vol_ratio": 1.64
+   },
+   {
+    "adx": 23.7,
+    "entry": 127.83,
+    "entry_type": "stop",
+    "i": 396,
+    "key": "US|SYM|SELL|2023-07-11",
+    "qty": 36,
+    "reasons": [
+     "MACD Trend Cross"
+    ],
+    "ref": 128.08,
+    "rsi": 46.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 130.56,
+    "targets": [
+     123.73,
+     119.64
+    ],
+    "vol_ratio": 1.45
+   },
+   {
+    "adx": 23.2,
+    "entry": 125.77,
+    "entry_type": "stop",
+    "i": 397,
+    "key": "US|SYM|SELL|2023-07-12",
+    "qty": 36,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 126.33,
+    "rsi": 40.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 128.54,
+    "targets": [
+     121.63,
+     117.48
+    ],
+    "vol_ratio": 1.28
+   },
+   {
+    "adx": 23.2,
+    "entry": 124.69,
+    "entry_type": "stop",
+    "i": 398,
+    "key": "US|SYM|SELL|2023-07-13",
+    "qty": 36,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 125.37,
+    "rsi": 38.2,
+    "score": 3,
+    "side": "SELL",
+    "sl": 127.43,
+    "targets": [
+     120.58,
+     116.46
+    ],
+    "vol_ratio": 0.8
+   },
+   {
+    "adx": 23.6,
+    "entry": 123.57,
+    "entry_type": "stop",
+    "i": 399,
+    "key": "US|SYM|SELL|2023-07-14",
+    "qty": 36,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 124.29,
+    "rsi": 35.5,
+    "score": 2,
+    "side": "SELL",
+    "sl": 126.29,
+    "targets": [
+     119.49,
+     115.4
+    ],
+    "vol_ratio": 1.43
+   },
+   {
+    "adx": 22.0,
+    "entry": 123.9,
+    "entry_type": "stop",
+    "i": 400,
+    "key": "US|SYM|SELL|2023-07-17",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 128.99,
+    "rsi": 51.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 126.97,
+    "targets": [
+     119.3,
+     114.69
+    ],
+    "vol_ratio": 0.77
+   },
+   {
+    "adx": 21.4,
+    "entry": 133.8,
+    "entry_type": "limit",
+    "i": 406,
+    "key": "US|SYM|SELL|2023-07-25",
+    "qty": 74,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 132.75,
+    "rsi": 57.9,
+    "score": 2,
+    "side": "SELL",
+    "sl": 134.67,
+    "targets": [
+     132.49,
+     131.18
+    ],
+    "vol_ratio": 0.62
+   },
+   {
+    "adx": 20.6,
+    "entry": 132.47,
+    "entry_type": "limit",
+    "i": 407,
+    "key": "US|SYM|SELL|2023-07-26",
+    "qty": 75,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 131.43,
+    "rsi": 54.0,
+    "score": 2,
+    "side": "SELL",
+    "sl": 133.44,
+    "targets": [
+     131.01,
+     129.56
+    ],
+    "vol_ratio": 0.64
+   },
+   {
+    "adx": 19.3,
+    "entry": 131.51,
+    "entry_type": "limit",
+    "i": 408,
+    "key": "US|SYM|SELL|2023-07-27",
+    "qty": 32,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 130.5,
+    "rsi": 51.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 134.56,
+    "targets": [
+     126.94,
+     122.37
+    ],
+    "vol_ratio": 0.9
+   },
+   {
+    "adx": 15.0,
+    "entry": 127.81,
+    "entry_type": "stop",
+    "i": 421,
+    "key": "US|SYM|SELL|2023-08-15",
+    "qty": 37,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 128.12,
+    "rsi": 40.3,
+    "score": 2,
+    "side": "SELL",
+    "sl": 130.46,
+    "targets": [
+     123.84,
+     119.87
+    ],
+    "vol_ratio": 0.93
+   },
+   {
+    "adx": 16.3,
+    "entry": 125.84,
+    "entry_type": "stop",
+    "i": 422,
+    "key": "US|SYM|SELL|2023-08-16",
+    "qty": 37,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 126.05,
+    "rsi": 35.5,
+    "score": 2,
+    "side": "SELL",
+    "sl": 128.53,
+    "targets": [
+     121.81,
+     117.77
+    ],
+    "vol_ratio": 2.07
+   },
+   {
+    "adx": 17.7,
+    "entry": 125.38,
+    "entry_type": "stop",
+    "i": 423,
+    "key": "US|SYM|SELL|2023-08-17",
+    "qty": 38,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 126.41,
+    "rsi": 36.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 128.0,
+    "targets": [
+     121.44,
+     117.51
+    ],
+    "vol_ratio": 0.58
+   },
+   {
+    "adx": 25.4,
+    "entry": 126.68,
+    "entry_type": "limit",
+    "i": 429,
+    "key": "US|SYM|SELL|2023-08-25",
+    "qty": 41,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 125.88,
+    "rsi": 40.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 129.1,
+    "targets": [
+     123.07,
+     119.45
+    ],
+    "vol_ratio": 1.3
+   },
+   {
+    "adx": 24.4,
+    "entry": 127.88,
+    "entry_type": "limit",
+    "i": 430,
+    "key": "US|SYM|SELL|2023-08-28",
+    "qty": 41,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 127.07,
+    "rsi": 45.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 130.31,
+    "targets": [
+     124.24,
+     120.59
+    ],
+    "vol_ratio": 1.19
+   },
+   {
+    "adx": 25.6,
+    "entry": 133.47,
+    "entry_type": "limit",
+    "i": 440,
+    "key": "US|SYM|BUY|2023-09-11",
+    "qty": 40,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 134.3,
+    "rsi": 65.2,
+    "score": 1,
+    "side": "BUY",
+    "sl": 130.98,
+    "targets": [
+     137.21,
+     140.95
+    ],
+    "vol_ratio": 1.09
+   }
+  ],
+  "signals_all_min1_shorts": [
+   {
+    "adx": 27.5,
+    "entry": 154.63,
+    "entry_type": "limit",
+    "i": 201,
+    "key": "US|SYM|SELL|2022-10-11",
+    "qty": 26,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 153.47,
+    "rsi": 55.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 158.36,
+    "targets": [
+     149.04,
+     143.45
+    ],
+    "vol_ratio": 0.7
+   },
+   {
+    "adx": 24.5,
+    "entry": 148.15,
+    "entry_type": "stop",
+    "i": 204,
+    "key": "US|SYM|SELL|2022-10-14",
+    "qty": 29,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 148.81,
+    "rsi": 42.4,
+    "score": 2,
+    "side": "SELL",
+    "sl": 151.58,
+    "targets": [
+     142.99,
+     137.83
+    ],
+    "vol_ratio": 0.55
+   },
+   {
+    "adx": 23.8,
+    "entry": 147.12,
+    "entry_type": "stop",
+    "i": 205,
+    "key": "US|SYM|SELL|2022-10-17",
+    "qty": 29,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 147.47,
+    "rsi": 39.4,
+    "score": 3,
+    "side": "SELL",
+    "sl": 150.48,
+    "targets": [
+     142.08,
+     137.04
+    ],
+    "vol_ratio": 0.92
+   },
+   {
+    "adx": 23.4,
+    "entry": 146.41,
+    "entry_type": "stop",
+    "i": 206,
+    "key": "US|SYM|SELL|2022-10-18",
+    "qty": 30,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 147.02,
+    "rsi": 38.4,
+    "score": 3,
+    "side": "SELL",
+    "sl": 149.68,
+    "targets": [
+     141.51,
+     136.61
+    ],
+    "vol_ratio": 2.06
+   },
+   {
+    "adx": 23.7,
+    "entry": 144.5,
+    "entry_type": "stop",
+    "i": 207,
+    "key": "US|SYM|SELL|2022-10-19",
+    "qty": 30,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 145.11,
+    "rsi": 34.5,
+    "score": 1,
+    "side": "SELL",
+    "sl": 147.83,
+    "targets": [
+     139.51,
+     134.51
+    ],
+    "vol_ratio": 1.03
+   },
+   {
+    "adx": 23.9,
+    "entry": 147.67,
+    "entry_type": "limit",
+    "i": 214,
+    "key": "US|SYM|SELL|2022-10-28",
+    "qty": 34,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 146.71,
+    "rsi": 44.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 150.54,
+    "targets": [
+     143.36,
+     139.05
+    ],
+    "vol_ratio": 0.66
+   },
+   {
+    "adx": 22.5,
+    "entry": 150.9,
+    "entry_type": "stop",
+    "i": 216,
+    "key": "US|SYM|BUY|2022-11-01",
+    "qty": 33,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross",
+     "RSI Pullback"
+    ],
+    "ref": 150.68,
+    "rsi": 57.0,
+    "score": 3,
+    "side": "BUY",
+    "sl": 147.87,
+    "targets": [
+     155.44,
+     159.98
+    ],
+    "vol_ratio": 0.85
+   },
+   {
+    "adx": 22.3,
+    "entry": 151.66,
+    "entry_type": "stop",
+    "i": 217,
+    "key": "US|SYM|BUY|2022-11-02",
+    "qty": 33,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 151.39,
+    "rsi": 58.9,
+    "score": 2,
+    "side": "BUY",
+    "sl": 148.68,
+    "targets": [
+     156.13,
+     160.61
+    ],
+    "vol_ratio": 1.01
+   },
+   {
+    "adx": 22.8,
+    "entry": 153.26,
+    "entry_type": "stop",
+    "i": 218,
+    "key": "US|SYM|BUY|2022-11-03",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "MACD Trend Cross"
+    ],
+    "ref": 151.98,
+    "rsi": 60.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 150.25,
+    "targets": [
+     157.76,
+     162.27
+    ],
+    "vol_ratio": 1.1
+   },
+   {
+    "adx": 23.5,
+    "entry": 154.3,
+    "entry_type": "stop",
+    "i": 219,
+    "key": "US|SYM|BUY|2022-11-04",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 153.99,
+    "rsi": 65.3,
+    "score": 1,
+    "side": "BUY",
+    "sl": 151.2,
+    "targets": [
+     158.93,
+     163.57
+    ],
+    "vol_ratio": 0.98
+   },
+   {
+    "adx": 24.6,
+    "entry": 155.8,
+    "entry_type": "stop",
+    "i": 220,
+    "key": "US|SYM|BUY|2022-11-07",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 155.47,
+    "rsi": 68.3,
+    "score": 1,
+    "side": "BUY",
+    "sl": 152.75,
+    "targets": [
+     160.37,
+     164.93
+    ],
+    "vol_ratio": 0.91
+   },
+   {
+    "adx": 28.4,
+    "entry": 156.2,
+    "entry_type": "limit",
+    "i": 223,
+    "key": "US|SYM|SELL|2022-11-10",
+    "qty": 63,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 155.23,
+    "rsi": 63.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 157.78,
+    "targets": [
+     153.84,
+     151.48
+    ],
+    "vol_ratio": 0.5
+   },
+   {
+    "adx": 28.6,
+    "entry": 152.26,
+    "entry_type": "limit",
+    "i": 226,
+    "key": "US|SYM|BUY|2022-11-15",
+    "qty": 33,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 153.24,
+    "rsi": 55.7,
+    "score": 1,
+    "side": "BUY",
+    "sl": 149.31,
+    "targets": [
+     156.68,
+     161.1
+    ],
+    "vol_ratio": 0.82
+   },
+   {
+    "adx": 27.1,
+    "entry": 150.4,
+    "entry_type": "limit",
+    "i": 227,
+    "key": "US|SYM|BUY|2022-11-16",
+    "qty": 33,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 151.4,
+    "rsi": 49.5,
+    "score": 1,
+    "side": "BUY",
+    "sl": 147.38,
+    "targets": [
+     154.93,
+     159.46
+    ],
+    "vol_ratio": 0.87
+   },
+   {
+    "adx": 25.2,
+    "entry": 147.03,
+    "entry_type": "stop",
+    "i": 229,
+    "key": "US|SYM|SELL|2022-11-18",
+    "qty": 30,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 147.49,
+    "rsi": 39.0,
+    "score": 2,
+    "side": "SELL",
+    "sl": 150.33,
+    "targets": [
+     142.09,
+     137.15
+    ],
+    "vol_ratio": 0.56
+   },
+   {
+    "adx": 24.8,
+    "entry": 146.81,
+    "entry_type": "stop",
+    "i": 230,
+    "key": "US|SYM|SELL|2022-11-21",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 147.35,
+    "rsi": 38.7,
+    "score": 3,
+    "side": "SELL",
+    "sl": 149.98,
+    "targets": [
+     142.06,
+     137.32
+    ],
+    "vol_ratio": 1.75
+   },
+   {
+    "adx": 24.9,
+    "entry": 145.57,
+    "entry_type": "stop",
+    "i": 231,
+    "key": "US|SYM|SELL|2022-11-22",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 146.06,
+    "rsi": 35.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 148.74,
+    "targets": [
+     140.83,
+     136.09
+    ],
+    "vol_ratio": 0.64
+   },
+   {
+    "adx": 25.9,
+    "entry": 142.7,
+    "entry_type": "stop",
+    "i": 232,
+    "key": "US|SYM|SELL|2022-11-23",
+    "qty": 30,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 143.95,
+    "rsi": 31.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 146.0,
+    "targets": [
+     137.74,
+     132.78
+    ],
+    "vol_ratio": 1.45
+   },
+   {
+    "adx": 28.8,
+    "entry": 142.52,
+    "entry_type": "limit",
+    "i": 235,
+    "key": "US|SYM|BUY|2022-11-28",
+    "qty": 33,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 143.52,
+    "rsi": 31.3,
+    "score": 1,
+    "side": "BUY",
+    "sl": 139.52,
+    "targets": [
+     147.01,
+     151.5
+    ],
+    "vol_ratio": 0.74
+   },
+   {
+    "adx": 28.9,
+    "entry": 143.82,
+    "entry_type": "limit",
+    "i": 236,
+    "key": "US|SYM|BUY|2022-11-29",
+    "qty": 66,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 144.83,
+    "rsi": 37.1,
+    "score": 1,
+    "side": "BUY",
+    "sl": 142.32,
+    "targets": [
+     146.06,
+     148.3
+    ],
+    "vol_ratio": 1.16
+   },
+   {
+    "adx": 27.7,
+    "entry": 147.52,
+    "entry_type": "limit",
+    "i": 237,
+    "key": "US|SYM|SELL|2022-11-30",
+    "qty": 32,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 146.49,
+    "rsi": 43.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 150.62,
+    "targets": [
+     142.89,
+     138.25
+    ],
+    "vol_ratio": 0.79
+   },
+   {
+    "adx": 26.6,
+    "entry": 147.47,
+    "entry_type": "limit",
+    "i": 238,
+    "key": "US|SYM|SELL|2022-12-01",
+    "qty": 33,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 146.49,
+    "rsi": 43.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 150.42,
+    "targets": [
+     143.04,
+     138.62
+    ],
+    "vol_ratio": 1.01
+   },
+   {
+    "adx": 24.9,
+    "entry": 149.69,
+    "entry_type": "limit",
+    "i": 239,
+    "key": "US|SYM|SELL|2022-12-02",
+    "qty": 32,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 148.66,
+    "rsi": 51.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 152.78,
+    "targets": [
+     145.06,
+     140.42
+    ],
+    "vol_ratio": 1.22
+   },
+   {
+    "adx": 23.8,
+    "entry": 150.16,
+    "entry_type": "stop",
+    "i": 240,
+    "key": "US|SYM|BUY|2022-12-05",
+    "qty": 32,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 149.79,
+    "rsi": 54.6,
+    "score": 2,
+    "side": "BUY",
+    "sl": 147.11,
+    "targets": [
+     154.72,
+     159.29
+    ],
+    "vol_ratio": 0.56
+   },
+   {
+    "adx": 23.3,
+    "entry": 151.29,
+    "entry_type": "stop",
+    "i": 241,
+    "key": "US|SYM|BUY|2022-12-06",
+    "qty": 32,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 150.53,
+    "rsi": 56.8,
+    "score": 2,
+    "side": "BUY",
+    "sl": 148.25,
+    "targets": [
+     155.85,
+     160.41
+    ],
+    "vol_ratio": 1.12
+   },
+   {
+    "adx": 23.4,
+    "entry": 152.95,
+    "entry_type": "stop",
+    "i": 242,
+    "key": "US|SYM|BUY|2022-12-07",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 152.67,
+    "rsi": 62.3,
+    "score": 3,
+    "side": "BUY",
+    "sl": 149.83,
+    "targets": [
+     157.64,
+     162.32
+    ],
+    "vol_ratio": 0.96
+   },
+   {
+    "adx": 24.1,
+    "entry": 155.03,
+    "entry_type": "stop",
+    "i": 243,
+    "key": "US|SYM|BUY|2022-12-08",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 154.08,
+    "rsi": 65.5,
+    "score": 1,
+    "side": "BUY",
+    "sl": 151.89,
+    "targets": [
+     159.74,
+     164.45
+    ],
+    "vol_ratio": 0.7
+   },
+   {
+    "adx": 25.3,
+    "entry": 156.79,
+    "entry_type": "stop",
+    "i": 244,
+    "key": "US|SYM|BUY|2022-12-09",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 156.54,
+    "rsi": 70.2,
+    "score": 1,
+    "side": "BUY",
+    "sl": 153.58,
+    "targets": [
+     161.61,
+     166.42
+    ],
+    "vol_ratio": 1.23
+   },
+   {
+    "adx": 26.4,
+    "entry": 156.89,
+    "entry_type": "limit",
+    "i": 245,
+    "key": "US|SYM|SELL|2022-12-12",
+    "qty": 63,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 155.84,
+    "rsi": 67.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 157.63,
+    "targets": [
+     155.77,
+     154.65
+    ],
+    "vol_ratio": 1.1
+   },
+   {
+    "adx": 27.5,
+    "entry": 156.77,
+    "entry_type": "limit",
+    "i": 246,
+    "key": "US|SYM|SELL|2022-12-13",
+    "qty": 33,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 155.77,
+    "rsi": 67.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 159.76,
+    "targets": [
+     152.29,
+     147.8
+    ],
+    "vol_ratio": 1.12
+   },
+   {
+    "adx": 29.4,
+    "entry": 156.69,
+    "entry_type": "limit",
+    "i": 248,
+    "key": "US|SYM|SELL|2022-12-15",
+    "qty": 35,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 155.76,
+    "rsi": 66.4,
+    "score": 1,
+    "side": "SELL",
+    "sl": 159.47,
+    "targets": [
+     152.51,
+     148.33
+    ],
+    "vol_ratio": 1.07
+   },
+   {
+    "adx": 28.5,
+    "entry": 152.39,
+    "entry_type": "limit",
+    "i": 250,
+    "key": "US|SYM|BUY|2022-12-19",
+    "qty": 35,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 153.32,
+    "rsi": 56.0,
+    "score": 1,
+    "side": "BUY",
+    "sl": 149.61,
+    "targets": [
+     156.56,
+     160.73
+    ],
+    "vol_ratio": 1.08
+   },
+   {
+    "adx": 27.2,
+    "entry": 151.03,
+    "entry_type": "limit",
+    "i": 251,
+    "key": "US|SYM|SELL|2022-12-20",
+    "qty": 31,
+    "reasons": [
+     "Supertrend Flip",
+     "RSI Pullback"
+    ],
+    "ref": 149.98,
+    "rsi": 45.1,
+    "score": 2,
+    "side": "SELL",
+    "sl": 154.18,
+    "targets": [
+     146.31,
+     141.59
+    ],
+    "vol_ratio": 1.02
+   },
+   {
+    "adx": 25.9,
+    "entry": 149.1,
+    "entry_type": "stop",
+    "i": 252,
+    "key": "US|SYM|SELL|2022-12-21",
+    "qty": 32,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 149.42,
+    "rsi": 43.6,
+    "score": 2,
+    "side": "SELL",
+    "sl": 152.14,
+    "targets": [
+     144.55,
+     139.99
+    ],
+    "vol_ratio": 1.67
+   },
+   {
+    "adx": 25.5,
+    "entry": 147.07,
+    "entry_type": "stop",
+    "i": 253,
+    "key": "US|SYM|SELL|2022-12-22",
+    "qty": 32,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 147.8,
+    "rsi": 39.4,
+    "score": 2,
+    "side": "SELL",
+    "sl": 150.18,
+    "targets": [
+     142.41,
+     137.74
+    ],
+    "vol_ratio": 1.29
+   },
+   {
+    "adx": 25.5,
+    "entry": 146.06,
+    "entry_type": "stop",
+    "i": 254,
+    "key": "US|SYM|SELL|2022-12-23",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "MACD Trend Cross"
+    ],
+    "ref": 146.85,
+    "rsi": 37.2,
+    "score": 2,
+    "side": "SELL",
+    "sl": 149.18,
+    "targets": [
+     141.38,
+     136.71
+    ],
+    "vol_ratio": 1.07
+   },
+   {
+    "adx": 25.9,
+    "entry": 144.76,
+    "entry_type": "stop",
+    "i": 255,
+    "key": "US|SYM|SELL|2022-12-26",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 145.69,
+    "rsi": 34.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 147.93,
+    "targets": [
+     139.99,
+     135.23
+    ],
+    "vol_ratio": 0.85
+   },
+   {
+    "adx": 26.2,
+    "entry": 144.72,
+    "entry_type": "stop",
+    "i": 256,
+    "key": "US|SYM|SELL|2022-12-27",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 144.95,
+    "rsi": 33.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 147.78,
+    "targets": [
+     140.11,
+     135.51
+    ],
+    "vol_ratio": 1.87
+   },
+   {
+    "adx": 29.9,
+    "entry": 140.27,
+    "entry_type": "limit",
+    "i": 260,
+    "key": "US|SYM|SELL|2023-01-02",
+    "qty": 23,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 139.24,
+    "rsi": 22.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 144.49,
+    "targets": [
+     133.94,
+     127.6
+    ],
+    "vol_ratio": 1.27
+   },
+   {
+    "adx": 30.2,
+    "entry": 145.79,
+    "entry_type": "stop",
+    "i": 264,
+    "key": "US|SYM|BUY|2023-01-06",
+    "qty": 30,
+    "reasons": [
+     "Supertrend Flip"
+    ],
+    "ref": 145.2,
+    "rsi": 45.8,
+    "score": 1,
+    "side": "BUY",
+    "sl": 142.53,
+    "targets": [
+     150.68,
+     155.56
+    ],
+    "vol_ratio": 1.08
+   },
+   {
+    "adx": 28.9,
+    "entry": 145.97,
+    "entry_type": "stop",
+    "i": 265,
+    "key": "US|SYM|BUY|2023-01-09",
+    "qty": 31,
+    "reasons": [
+     "Supertrend Flip"
+    ],
+    "ref": 144.27,
+    "rsi": 43.5,
+    "score": 1,
+    "side": "BUY",
+    "sl": 142.77,
+    "targets": [
+     150.78,
+     155.59
+    ],
+    "vol_ratio": 1.25
+   },
+   {
+    "adx": 28.2,
+    "entry": 144.66,
+    "entry_type": "stop",
+    "i": 266,
+    "key": "US|SYM|BUY|2023-01-10",
+    "qty": 31,
+    "reasons": [
+     "Supertrend Flip"
+    ],
+    "ref": 142.96,
+    "rsi": 40.4,
+    "score": 1,
+    "side": "BUY",
+    "sl": 141.51,
+    "targets": [
+     149.4,
+     154.13
+    ],
+    "vol_ratio": 0.72
+   },
+   {
+    "adx": 28.0,
+    "entry": 142.7,
+    "entry_type": "limit",
+    "i": 267,
+    "key": "US|SYM|SELL|2023-01-11",
+    "qty": 70,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 141.66,
+    "rsi": 37.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 143.57,
+    "targets": [
+     141.4,
+     140.09
+    ],
+    "vol_ratio": 0.71
+   },
+   {
+    "adx": 28.1,
+    "entry": 141.75,
+    "entry_type": "limit",
+    "i": 268,
+    "key": "US|SYM|SELL|2023-01-12",
+    "qty": 70,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 140.73,
+    "rsi": 35.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 142.45,
+    "targets": [
+     140.69,
+     139.64
+    ],
+    "vol_ratio": 0.6
+   },
+   {
+    "adx": 28.6,
+    "entry": 139.91,
+    "entry_type": "limit",
+    "i": 269,
+    "key": "US|SYM|BUY|2023-01-13",
+    "qty": 55,
+    "reasons": [
+     "Demand-Supply",
+     "Drop-Base-Rally"
+    ],
+    "ref": 140.92,
+    "rsi": 36.3,
+    "score": 1,
+    "side": "BUY",
+    "sl": 138.09,
+    "targets": [
+     142.63,
+     145.35
+    ],
+    "vol_ratio": 0.74
+   },
+   {
+    "adx": 28.5,
+    "entry": 140.86,
+    "entry_type": "limit",
+    "i": 270,
+    "key": "US|SYM|BUY|2023-01-16",
+    "qty": 36,
+    "reasons": [
+     "Demand-Supply",
+     "Drop-Base-Rally"
+    ],
+    "ref": 141.85,
+    "rsi": 39.9,
+    "score": 1,
+    "side": "BUY",
+    "sl": 138.1,
+    "targets": [
+     145.01,
+     149.15
+    ],
+    "vol_ratio": 1.15
+   },
+   {
+    "adx": 27.9,
+    "entry": 141.82,
+    "entry_type": "limit",
+    "i": 271,
+    "key": "US|SYM|BUY|2023-01-17",
+    "qty": 26,
+    "reasons": [
+     "Support-Resistance",
+     "Demand-Supply",
+     "Drop-Base-Rally"
+    ],
+    "ref": 142.78,
+    "rsi": 43.3,
+    "score": 2,
+    "side": "BUY",
+    "sl": 138.11,
+    "targets": [
+     147.38,
+     152.94
+    ],
+    "vol_ratio": 1.51
+   },
+   {
+    "adx": 25.5,
+    "entry": 142.71,
+    "entry_type": "limit",
+    "i": 274,
+    "key": "US|SYM|SELL|2023-01-20",
+    "qty": 70,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 141.82,
+    "rsi": 41.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 143.84,
+    "targets": [
+     141.01,
+     139.32
+    ],
+    "vol_ratio": 0.99
+   },
+   {
+    "adx": 25.9,
+    "entry": 140.89,
+    "entry_type": "limit",
+    "i": 275,
+    "key": "US|SYM|SELL|2023-01-23",
+    "qty": 51,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 139.96,
+    "rsi": 36.5,
+    "score": 1,
+    "side": "SELL",
+    "sl": 142.83,
+    "targets": [
+     137.99,
+     135.08
+    ],
+    "vol_ratio": 0.97
+   },
+   {
+    "adx": 26.6,
+    "entry": 138.24,
+    "entry_type": "stop",
+    "i": 276,
+    "key": "US|SYM|SELL|2023-01-24",
+    "qty": 35,
+    "reasons": [
+     "MACD Trend Cross"
+    ],
+    "ref": 138.56,
+    "rsi": 33.4,
+    "score": 1,
+    "side": "SELL",
+    "sl": 141.04,
+    "targets": [
+     134.02,
+     129.81
+    ],
+    "vol_ratio": 0.69
+   },
+   {
+    "adx": 27.4,
+    "entry": 137.7,
+    "entry_type": "stop",
+    "i": 277,
+    "key": "US|SYM|SELL|2023-01-25",
+    "qty": 37,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 138.24,
+    "rsi": 32.7,
+    "score": 2,
+    "side": "SELL",
+    "sl": 140.39,
+    "targets": [
+     133.68,
+     129.65
+    ],
+    "vol_ratio": 1.16
+   },
+   {
+    "adx": 28.6,
+    "entry": 136.26,
+    "entry_type": "stop",
+    "i": 278,
+    "key": "US|SYM|SELL|2023-01-26",
+    "qty": 38,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross",
+     "Support-Resistance"
+    ],
+    "ref": 136.82,
+    "rsi": 29.9,
+    "score": 3,
+    "side": "SELL",
+    "sl": 138.88,
+    "targets": [
+     132.32,
+     128.39
+    ],
+    "vol_ratio": 0.51
+   },
+   {
+    "adx": 30.1,
+    "entry": 134.25,
+    "entry_type": "stop",
+    "i": 279,
+    "key": "US|SYM|SELL|2023-01-27",
+    "qty": 35,
+    "reasons": [
+     "Supertrend Flip"
+    ],
+    "ref": 134.87,
+    "rsi": 26.4,
+    "score": 1,
+    "side": "SELL",
+    "sl": 137.08,
+    "targets": [
+     130.01,
+     125.77
+    ],
+    "vol_ratio": 0.79
+   },
+   {
+    "adx": 35.0,
+    "entry": 137.02,
+    "entry_type": "limit",
+    "i": 286,
+    "key": "US|SYM|SELL|2023-02-07",
+    "qty": 37,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 136.13,
+    "rsi": 38.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 139.68,
+    "targets": [
+     133.03,
+     129.05
+    ],
+    "vol_ratio": 1.34
+   },
+   {
+    "adx": 30.8,
+    "entry": 138.67,
+    "entry_type": "limit",
+    "i": 288,
+    "key": "US|SYM|BUY|2023-02-09",
+    "qty": 72,
+    "reasons": [
+     "Supertrend Flip",
+     "Support-Resistance"
+    ],
+    "ref": 139.6,
+    "rsi": 51.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 137.93,
+    "targets": [
+     139.79,
+     140.9
+    ],
+    "vol_ratio": 0.55
+   },
+   {
+    "adx": 27.3,
+    "entry": 141.83,
+    "entry_type": "limit",
+    "i": 290,
+    "key": "US|SYM|SELL|2023-02-13",
+    "qty": 37,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 140.93,
+    "rsi": 55.8,
+    "score": 1,
+    "side": "SELL",
+    "sl": 144.5,
+    "targets": [
+     137.81,
+     133.8
+    ],
+    "vol_ratio": 1.12
+   },
+   {
+    "adx": 26.7,
+    "entry": 142.53,
+    "entry_type": "limit",
+    "i": 292,
+    "key": "US|SYM|BUY|2023-02-15",
+    "qty": 36,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 143.46,
+    "rsi": 62.9,
+    "score": 2,
+    "side": "BUY",
+    "sl": 139.75,
+    "targets": [
+     146.69,
+     150.86
+    ],
+    "vol_ratio": 1.09
+   },
+   {
+    "adx": 27.2,
+    "entry": 143.79,
+    "entry_type": "limit",
+    "i": 293,
+    "key": "US|SYM|BUY|2023-02-16",
+    "qty": 69,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 144.75,
+    "rsi": 66.1,
+    "score": 2,
+    "side": "BUY",
+    "sl": 142.89,
+    "targets": [
+     145.14,
+     146.49
+    ],
+    "vol_ratio": 0.73
+   },
+   {
+    "adx": 27.7,
+    "entry": 145.8,
+    "entry_type": "limit",
+    "i": 294,
+    "key": "US|SYM|SELL|2023-02-17",
+    "qty": 35,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 144.87,
+    "rsi": 66.4,
+    "score": 1,
+    "side": "SELL",
+    "sl": 148.59,
+    "targets": [
+     141.62,
+     137.44
+    ],
+    "vol_ratio": 0.96
+   },
+   {
+    "adx": 28.2,
+    "entry": 145.85,
+    "entry_type": "limit",
+    "i": 295,
+    "key": "US|SYM|SELL|2023-02-20",
+    "qty": 38,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 144.98,
+    "rsi": 66.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 148.47,
+    "targets": [
+     141.92,
+     137.99
+    ],
+    "vol_ratio": 1.15
+   },
+   {
+    "adx": 27.6,
+    "entry": 144.45,
+    "entry_type": "limit",
+    "i": 296,
+    "key": "US|SYM|SELL|2023-02-21",
+    "qty": 36,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 143.54,
+    "rsi": 59.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 147.17,
+    "targets": [
+     140.37,
+     136.28
+    ],
+    "vol_ratio": 0.56
+   },
+   {
+    "adx": 26.3,
+    "entry": 143.67,
+    "entry_type": "limit",
+    "i": 297,
+    "key": "US|SYM|SELL|2023-02-22",
+    "qty": 69,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 142.74,
+    "rsi": 56.2,
+    "score": 2,
+    "side": "SELL",
+    "sl": 144.37,
+    "targets": [
+     142.61,
+     141.55
+    ],
+    "vol_ratio": 0.94
+   },
+   {
+    "adx": 23.3,
+    "entry": 142.02,
+    "entry_type": "limit",
+    "i": 299,
+    "key": "US|SYM|SELL|2023-02-24",
+    "qty": 51,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 141.09,
+    "rsi": 49.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 143.98,
+    "targets": [
+     139.09,
+     136.16
+    ],
+    "vol_ratio": 0.79
+   },
+   {
+    "adx": 22.3,
+    "entry": 136.85,
+    "entry_type": "stop",
+    "i": 301,
+    "key": "US|SYM|SELL|2023-02-28",
+    "qty": 34,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 137.94,
+    "rsi": 39.4,
+    "score": 2,
+    "side": "SELL",
+    "sl": 139.79,
+    "targets": [
+     132.44,
+     128.04
+    ],
+    "vol_ratio": 1.05
+   },
+   {
+    "adx": 22.8,
+    "entry": 135.91,
+    "entry_type": "stop",
+    "i": 302,
+    "key": "US|SYM|SELL|2023-03-01",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross",
+     "Support-Resistance"
+    ],
+    "ref": 136.46,
+    "rsi": 35.8,
+    "score": 4,
+    "side": "SELL",
+    "sl": 138.89,
+    "targets": [
+     131.43,
+     126.95
+    ],
+    "vol_ratio": 1.48
+   },
+   {
+    "adx": 23.7,
+    "entry": 134.41,
+    "entry_type": "stop",
+    "i": 303,
+    "key": "US|SYM|SELL|2023-03-02",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 135.16,
+    "rsi": 32.9,
+    "score": 3,
+    "side": "SELL",
+    "sl": 137.46,
+    "targets": [
+     129.82,
+     125.24
+    ],
+    "vol_ratio": 1.29
+   },
+   {
+    "adx": 24.7,
+    "entry": 133.71,
+    "entry_type": "stop",
+    "i": 304,
+    "key": "US|SYM|SELL|2023-03-03",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 134.75,
+    "rsi": 32.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 136.73,
+    "targets": [
+     129.17,
+     124.63
+    ],
+    "vol_ratio": 1.48
+   },
+   {
+    "adx": 27.4,
+    "entry": 137.15,
+    "entry_type": "limit",
+    "i": 310,
+    "key": "US|SYM|SELL|2023-03-13",
+    "qty": 35,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 136.22,
+    "rsi": 43.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 139.94,
+    "targets": [
+     132.98,
+     128.8
+    ],
+    "vol_ratio": 1.25
+   },
+   {
+    "adx": 25.6,
+    "entry": 138.53,
+    "entry_type": "limit",
+    "i": 311,
+    "key": "US|SYM|SELL|2023-03-14",
+    "qty": 35,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 137.6,
+    "rsi": 48.5,
+    "score": 1,
+    "side": "SELL",
+    "sl": 141.32,
+    "targets": [
+     134.35,
+     130.18
+    ],
+    "vol_ratio": 1.15
+   },
+   {
+    "adx": 24.0,
+    "entry": 140.09,
+    "entry_type": "limit",
+    "i": 313,
+    "key": "US|SYM|BUY|2023-03-16",
+    "qty": 48,
+    "reasons": [
+     "Supertrend Flip",
+     "Support-Resistance"
+    ],
+    "ref": 141.09,
+    "rsi": 59.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 138.04,
+    "targets": [
+     143.16,
+     146.24
+    ],
+    "vol_ratio": 1.22
+   },
+   {
+    "adx": 24.3,
+    "entry": 143.31,
+    "entry_type": "stop",
+    "i": 314,
+    "key": "US|SYM|BUY|2023-03-17",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 142.67,
+    "rsi": 63.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 140.26,
+    "targets": [
+     147.88,
+     152.46
+    ],
+    "vol_ratio": 0.95
+   },
+   {
+    "adx": 24.7,
+    "entry": 142.19,
+    "entry_type": "limit",
+    "i": 315,
+    "key": "US|SYM|BUY|2023-03-20",
+    "qty": 70,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 143.2,
+    "rsi": 64.7,
+    "score": 2,
+    "side": "BUY",
+    "sl": 141.56,
+    "targets": [
+     143.13,
+     144.08
+    ],
+    "vol_ratio": 1.97
+   },
+   {
+    "adx": 25.5,
+    "entry": 143.45,
+    "entry_type": "limit",
+    "i": 316,
+    "key": "US|SYM|BUY|2023-03-21",
+    "qty": 69,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 144.45,
+    "rsi": 67.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 142.24,
+    "targets": [
+     145.26,
+     147.07
+    ],
+    "vol_ratio": 0.67
+   },
+   {
+    "adx": 26.2,
+    "entry": 145.68,
+    "entry_type": "limit",
+    "i": 317,
+    "key": "US|SYM|SELL|2023-03-22",
+    "qty": 34,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 144.72,
+    "rsi": 68.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 148.56,
+    "targets": [
+     141.36,
+     137.04
+    ],
+    "vol_ratio": 0.8
+   },
+   {
+    "adx": 26.5,
+    "entry": 143.4,
+    "entry_type": "limit",
+    "i": 320,
+    "key": "US|SYM|BUY|2023-03-27",
+    "qty": 35,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 144.33,
+    "rsi": 64.7,
+    "score": 1,
+    "side": "BUY",
+    "sl": 140.61,
+    "targets": [
+     147.58,
+     151.77
+    ],
+    "vol_ratio": 1.23
+   },
+   {
+    "adx": 26.1,
+    "entry": 143.9,
+    "entry_type": "limit",
+    "i": 321,
+    "key": "US|SYM|SELL|2023-03-28",
+    "qty": 35,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 142.97,
+    "rsi": 58.4,
+    "score": 1,
+    "side": "SELL",
+    "sl": 146.69,
+    "targets": [
+     139.71,
+     135.51
+    ],
+    "vol_ratio": 1.13
+   },
+   {
+    "adx": 25.1,
+    "entry": 142.92,
+    "entry_type": "limit",
+    "i": 322,
+    "key": "US|SYM|SELL|2023-03-29",
+    "qty": 69,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 141.98,
+    "rsi": 54.3,
+    "score": 2,
+    "side": "SELL",
+    "sl": 144.33,
+    "targets": [
+     140.82,
+     138.71
+    ],
+    "vol_ratio": 1.65
+   },
+   {
+    "adx": 23.6,
+    "entry": 141.84,
+    "entry_type": "limit",
+    "i": 323,
+    "key": "US|SYM|SELL|2023-03-30",
+    "qty": 70,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 140.9,
+    "rsi": 50.1,
+    "score": 2,
+    "side": "SELL",
+    "sl": 142.82,
+    "targets": [
+     140.37,
+     138.9
+    ],
+    "vol_ratio": 1.14
+   },
+   {
+    "adx": 23.1,
+    "entry": 137.77,
+    "entry_type": "stop",
+    "i": 324,
+    "key": "US|SYM|SELL|2023-03-31",
+    "qty": 34,
+    "reasons": [
+     "MACD Trend Cross"
+    ],
+    "ref": 139.04,
+    "rsi": 43.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 140.71,
+    "targets": [
+     133.36,
+     128.95
+    ],
+    "vol_ratio": 0.54
+   },
+   {
+    "adx": 22.7,
+    "entry": 137.55,
+    "entry_type": "stop",
+    "i": 325,
+    "key": "US|SYM|SELL|2023-04-03",
+    "qty": 34,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 138.08,
+    "rsi": 41.1,
+    "score": 2,
+    "side": "SELL",
+    "sl": 140.47,
+    "targets": [
+     133.17,
+     128.79
+    ],
+    "vol_ratio": 0.64
+   },
+   {
+    "adx": 22.9,
+    "entry": 136.11,
+    "entry_type": "stop",
+    "i": 326,
+    "key": "US|SYM|SELL|2023-04-04",
+    "qty": 36,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross",
+     "Support-Resistance"
+    ],
+    "ref": 136.74,
+    "rsi": 37.4,
+    "score": 4,
+    "side": "SELL",
+    "sl": 138.88,
+    "targets": [
+     131.95,
+     127.79
+    ],
+    "vol_ratio": 0.46
+   },
+   {
+    "adx": 23.4,
+    "entry": 135.57,
+    "entry_type": "stop",
+    "i": 327,
+    "key": "US|SYM|SELL|2023-04-05",
+    "qty": 34,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 135.81,
+    "rsi": 35.1,
+    "score": 2,
+    "side": "SELL",
+    "sl": 138.43,
+    "targets": [
+     131.27,
+     126.97
+    ],
+    "vol_ratio": 1.03
+   },
+   {
+    "adx": 24.3,
+    "entry": 133.94,
+    "entry_type": "stop",
+    "i": 328,
+    "key": "US|SYM|SELL|2023-04-06",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 134.53,
+    "rsi": 32.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 136.89,
+    "targets": [
+     129.5,
+     125.07
+    ],
+    "vol_ratio": 0.58
+   },
+   {
+    "adx": 24.6,
+    "entry": 137.13,
+    "entry_type": "limit",
+    "i": 330,
+    "key": "US|SYM|BUY|2023-04-10",
+    "qty": 19,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 138.24,
+    "rsi": 47.8,
+    "score": 1,
+    "side": "BUY",
+    "sl": 132.07,
+    "targets": [
+     144.72,
+     152.31
+    ],
+    "vol_ratio": 0.77
+   },
+   {
+    "adx": 23.3,
+    "entry": 139.12,
+    "entry_type": "limit",
+    "i": 331,
+    "key": "US|SYM|SELL|2023-04-11",
+    "qty": 30,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 138.03,
+    "rsi": 47.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 142.38,
+    "targets": [
+     134.23,
+     129.33
+    ],
+    "vol_ratio": 1.0
+   },
+   {
+    "adx": 22.9,
+    "entry": 133.25,
+    "entry_type": "limit",
+    "i": 333,
+    "key": "US|SYM|SELL|2023-04-13",
+    "qty": 17,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 132.02,
+    "rsi": 34.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 138.99,
+    "targets": [
+     124.65,
+     116.04
+    ],
+    "vol_ratio": 0.72
+   },
+   {
+    "adx": 23.8,
+    "entry": 132.79,
+    "entry_type": "limit",
+    "i": 334,
+    "key": "US|SYM|SELL|2023-04-14",
+    "qty": 28,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 131.61,
+    "rsi": 33.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 136.32,
+    "targets": [
+     127.48,
+     122.18
+    ],
+    "vol_ratio": 0.92
+   },
+   {
+    "adx": 24.0,
+    "entry": 132.95,
+    "entry_type": "limit",
+    "i": 336,
+    "key": "US|SYM|BUY|2023-04-18",
+    "qty": 75,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 134.09,
+    "rsi": 41.6,
+    "score": 1,
+    "side": "BUY",
+    "sl": 131.98,
+    "targets": [
+     134.41,
+     135.86
+    ],
+    "vol_ratio": 0.61
+   },
+   {
+    "adx": 21.7,
+    "entry": 137.69,
+    "entry_type": "limit",
+    "i": 338,
+    "key": "US|SYM|SELL|2023-04-20",
+    "qty": 30,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 136.58,
+    "rsi": 48.5,
+    "score": 1,
+    "side": "SELL",
+    "sl": 141.02,
+    "targets": [
+     132.7,
+     127.71
+    ],
+    "vol_ratio": 1.76
+   },
+   {
+    "adx": 20.4,
+    "entry": 137.48,
+    "entry_type": "limit",
+    "i": 339,
+    "key": "US|SYM|SELL|2023-04-21",
+    "qty": 49,
+    "reasons": [
+     "Support-Resistance",
+     "Demand-Supply",
+     "Rally-Base-Drop"
+    ],
+    "ref": 136.37,
+    "rsi": 48.0,
+    "score": 2,
+    "side": "SELL",
+    "sl": 139.51,
+    "targets": [
+     134.43,
+     131.38
+    ],
+    "vol_ratio": 0.93
+   },
+   {
+    "adx": 19.1,
+    "entry": 136.41,
+    "entry_type": "limit",
+    "i": 340,
+    "key": "US|SYM|SELL|2023-04-24",
+    "qty": 32,
+    "reasons": [
+     "Demand-Supply",
+     "Rally-Base-Drop"
+    ],
+    "ref": 135.34,
+    "rsi": 45.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 139.5,
+    "targets": [
+     131.79,
+     127.16
+    ],
+    "vol_ratio": 0.97
+   },
+   {
+    "adx": 18.4,
+    "entry": 135.35,
+    "entry_type": "limit",
+    "i": 341,
+    "key": "US|SYM|SELL|2023-04-25",
+    "qty": 24,
+    "reasons": [
+     "Demand-Supply",
+     "Rally-Base-Drop"
+    ],
+    "ref": 134.3,
+    "rsi": 42.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 139.49,
+    "targets": [
+     129.15,
+     122.94
+    ],
+    "vol_ratio": 0.81
+   },
+   {
+    "adx": 18.0,
+    "entry": 132.85,
+    "entry_type": "stop",
+    "i": 342,
+    "key": "US|SYM|SELL|2023-04-26",
+    "qty": 32,
+    "reasons": [
+     "MACD Trend Cross"
+    ],
+    "ref": 133.27,
+    "rsi": 40.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 135.94,
+    "targets": [
+     128.23,
+     123.6
+    ],
+    "vol_ratio": 0.82
+   },
+   {
+    "adx": 17.9,
+    "entry": 133.61,
+    "entry_type": "limit",
+    "i": 343,
+    "key": "US|SYM|SELL|2023-04-27",
+    "qty": 33,
+    "reasons": [
+     "MACD Trend Cross",
+     "Support-Resistance"
+    ],
+    "ref": 132.63,
+    "rsi": 38.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 136.55,
+    "targets": [
+     129.19,
+     124.77
+    ],
+    "vol_ratio": 1.15
+   },
+   {
+    "adx": 18.0,
+    "entry": 131.58,
+    "entry_type": "stop",
+    "i": 344,
+    "key": "US|SYM|SELL|2023-04-28",
+    "qty": 34,
+    "reasons": [
+     "MACD Trend Cross"
+    ],
+    "ref": 132.72,
+    "rsi": 39.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 134.46,
+    "targets": [
+     127.25,
+     122.92
+    ],
+    "vol_ratio": 1.18
+   },
+   {
+    "adx": 18.5,
+    "entry": 132.19,
+    "entry_type": "limit",
+    "i": 345,
+    "key": "US|SYM|SELL|2023-05-01",
+    "qty": 75,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 131.23,
+    "rsi": 35.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 133.15,
+    "targets": [
+     130.75,
+     129.31
+    ],
+    "vol_ratio": 1.92
+   },
+   {
+    "adx": 35.9,
+    "entry": 125.17,
+    "entry_type": "limit",
+    "i": 357,
+    "key": "US|SYM|SELL|2023-05-17",
+    "qty": 38,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 124.31,
+    "rsi": 31.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 127.75,
+    "targets": [
+     121.29,
+     117.42
+    ],
+    "vol_ratio": 0.94
+   },
+   {
+    "adx": 35.8,
+    "entry": 125.56,
+    "entry_type": "limit",
+    "i": 358,
+    "key": "US|SYM|SELL|2023-05-18",
+    "qty": 40,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 124.73,
+    "rsi": 34.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 128.04,
+    "targets": [
+     121.83,
+     118.11
+    ],
+    "vol_ratio": 0.62
+   },
+   {
+    "adx": 34.3,
+    "entry": 127.64,
+    "entry_type": "limit",
+    "i": 359,
+    "key": "US|SYM|SELL|2023-05-19",
+    "qty": 38,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 126.78,
+    "rsi": 43.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 130.22,
+    "targets": [
+     123.77,
+     119.9
+    ],
+    "vol_ratio": 0.59
+   },
+   {
+    "adx": 27.4,
+    "entry": 132.54,
+    "entry_type": "limit",
+    "i": 363,
+    "key": "US|SYM|SELL|2023-05-25",
+    "qty": 35,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 131.6,
+    "rsi": 59.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 135.34,
+    "targets": [
+     128.33,
+     124.12
+    ],
+    "vol_ratio": 1.01
+   },
+   {
+    "adx": 26.6,
+    "entry": 132.89,
+    "entry_type": "limit",
+    "i": 366,
+    "key": "US|SYM|SELL|2023-05-30",
+    "qty": 37,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 132.0,
+    "rsi": 59.0,
+    "score": 2,
+    "side": "SELL",
+    "sl": 135.56,
+    "targets": [
+     128.88,
+     124.87
+    ],
+    "vol_ratio": 1.1
+   },
+   {
+    "adx": 27.0,
+    "entry": 132.31,
+    "entry_type": "limit",
+    "i": 367,
+    "key": "US|SYM|BUY|2023-05-31",
+    "qty": 75,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 133.22,
+    "rsi": 62.4,
+    "score": 1,
+    "side": "BUY",
+    "sl": 131.47,
+    "targets": [
+     133.58,
+     134.85
+    ],
+    "vol_ratio": 1.04
+   },
+   {
+    "adx": 27.4,
+    "entry": 133.5,
+    "entry_type": "limit",
+    "i": 368,
+    "key": "US|SYM|SELL|2023-06-01",
+    "qty": 74,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 132.61,
+    "rsi": 59.7,
+    "score": 2,
+    "side": "SELL",
+    "sl": 134.08,
+    "targets": [
+     132.64,
+     131.78
+    ],
+    "vol_ratio": 1.12
+   },
+   {
+    "adx": 26.5,
+    "entry": 131.71,
+    "entry_type": "limit",
+    "i": 369,
+    "key": "US|SYM|SELL|2023-06-02",
+    "qty": 44,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 130.77,
+    "rsi": 52.5,
+    "score": 2,
+    "side": "SELL",
+    "sl": 133.98,
+    "targets": [
+     128.3,
+     124.89
+    ],
+    "vol_ratio": 0.87
+   },
+   {
+    "adx": 25.7,
+    "entry": 131.54,
+    "entry_type": "limit",
+    "i": 370,
+    "key": "US|SYM|SELL|2023-06-05",
+    "qty": 36,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 130.64,
+    "rsi": 52.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 134.25,
+    "targets": [
+     127.47,
+     123.4
+    ],
+    "vol_ratio": 0.95
+   },
+   {
+    "adx": 23.3,
+    "entry": 127.04,
+    "entry_type": "stop",
+    "i": 372,
+    "key": "US|SYM|SELL|2023-06-07",
+    "qty": 34,
+    "reasons": [
+     "Supertrend Flip"
+    ],
+    "ref": 127.66,
+    "rsi": 42.1,
+    "score": 1,
+    "side": "SELL",
+    "sl": 129.91,
+    "targets": [
+     122.73,
+     118.41
+    ],
+    "vol_ratio": 0.91
+   },
+   {
+    "adx": 22.8,
+    "entry": 126.2,
+    "entry_type": "stop",
+    "i": 373,
+    "key": "US|SYM|SELL|2023-06-08",
+    "qty": 34,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 126.48,
+    "rsi": 38.8,
+    "score": 3,
+    "side": "SELL",
+    "sl": 129.1,
+    "targets": [
+     121.86,
+     117.52
+    ],
+    "vol_ratio": 1.17
+   },
+   {
+    "adx": 23.0,
+    "entry": 124.75,
+    "entry_type": "stop",
+    "i": 374,
+    "key": "US|SYM|SELL|2023-06-09",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 125.14,
+    "rsi": 35.5,
+    "score": 3,
+    "side": "SELL",
+    "sl": 127.71,
+    "targets": [
+     120.32,
+     115.88
+    ],
+    "vol_ratio": 0.95
+   },
+   {
+    "adx": 23.9,
+    "entry": 122.58,
+    "entry_type": "stop",
+    "i": 375,
+    "key": "US|SYM|SELL|2023-06-12",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "MACD Trend Cross"
+    ],
+    "ref": 123.25,
+    "rsi": 31.4,
+    "score": 2,
+    "side": "SELL",
+    "sl": 125.61,
+    "targets": [
+     118.04,
+     113.5
+    ],
+    "vol_ratio": 1.65
+   },
+   {
+    "adx": 22.9,
+    "entry": 126.96,
+    "entry_type": "limit",
+    "i": 383,
+    "key": "US|SYM|SELL|2023-06-22",
+    "qty": 34,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 126.0,
+    "rsi": 48.0,
+    "score": 1,
+    "side": "SELL",
+    "sl": 129.85,
+    "targets": [
+     122.63,
+     118.3
+    ],
+    "vol_ratio": 0.82
+   },
+   {
+    "adx": 22.2,
+    "entry": 128.51,
+    "entry_type": "limit",
+    "i": 384,
+    "key": "US|SYM|SELL|2023-06-23",
+    "qty": 33,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 127.51,
+    "rsi": 52.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 131.52,
+    "targets": [
+     124.0,
+     119.49
+    ],
+    "vol_ratio": 0.8
+   },
+   {
+    "adx": 22.2,
+    "entry": 130.57,
+    "entry_type": "stop",
+    "i": 386,
+    "key": "US|SYM|BUY|2023-06-27",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 130.04,
+    "rsi": 59.8,
+    "score": 2,
+    "side": "BUY",
+    "sl": 127.54,
+    "targets": [
+     135.11,
+     139.65
+    ],
+    "vol_ratio": 1.26
+   },
+   {
+    "adx": 22.7,
+    "entry": 131.09,
+    "entry_type": "stop",
+    "i": 387,
+    "key": "US|SYM|BUY|2023-06-28",
+    "qty": 34,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 130.73,
+    "rsi": 61.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 128.15,
+    "targets": [
+     135.5,
+     139.91
+    ],
+    "vol_ratio": 0.93
+   },
+   {
+    "adx": 24.8,
+    "entry": 133.38,
+    "entry_type": "limit",
+    "i": 389,
+    "key": "US|SYM|SELL|2023-06-30",
+    "qty": 33,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 132.39,
+    "rsi": 64.8,
+    "score": 1,
+    "side": "SELL",
+    "sl": 136.37,
+    "targets": [
+     128.91,
+     124.44
+    ],
+    "vol_ratio": 0.58
+   },
+   {
+    "adx": 27.0,
+    "entry": 133.23,
+    "entry_type": "limit",
+    "i": 391,
+    "key": "US|SYM|SELL|2023-07-04",
+    "qty": 75,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 132.26,
+    "rsi": 62.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 133.95,
+    "targets": [
+     132.14,
+     131.06
+    ],
+    "vol_ratio": 0.74
+   },
+   {
+    "adx": 28.1,
+    "entry": 132.58,
+    "entry_type": "limit",
+    "i": 393,
+    "key": "US|SYM|SELL|2023-07-06",
+    "qty": 36,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 131.66,
+    "rsi": 59.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 135.31,
+    "targets": [
+     128.47,
+     124.37
+    ],
+    "vol_ratio": 0.67
+   },
+   {
+    "adx": 27.5,
+    "entry": 131.43,
+    "entry_type": "limit",
+    "i": 394,
+    "key": "US|SYM|SELL|2023-07-07",
+    "qty": 68,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 130.51,
+    "rsi": 54.9,
+    "score": 2,
+    "side": "SELL",
+    "sl": 132.89,
+    "targets": [
+     129.25,
+     127.07
+    ],
+    "vol_ratio": 1.01
+   },
+   {
+    "adx": 25.5,
+    "entry": 129.57,
+    "entry_type": "limit",
+    "i": 395,
+    "key": "US|SYM|SELL|2023-07-10",
+    "qty": 34,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 128.61,
+    "rsi": 47.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 132.43,
+    "targets": [
+     125.27,
+     120.98
+    ],
+    "vol_ratio": 1.64
+   },
+   {
+    "adx": 23.7,
+    "entry": 127.83,
+    "entry_type": "stop",
+    "i": 396,
+    "key": "US|SYM|SELL|2023-07-11",
+    "qty": 36,
+    "reasons": [
+     "MACD Trend Cross"
+    ],
+    "ref": 128.08,
+    "rsi": 46.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 130.56,
+    "targets": [
+     123.73,
+     119.64
+    ],
+    "vol_ratio": 1.45
+   },
+   {
+    "adx": 23.2,
+    "entry": 125.77,
+    "entry_type": "stop",
+    "i": 397,
+    "key": "US|SYM|SELL|2023-07-12",
+    "qty": 36,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 126.33,
+    "rsi": 40.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 128.54,
+    "targets": [
+     121.63,
+     117.48
+    ],
+    "vol_ratio": 1.28
+   },
+   {
+    "adx": 23.2,
+    "entry": 124.69,
+    "entry_type": "stop",
+    "i": 398,
+    "key": "US|SYM|SELL|2023-07-13",
+    "qty": 36,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 125.37,
+    "rsi": 38.2,
+    "score": 3,
+    "side": "SELL",
+    "sl": 127.43,
+    "targets": [
+     120.58,
+     116.46
+    ],
+    "vol_ratio": 0.8
+   },
+   {
+    "adx": 23.6,
+    "entry": 123.57,
+    "entry_type": "stop",
+    "i": 399,
+    "key": "US|SYM|SELL|2023-07-14",
+    "qty": 36,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 124.29,
+    "rsi": 35.5,
+    "score": 2,
+    "side": "SELL",
+    "sl": 126.29,
+    "targets": [
+     119.49,
+     115.4
+    ],
+    "vol_ratio": 1.43
+   },
+   {
+    "adx": 22.0,
+    "entry": 123.9,
+    "entry_type": "stop",
+    "i": 400,
+    "key": "US|SYM|SELL|2023-07-17",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 128.99,
+    "rsi": 51.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 126.97,
+    "targets": [
+     119.3,
+     114.69
+    ],
+    "vol_ratio": 0.77
+   },
+   {
+    "adx": 20.3,
+    "entry": 135.04,
+    "entry_type": "stop",
+    "i": 403,
+    "key": "US|SYM|BUY|2023-07-20",
+    "qty": 29,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 134.63,
+    "rsi": 64.7,
+    "score": 2,
+    "side": "BUY",
+    "sl": 131.65,
+    "targets": [
+     140.13,
+     145.22
+    ],
+    "vol_ratio": 0.95
+   },
+   {
+    "adx": 21.2,
+    "entry": 135.6,
+    "entry_type": "stop",
+    "i": 404,
+    "key": "US|SYM|BUY|2023-07-21",
+    "qty": 50,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "Support-Resistance"
+    ],
+    "ref": 135.0,
+    "rsi": 65.4,
+    "score": 3,
+    "side": "BUY",
+    "sl": 133.62,
+    "targets": [
+     138.57,
+     141.54
+    ],
+    "vol_ratio": 0.94
+   },
+   {
+    "adx": 21.7,
+    "entry": 135.78,
+    "entry_type": "stop",
+    "i": 405,
+    "key": "US|SYM|BUY|2023-07-24",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 134.07,
+    "rsi": 62.2,
+    "score": 2,
+    "side": "BUY",
+    "sl": 132.58,
+    "targets": [
+     140.58,
+     145.38
+    ],
+    "vol_ratio": 1.18
+   },
+   {
+    "adx": 21.4,
+    "entry": 133.8,
+    "entry_type": "limit",
+    "i": 406,
+    "key": "US|SYM|SELL|2023-07-25",
+    "qty": 74,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 132.75,
+    "rsi": 57.9,
+    "score": 2,
+    "side": "SELL",
+    "sl": 134.67,
+    "targets": [
+     132.49,
+     131.18
+    ],
+    "vol_ratio": 0.62
+   },
+   {
+    "adx": 20.6,
+    "entry": 132.47,
+    "entry_type": "limit",
+    "i": 407,
+    "key": "US|SYM|SELL|2023-07-26",
+    "qty": 75,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 131.43,
+    "rsi": 54.0,
+    "score": 2,
+    "side": "SELL",
+    "sl": 133.44,
+    "targets": [
+     131.01,
+     129.56
+    ],
+    "vol_ratio": 0.64
+   },
+   {
+    "adx": 19.3,
+    "entry": 131.51,
+    "entry_type": "limit",
+    "i": 408,
+    "key": "US|SYM|SELL|2023-07-27",
+    "qty": 32,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 130.5,
+    "rsi": 51.3,
+    "score": 1,
+    "side": "SELL",
+    "sl": 134.56,
+    "targets": [
+     126.94,
+     122.37
+    ],
+    "vol_ratio": 0.9
+   },
+   {
+    "adx": 18.2,
+    "entry": 129.67,
+    "entry_type": "limit",
+    "i": 409,
+    "key": "US|SYM|BUY|2023-07-28",
+    "qty": 54,
+    "reasons": [
+     "Demand-Supply",
+     "Rally-Base-Rally"
+    ],
+    "ref": 130.68,
+    "rsi": 51.8,
+    "score": 1,
+    "side": "BUY",
+    "sl": 127.84,
+    "targets": [
+     132.43,
+     135.18
+    ],
+    "vol_ratio": 0.71
+   },
+   {
+    "adx": 17.0,
+    "entry": 130.64,
+    "entry_type": "limit",
+    "i": 410,
+    "key": "US|SYM|BUY|2023-07-31",
+    "qty": 35,
+    "reasons": [
+     "Demand-Supply",
+     "Rally-Base-Rally"
+    ],
+    "ref": 131.62,
+    "rsi": 54.4,
+    "score": 1,
+    "side": "BUY",
+    "sl": 127.85,
+    "targets": [
+     134.82,
+     139.01
+    ],
+    "vol_ratio": 0.42
+   },
+   {
+    "adx": 16.3,
+    "entry": 131.6,
+    "entry_type": "limit",
+    "i": 411,
+    "key": "US|SYM|BUY|2023-08-01",
+    "qty": 26,
+    "reasons": [
+     "Demand-Supply",
+     "Rally-Base-Rally"
+    ],
+    "ref": 132.56,
+    "rsi": 56.9,
+    "score": 1,
+    "side": "BUY",
+    "sl": 127.86,
+    "targets": [
+     137.22,
+     142.84
+    ],
+    "vol_ratio": 1.45
+   },
+   {
+    "adx": 16.2,
+    "entry": 134.61,
+    "entry_type": "limit",
+    "i": 416,
+    "key": "US|SYM|SELL|2023-08-08",
+    "qty": 38,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 133.75,
+    "rsi": 58.5,
+    "score": 1,
+    "side": "SELL",
+    "sl": 137.19,
+    "targets": [
+     130.74,
+     126.87
+    ],
+    "vol_ratio": 0.84
+   },
+   {
+    "adx": 15.2,
+    "entry": 132.28,
+    "entry_type": "limit",
+    "i": 417,
+    "key": "US|SYM|SELL|2023-08-09",
+    "qty": 53,
+    "reasons": [
+     "MACD Trend Cross",
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 131.39,
+    "rsi": 49.6,
+    "score": 3,
+    "side": "SELL",
+    "sl": 134.16,
+    "targets": [
+     129.46,
+     126.64
+    ],
+    "vol_ratio": 0.62
+   },
+   {
+    "adx": 14.3,
+    "entry": 133.35,
+    "entry_type": "limit",
+    "i": 418,
+    "key": "US|SYM|SELL|2023-08-10",
+    "qty": 37,
+    "reasons": [
+     "MACD Trend Cross",
+     "RSI Pullback"
+    ],
+    "ref": 132.47,
+    "rsi": 53.1,
+    "score": 2,
+    "side": "SELL",
+    "sl": 135.99,
+    "targets": [
+     129.39,
+     125.43
+    ],
+    "vol_ratio": 1.19
+   },
+   {
+    "adx": 14.2,
+    "entry": 131.24,
+    "entry_type": "limit",
+    "i": 419,
+    "key": "US|SYM|SELL|2023-08-11",
+    "qty": 58,
+    "reasons": [
+     "MACD Trend Cross",
+     "Support-Resistance"
+    ],
+    "ref": 130.33,
+    "rsi": 46.2,
+    "score": 2,
+    "side": "SELL",
+    "sl": 132.96,
+    "targets": [
+     128.66,
+     126.08
+    ],
+    "vol_ratio": 1.29
+   },
+   {
+    "adx": 14.4,
+    "entry": 128.83,
+    "entry_type": "stop",
+    "i": 420,
+    "key": "US|SYM|SELL|2023-08-14",
+    "qty": 36,
+    "reasons": [
+     "Supertrend Flip"
+    ],
+    "ref": 129.09,
+    "rsi": 42.8,
+    "score": 1,
+    "side": "SELL",
+    "sl": 131.54,
+    "targets": [
+     124.78,
+     120.72
+    ],
+    "vol_ratio": 0.66
+   },
+   {
+    "adx": 15.0,
+    "entry": 127.81,
+    "entry_type": "stop",
+    "i": 421,
+    "key": "US|SYM|SELL|2023-08-15",
+    "qty": 37,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 128.12,
+    "rsi": 40.3,
+    "score": 2,
+    "side": "SELL",
+    "sl": 130.46,
+    "targets": [
+     123.84,
+     119.87
+    ],
+    "vol_ratio": 0.93
+   },
+   {
+    "adx": 16.3,
+    "entry": 125.84,
+    "entry_type": "stop",
+    "i": 422,
+    "key": "US|SYM|SELL|2023-08-16",
+    "qty": 37,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 126.05,
+    "rsi": 35.5,
+    "score": 2,
+    "side": "SELL",
+    "sl": 128.53,
+    "targets": [
+     121.81,
+     117.77
+    ],
+    "vol_ratio": 2.07
+   },
+   {
+    "adx": 17.7,
+    "entry": 125.38,
+    "entry_type": "stop",
+    "i": 423,
+    "key": "US|SYM|SELL|2023-08-17",
+    "qty": 38,
+    "reasons": [
+     "EMA 9/21 Cross"
+    ],
+    "ref": 126.41,
+    "rsi": 36.9,
+    "score": 1,
+    "side": "SELL",
+    "sl": 128.0,
+    "targets": [
+     121.44,
+     117.51
+    ],
+    "vol_ratio": 0.58
+   },
+   {
+    "adx": 25.4,
+    "entry": 126.68,
+    "entry_type": "limit",
+    "i": 429,
+    "key": "US|SYM|SELL|2023-08-25",
+    "qty": 41,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 125.88,
+    "rsi": 40.7,
+    "score": 1,
+    "side": "SELL",
+    "sl": 129.1,
+    "targets": [
+     123.07,
+     119.45
+    ],
+    "vol_ratio": 1.3
+   },
+   {
+    "adx": 24.4,
+    "entry": 127.88,
+    "entry_type": "limit",
+    "i": 430,
+    "key": "US|SYM|SELL|2023-08-28",
+    "qty": 41,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 127.07,
+    "rsi": 45.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 130.31,
+    "targets": [
+     124.24,
+     120.59
+    ],
+    "vol_ratio": 1.19
+   },
+   {
+    "adx": 22.8,
+    "entry": 129.52,
+    "entry_type": "limit",
+    "i": 431,
+    "key": "US|SYM|SELL|2023-08-29",
+    "qty": 39,
+    "reasons": [
+     "RSI(2) Reversion"
+    ],
+    "ref": 128.66,
+    "rsi": 51.4,
+    "score": 1,
+    "side": "SELL",
+    "sl": 132.07,
+    "targets": [
+     125.69,
+     121.86
+    ],
+    "vol_ratio": 0.55
+   },
+   {
+    "adx": 20.8,
+    "entry": 132.01,
+    "entry_type": "stop",
+    "i": 434,
+    "key": "US|SYM|BUY|2023-09-01",
+    "qty": 37,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 131.81,
+    "rsi": 61.2,
+    "score": 2,
+    "side": "BUY",
+    "sl": 129.35,
+    "targets": [
+     136.0,
+     139.99
+    ],
+    "vol_ratio": 0.9
+   },
+   {
+    "adx": 21.3,
+    "entry": 132.16,
+    "entry_type": "limit",
+    "i": 435,
+    "key": "US|SYM|BUY|2023-09-04",
+    "qty": 75,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 133.04,
+    "rsi": 64.4,
+    "score": 2,
+    "side": "BUY",
+    "sl": 131.43,
+    "targets": [
+     133.26,
+     134.36
+    ],
+    "vol_ratio": 0.98
+   },
+   {
+    "adx": 22.0,
+    "entry": 132.3,
+    "entry_type": "limit",
+    "i": 436,
+    "key": "US|SYM|BUY|2023-09-05",
+    "qty": 38,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 133.16,
+    "rsi": 64.7,
+    "score": 2,
+    "side": "BUY",
+    "sl": 129.71,
+    "targets": [
+     136.18,
+     140.06
+    ],
+    "vol_ratio": 0.91
+   },
+   {
+    "adx": 24.0,
+    "entry": 134.05,
+    "entry_type": "limit",
+    "i": 438,
+    "key": "US|SYM|BUY|2023-09-07",
+    "qty": 74,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 134.94,
+    "rsi": 68.9,
+    "score": 1,
+    "side": "BUY",
+    "sl": 133.36,
+    "targets": [
+     135.07,
+     136.1
+    ],
+    "vol_ratio": 0.63
+   },
+   {
+    "adx": 24.9,
+    "entry": 134.95,
+    "entry_type": "limit",
+    "i": 439,
+    "key": "US|SYM|SELL|2023-09-08",
+    "qty": 38,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 134.08,
+    "rsi": 64.6,
+    "score": 1,
+    "side": "SELL",
+    "sl": 137.53,
+    "targets": [
+     131.06,
+     127.18
+    ],
+    "vol_ratio": 0.97
+   },
+   {
+    "adx": 25.6,
+    "entry": 133.47,
+    "entry_type": "limit",
+    "i": 440,
+    "key": "US|SYM|BUY|2023-09-11",
+    "qty": 40,
+    "reasons": [
+     "Support-Resistance"
+    ],
+    "ref": 134.3,
+    "rsi": 65.2,
+    "score": 1,
+    "side": "BUY",
+    "sl": 130.98,
+    "targets": [
+     137.21,
+     140.95
+    ],
+    "vol_ratio": 1.09
+   },
+   {
+    "adx": 25.2,
+    "entry": 133.19,
+    "entry_type": "limit",
+    "i": 442,
+    "key": "US|SYM|SELL|2023-09-13",
+    "qty": 41,
+    "reasons": [
+     "RSI Pullback"
+    ],
+    "ref": 132.38,
+    "rsi": 55.8,
+    "score": 1,
+    "side": "SELL",
+    "sl": 135.62,
+    "targets": [
+     129.55,
+     125.9
+    ],
+    "vol_ratio": 1.16
+   },
+   {
+    "adx": 23.8,
+    "entry": 130.87,
+    "entry_type": "limit",
+    "i": 443,
+    "key": "US|SYM|SELL|2023-09-14",
+    "qty": 43,
+    "reasons": [
+     "RSI Pullback",
+     "Support-Resistance"
+    ],
+    "ref": 130.02,
+    "rsi": 46.8,
+    "score": 2,
+    "side": "SELL",
+    "sl": 133.16,
+    "targets": [
+     127.45,
+     124.02
+    ],
+    "vol_ratio": 1.48
+   },
+   {
+    "adx": 22.6,
+    "entry": 130.57,
+    "entry_type": "limit",
+    "i": 444,
+    "key": "US|SYM|SELL|2023-09-15",
+    "qty": 41,
+    "reasons": [
+     "MACD Trend Cross",
+     "RSI Pullback"
+    ],
+    "ref": 129.76,
+    "rsi": 45.9,
+    "score": 2,
+    "side": "SELL",
+    "sl": 133.0,
+    "targets": [
+     126.92,
+     123.28
+    ],
+    "vol_ratio": 1.06
+   },
+   {
+    "adx": 22.7,
+    "entry": 126.9,
+    "entry_type": "stop",
+    "i": 445,
+    "key": "US|SYM|SELL|2023-09-18",
+    "qty": 38,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 127.9,
+    "rsi": 40.1,
+    "score": 2,
+    "side": "SELL",
+    "sl": 129.5,
+    "targets": [
+     123.01,
+     119.11
+    ],
+    "vol_ratio": 1.02
+   },
+   {
+    "adx": 23.0,
+    "entry": 126.36,
+    "entry_type": "stop",
+    "i": 446,
+    "key": "US|SYM|SELL|2023-09-19",
+    "qty": 38,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 126.77,
+    "rsi": 37.0,
+    "score": 3,
+    "side": "SELL",
+    "sl": 128.97,
+    "targets": [
+     122.44,
+     118.52
+    ],
+    "vol_ratio": 1.19
+   },
+   {
+    "adx": 24.0,
+    "entry": 124.57,
+    "entry_type": "stop",
+    "i": 447,
+    "key": "US|SYM|SELL|2023-09-20",
+    "qty": 37,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 125.08,
+    "rsi": 32.9,
+    "score": 2,
+    "side": "SELL",
+    "sl": 127.25,
+    "targets": [
+     120.54,
+     116.52
+    ],
+    "vol_ratio": 1.03
+   },
+   {
+    "adx": 25.1,
+    "entry": 123.88,
+    "entry_type": "stop",
+    "i": 448,
+    "key": "US|SYM|SELL|2023-09-21",
+    "qty": 38,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "20-bar Breakout"
+    ],
+    "ref": 124.18,
+    "rsi": 31.0,
+    "score": 2,
+    "side": "SELL",
+    "sl": 126.49,
+    "targets": [
+     119.95,
+     116.02
+    ],
+    "vol_ratio": 1.89
+   },
+   {
+    "adx": 26.3,
+    "entry": 123.33,
+    "entry_type": "stop",
+    "i": 449,
+    "key": "US|SYM|SELL|2023-09-22",
+    "qty": 38,
+    "reasons": [
+     "20-bar Breakout"
+    ],
+    "ref": 123.84,
+    "rsi": 30.2,
+    "score": 1,
+    "side": "SELL",
+    "sl": 125.9,
+    "targets": [
+     119.48,
+     115.63
+    ],
+    "vol_ratio": 1.76
+   }
+  ],
+  "signals_default": [
+   {
+    "adx": 22.5,
+    "entry": 150.9,
+    "entry_type": "stop",
+    "i": 216,
+    "key": "US|SYM|BUY|2022-11-01",
+    "qty": 33,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross",
+     "RSI Pullback"
+    ],
+    "ref": 150.68,
+    "rsi": 57.0,
+    "score": 3,
+    "side": "BUY",
+    "sl": 147.87,
+    "targets": [
+     155.44,
+     159.98
+    ],
+    "vol_ratio": 0.85
+   },
+   {
+    "adx": 22.3,
+    "entry": 151.66,
+    "entry_type": "stop",
+    "i": 217,
+    "key": "US|SYM|BUY|2022-11-02",
+    "qty": 33,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 151.39,
+    "rsi": 58.9,
+    "score": 2,
+    "side": "BUY",
+    "sl": 148.68,
+    "targets": [
+     156.13,
+     160.61
+    ],
+    "vol_ratio": 1.01
+   },
+   {
+    "adx": 22.8,
+    "entry": 153.26,
+    "entry_type": "stop",
+    "i": 218,
+    "key": "US|SYM|BUY|2022-11-03",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "MACD Trend Cross"
+    ],
+    "ref": 151.98,
+    "rsi": 60.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 150.25,
+    "targets": [
+     157.76,
+     162.27
+    ],
+    "vol_ratio": 1.1
+   },
+   {
+    "adx": 23.8,
+    "entry": 150.16,
+    "entry_type": "stop",
+    "i": 240,
+    "key": "US|SYM|BUY|2022-12-05",
+    "qty": 32,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 149.79,
+    "rsi": 54.6,
+    "score": 2,
+    "side": "BUY",
+    "sl": 147.11,
+    "targets": [
+     154.72,
+     159.29
+    ],
+    "vol_ratio": 0.56
+   },
+   {
+    "adx": 23.3,
+    "entry": 151.29,
+    "entry_type": "stop",
+    "i": 241,
+    "key": "US|SYM|BUY|2022-12-06",
+    "qty": 32,
+    "reasons": [
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 150.53,
+    "rsi": 56.8,
+    "score": 2,
+    "side": "BUY",
+    "sl": 148.25,
+    "targets": [
+     155.85,
+     160.41
+    ],
+    "vol_ratio": 1.12
+   },
+   {
+    "adx": 23.4,
+    "entry": 152.95,
+    "entry_type": "stop",
+    "i": 242,
+    "key": "US|SYM|BUY|2022-12-07",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "MACD Trend Cross"
+    ],
+    "ref": 152.67,
+    "rsi": 62.3,
+    "score": 3,
+    "side": "BUY",
+    "sl": 149.83,
+    "targets": [
+     157.64,
+     162.32
+    ],
+    "vol_ratio": 0.96
+   },
+   {
+    "adx": 27.9,
+    "entry": 141.82,
+    "entry_type": "limit",
+    "i": 271,
+    "key": "US|SYM|BUY|2023-01-17",
+    "qty": 26,
+    "reasons": [
+     "Support-Resistance",
+     "Demand-Supply",
+     "Drop-Base-Rally"
+    ],
+    "ref": 142.78,
+    "rsi": 43.3,
+    "score": 2,
+    "side": "BUY",
+    "sl": 138.11,
+    "targets": [
+     147.38,
+     152.94
+    ],
+    "vol_ratio": 1.51
+   },
+   {
+    "adx": 30.8,
+    "entry": 138.67,
+    "entry_type": "limit",
+    "i": 288,
+    "key": "US|SYM|BUY|2023-02-09",
+    "qty": 72,
+    "reasons": [
+     "Supertrend Flip",
+     "Support-Resistance"
+    ],
+    "ref": 139.6,
+    "rsi": 51.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 137.93,
+    "targets": [
+     139.79,
+     140.9
+    ],
+    "vol_ratio": 0.55
+   },
+   {
+    "adx": 26.7,
+    "entry": 142.53,
+    "entry_type": "limit",
+    "i": 292,
+    "key": "US|SYM|BUY|2023-02-15",
+    "qty": 36,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 143.46,
+    "rsi": 62.9,
+    "score": 2,
+    "side": "BUY",
+    "sl": 139.75,
+    "targets": [
+     146.69,
+     150.86
+    ],
+    "vol_ratio": 1.09
+   },
+   {
+    "adx": 27.2,
+    "entry": 143.79,
+    "entry_type": "limit",
+    "i": 293,
+    "key": "US|SYM|BUY|2023-02-16",
+    "qty": 69,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 144.75,
+    "rsi": 66.1,
+    "score": 2,
+    "side": "BUY",
+    "sl": 142.89,
+    "targets": [
+     145.14,
+     146.49
+    ],
+    "vol_ratio": 0.73
+   },
+   {
+    "adx": 24.0,
+    "entry": 140.09,
+    "entry_type": "limit",
+    "i": 313,
+    "key": "US|SYM|BUY|2023-03-16",
+    "qty": 48,
+    "reasons": [
+     "Supertrend Flip",
+     "Support-Resistance"
+    ],
+    "ref": 141.09,
+    "rsi": 59.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 138.04,
+    "targets": [
+     143.16,
+     146.24
+    ],
+    "vol_ratio": 1.22
+   },
+   {
+    "adx": 24.3,
+    "entry": 143.31,
+    "entry_type": "stop",
+    "i": 314,
+    "key": "US|SYM|BUY|2023-03-17",
+    "qty": 32,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 142.67,
+    "rsi": 63.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 140.26,
+    "targets": [
+     147.88,
+     152.46
+    ],
+    "vol_ratio": 0.95
+   },
+   {
+    "adx": 24.7,
+    "entry": 142.19,
+    "entry_type": "limit",
+    "i": 315,
+    "key": "US|SYM|BUY|2023-03-20",
+    "qty": 70,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 143.2,
+    "rsi": 64.7,
+    "score": 2,
+    "side": "BUY",
+    "sl": 141.56,
+    "targets": [
+     143.13,
+     144.08
+    ],
+    "vol_ratio": 1.97
+   },
+   {
+    "adx": 25.5,
+    "entry": 143.45,
+    "entry_type": "limit",
+    "i": 316,
+    "key": "US|SYM|BUY|2023-03-21",
+    "qty": 69,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 144.45,
+    "rsi": 67.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 142.24,
+    "targets": [
+     145.26,
+     147.07
+    ],
+    "vol_ratio": 0.67
+   },
+   {
+    "adx": 22.2,
+    "entry": 130.57,
+    "entry_type": "stop",
+    "i": 386,
+    "key": "US|SYM|BUY|2023-06-27",
+    "qty": 33,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 130.04,
+    "rsi": 59.8,
+    "score": 2,
+    "side": "BUY",
+    "sl": 127.54,
+    "targets": [
+     135.11,
+     139.65
+    ],
+    "vol_ratio": 1.26
+   },
+   {
+    "adx": 22.7,
+    "entry": 131.09,
+    "entry_type": "stop",
+    "i": 387,
+    "key": "US|SYM|BUY|2023-06-28",
+    "qty": 34,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 130.73,
+    "rsi": 61.5,
+    "score": 2,
+    "side": "BUY",
+    "sl": 128.15,
+    "targets": [
+     135.5,
+     139.91
+    ],
+    "vol_ratio": 0.93
+   },
+   {
+    "adx": 20.3,
+    "entry": 135.04,
+    "entry_type": "stop",
+    "i": 403,
+    "key": "US|SYM|BUY|2023-07-20",
+    "qty": 29,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 134.63,
+    "rsi": 64.7,
+    "score": 2,
+    "side": "BUY",
+    "sl": 131.65,
+    "targets": [
+     140.13,
+     145.22
+    ],
+    "vol_ratio": 0.95
+   },
+   {
+    "adx": 21.2,
+    "entry": 135.6,
+    "entry_type": "stop",
+    "i": 404,
+    "key": "US|SYM|BUY|2023-07-21",
+    "qty": 50,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip",
+     "Support-Resistance"
+    ],
+    "ref": 135.0,
+    "rsi": 65.4,
+    "score": 3,
+    "side": "BUY",
+    "sl": 133.62,
+    "targets": [
+     138.57,
+     141.54
+    ],
+    "vol_ratio": 0.94
+   },
+   {
+    "adx": 21.7,
+    "entry": 135.78,
+    "entry_type": "stop",
+    "i": 405,
+    "key": "US|SYM|BUY|2023-07-24",
+    "qty": 31,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 134.07,
+    "rsi": 62.2,
+    "score": 2,
+    "side": "BUY",
+    "sl": 132.58,
+    "targets": [
+     140.58,
+     145.38
+    ],
+    "vol_ratio": 1.18
+   },
+   {
+    "adx": 20.8,
+    "entry": 132.01,
+    "entry_type": "stop",
+    "i": 434,
+    "key": "US|SYM|BUY|2023-09-01",
+    "qty": 37,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Supertrend Flip"
+    ],
+    "ref": 131.81,
+    "rsi": 61.2,
+    "score": 2,
+    "side": "BUY",
+    "sl": 129.35,
+    "targets": [
+     136.0,
+     139.99
+    ],
+    "vol_ratio": 0.9
+   },
+   {
+    "adx": 21.3,
+    "entry": 132.16,
+    "entry_type": "limit",
+    "i": 435,
+    "key": "US|SYM|BUY|2023-09-04",
+    "qty": 75,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 133.04,
+    "rsi": 64.4,
+    "score": 2,
+    "side": "BUY",
+    "sl": 131.43,
+    "targets": [
+     133.26,
+     134.36
+    ],
+    "vol_ratio": 0.98
+   },
+   {
+    "adx": 22.0,
+    "entry": 132.3,
+    "entry_type": "limit",
+    "i": 436,
+    "key": "US|SYM|BUY|2023-09-05",
+    "qty": 38,
+    "reasons": [
+     "EMA 9/21 Cross",
+     "Support-Resistance"
+    ],
+    "ref": 133.16,
+    "rsi": 64.7,
+    "score": 2,
+    "side": "BUY",
+    "sl": 129.71,
+    "targets": [
+     136.18,
+     140.06
+    ],
+    "vol_ratio": 0.91
+   }
+  ],
+  "squeeze_bars": 0,
+  "votes": {
+   "20-bar Breakout": {
+    "448": "SELL",
+    "449": "SELL"
+   },
+   "Demand-Supply": {
+    "269": [
+     "BUY",
+     138.0914
+    ],
+    "270": [
+     "BUY",
+     138.1017
+    ],
+    "271": [
+     "BUY",
+     138.1112
+    ],
+    "339": [
+     "SELL",
+     139.5104
+    ],
+    "340": [
+     "SELL",
+     139.4996
+    ],
+    "341": [
+     "SELL",
+     139.4896
+    ],
+    "409": [
+     "BUY",
+     127.8362
+    ],
+    "410": [
+     "BUY",
+     127.8462
+    ],
+    "411": [
+     "BUY",
+     127.8556
+    ]
+   },
+   "Drop-Base-Drop": {},
+   "Drop-Base-Rally": {
+    "269": [
+     "BUY",
+     138.0914
+    ],
+    "270": [
+     "BUY",
+     138.1017
+    ],
+    "271": [
+     "BUY",
+     138.1112
+    ]
+   },
+   "EMA 9/21 Cross": {
+    "205": "SELL",
+    "206": "SELL",
+    "207": "SELL",
+    "218": "BUY",
+    "219": "BUY",
+    "220": "BUY",
+    "230": "SELL",
+    "231": "SELL",
+    "232": "SELL",
+    "242": "BUY",
+    "243": "BUY",
+    "244": "BUY",
+    "254": "SELL",
+    "255": "SELL",
+    "256": "SELL",
+    "291": "BUY",
+    "292": "BUY",
+    "293": "BUY",
+    "302": "SELL",
+    "303": "SELL",
+    "304": "SELL",
+    "314": "BUY",
+    "315": "BUY",
+    "316": "BUY",
+    "326": "SELL",
+    "327": "SELL",
+    "328": "SELL",
+    "365": "BUY",
+    "366": "BUY",
+    "373": "SELL",
+    "374": "SELL",
+    "375": "SELL",
+    "386": "BUY",
+    "387": "BUY",
+    "388": "BUY",
+    "398": "SELL",
+    "399": "SELL",
+    "400": "SELL",
+    "403": "BUY",
+    "404": "BUY",
+    "405": "BUY",
+    "421": "SELL",
+    "422": "SELL",
+    "423": "SELL",
+    "434": "BUY",
+    "435": "BUY",
+    "436": "BUY",
+    "446": "SELL",
+    "447": "SELL",
+    "448": "SELL"
+   },
+   "MACD Trend Cross": {
+    "204": "SELL",
+    "205": "SELL",
+    "206": "SELL",
+    "216": "BUY",
+    "217": "BUY",
+    "218": "BUY",
+    "229": "SELL",
+    "230": "SELL",
+    "240": "BUY",
+    "241": "BUY",
+    "242": "BUY",
+    "252": "SELL",
+    "253": "SELL",
+    "254": "SELL",
+    "276": "SELL",
+    "277": "SELL",
+    "278": "SELL",
+    "301": "SELL",
+    "302": "SELL",
+    "303": "SELL",
+    "324": "SELL",
+    "325": "SELL",
+    "326": "SELL",
+    "342": "SELL",
+    "343": "SELL",
+    "344": "SELL",
+    "373": "SELL",
+    "374": "SELL",
+    "375": "SELL",
+    "396": "SELL",
+    "397": "SELL",
+    "398": "SELL",
+    "417": "SELL",
+    "418": "SELL",
+    "419": "SELL",
+    "444": "SELL",
+    "445": "SELL",
+    "446": "SELL"
+   },
+   "RSI Pullback": {
+    "216": "BUY",
+    "251": "SELL",
+    "296": "SELL",
+    "297": "SELL",
+    "298": "SELL",
+    "321": "SELL",
+    "322": "SELL",
+    "323": "SELL",
+    "366": "SELL",
+    "368": "SELL",
+    "369": "SELL",
+    "370": "SELL",
+    "393": "SELL",
+    "394": "SELL",
+    "395": "SELL",
+    "406": "SELL",
+    "407": "SELL",
+    "408": "SELL",
+    "416": "SELL",
+    "417": "SELL",
+    "418": "SELL",
+    "442": "SELL",
+    "443": "SELL",
+    "444": "SELL"
+   },
+   "RSI(2) Reversion": {
+    "214": "SELL",
+    "215": "SELL",
+    "226": "BUY",
+    "227": "BUY",
+    "237": "SELL",
+    "238": "SELL",
+    "239": "SELL",
+    "249": "BUY",
+    "250": "BUY",
+    "272": "SELL",
+    "286": "SELL",
+    "287": "SELL",
+    "288": "SELL",
+    "289": "SELL",
+    "290": "SELL",
+    "291": "SELL",
+    "292": "SELL",
+    "293": "SELL",
+    "294": "SELL",
+    "295": "SELL",
+    "310": "SELL",
+    "311": "SELL",
+    "312": "SELL",
+    "313": "SELL",
+    "314": "SELL",
+    "315": "SELL",
+    "316": "SELL",
+    "317": "SELL",
+    "338": "SELL",
+    "357": "SELL",
+    "358": "SELL",
+    "359": "SELL",
+    "360": "SELL",
+    "361": "SELL",
+    "362": "SELL",
+    "363": "SELL",
+    "365": "SELL",
+    "383": "SELL",
+    "384": "SELL",
+    "385": "SELL",
+    "386": "SELL",
+    "387": "SELL",
+    "388": "SELL",
+    "390": "SELL",
+    "403": "SELL",
+    "404": "SELL",
+    "412": "SELL",
+    "413": "SELL",
+    "414": "SELL",
+    "415": "SELL",
+    "429": "SELL",
+    "430": "SELL",
+    "431": "SELL",
+    "432": "SELL",
+    "433": "SELL",
+    "434": "SELL",
+    "435": "SELL",
+    "436": "SELL",
+    "437": "SELL"
+   },
+   "Rally-Base-Drop": {
+    "339": [
+     "SELL",
+     139.5104
+    ],
+    "340": [
+     "SELL",
+     139.4996
+    ],
+    "341": [
+     "SELL",
+     139.4896
+    ]
+   },
+   "Rally-Base-Rally": {
+    "409": [
+     "BUY",
+     127.8362
+    ],
+    "410": [
+     "BUY",
+     127.8462
+    ],
+    "411": [
+     "BUY",
+     127.8556
+    ]
+   },
+   "Squeeze Breakout": {},
+   "Supertrend Flip": {
+    "204": "SELL",
+    "205": "SELL",
+    "206": "SELL",
+    "215": "BUY",
+    "216": "BUY",
+    "217": "BUY",
+    "229": "SELL",
+    "230": "SELL",
+    "231": "SELL",
+    "240": "BUY",
+    "241": "BUY",
+    "242": "BUY",
+    "251": "SELL",
+    "252": "SELL",
+    "253": "SELL",
+    "264": "BUY",
+    "265": "BUY",
+    "266": "BUY",
+    "277": "SELL",
+    "278": "SELL",
+    "279": "SELL",
+    "287": "BUY",
+    "288": "BUY",
+    "289": "BUY",
+    "301": "SELL",
+    "302": "SELL",
+    "303": "SELL",
+    "312": "BUY",
+    "313": "BUY",
+    "314": "BUY",
+    "325": "SELL",
+    "326": "SELL",
+    "327": "SELL",
+    "360": "BUY",
+    "361": "BUY",
+    "362": "BUY",
+    "372": "SELL",
+    "373": "SELL",
+    "374": "SELL",
+    "385": "BUY",
+    "386": "BUY",
+    "387": "BUY",
+    "397": "SELL",
+    "398": "SELL",
+    "399": "SELL",
+    "403": "BUY",
+    "404": "BUY",
+    "405": "BUY",
+    "420": "SELL",
+    "421": "SELL",
+    "422": "SELL",
+    "432": "BUY",
+    "433": "BUY",
+    "434": "BUY",
+    "445": "SELL",
+    "446": "SELL",
+    "447": "SELL"
+   },
+   "Support-Resistance": {
+    "201": [
+     "SELL",
+     158.3629
+    ],
+    "223": [
+     "SELL",
+     157.7801
+    ],
+    "235": [
+     "BUY",
+     142.3408
+    ],
+    "236": [
+     "BUY",
+     142.3247
+    ],
+    "245": [
+     "SELL",
+     157.6334
+    ],
+    "246": [
+     "SELL",
+     156.849
+    ],
+    "248": [
+     "SELL",
+     156.8218
+    ],
+    "249": [
+     "SELL",
+     156.8266
+    ],
+    "260": [
+     "SELL",
+     144.4945
+    ],
+    "267": [
+     "SELL",
+     143.5655
+    ],
+    "268": [
+     "SELL",
+     142.4494
+    ],
+    "271": [
+     "BUY",
+     141.2769
+    ],
+    "272": [
+     "BUY",
+     142.084
+    ],
+    "274": [
+     "SELL",
+     143.8354
+    ],
+    "275": [
+     "SELL",
+     142.8308
+    ],
+    "278": [
+     "SELL",
+     138.8761
+    ],
+    "288": [
+     "BUY",
+     137.9342
+    ],
+    "292": [
+     "BUY",
+     142.0891
+    ],
+    "293": [
+     "BUY",
+     142.887
+    ],
+    "297": [
+     "SELL",
+     144.3696
+    ],
+    "298": [
+     "BUY",
+     141.958
+    ],
+    "299": [
+     "SELL",
+     143.9795
+    ],
+    "302": [
+     "SELL",
+     138.8901
+    ],
+    "313": [
+     "BUY",
+     138.0374
+    ],
+    "315": [
+     "BUY",
+     141.5596
+    ],
+    "316": [
+     "BUY",
+     142.2389
+    ],
+    "320": [
+     "BUY",
+     142.9
+    ],
+    "322": [
+     "SELL",
+     144.3303
+    ],
+    "323": [
+     "SELL",
+     142.8164
+    ],
+    "326": [
+     "SELL",
+     138.8838
+    ],
+    "330": [
+     "BUY",
+     132.0733
+    ],
+    "331": [
+     "SELL",
+     139.5042
+    ],
+    "333": [
+     "SELL",
+     138.9873
+    ],
+    "334": [
+     "SELL",
+     132.9879
+    ],
+    "336": [
+     "BUY",
+     131.9781
+    ],
+    "339": [
+     "SELL",
+     138.9367
+    ],
+    "343": [
+     "SELL",
+     133.6601
+    ],
+    "345": [
+     "SELL",
+     133.1479
+    ],
+    "366": [
+     "SELL",
+     133.1554
+    ],
+    "367": [
+     "BUY",
+     131.4681
+    ],
+    "368": [
+     "SELL",
+     134.0753
+    ],
+    "369": [
+     "SELL",
+     133.9755
+    ],
+    "389": [
+     "SELL",
+     133.5216
+    ],
+    "390": [
+     "BUY",
+     131.4672
+    ],
+    "391": [
+     "SELL",
+     133.9479
+    ],
+    "393": [
+     "SELL",
+     132.9869
+    ],
+    "394": [
+     "SELL",
+     132.8875
+    ],
+    "404": [
+     "BUY",
+     133.6179
+    ],
+    "406": [
+     "SELL",
+     134.6735
+    ],
+    "407": [
+     "SELL",
+     133.4412
+    ],
+    "412": [
+     "BUY",
+     131.9982
+    ],
+    "413": [
+     "BUY",
+     132.5702
+    ],
+    "414": [
+     "BUY",
+     133.201
+    ],
+    "415": [
+     "BUY",
+     133.6479
+    ],
+    "417": [
+     "SELL",
+     134.1644
+    ],
+    "419": [
+     "SELL",
+     132.96
+    ],
+    "435": [
+     "BUY",
+     131.4319
+    ],
+    "436": [
+     "BUY",
+     132.1713
+    ],
+    "437": [
+     "BUY",
+     131.844
+    ],
+    "438": [
+     "BUY",
+     133.3649
+    ],
+    "439": [
+     "SELL",
+     135.4475
+    ],
+    "440": [
+     "BUY",
+     133.2295
+    ],
+    "443": [
+     "SELL",
+     133.1599
+    ]
+   }
+  },
+  "zones": [
+   [
+    "DBD",
+    12,
+    26,
+    false,
+    152.1931,
+    152.4398
+   ],
+   [
+    "DBD",
+    15,
+    23,
+    false,
+    148.1537,
+    149.9895
+   ],
+   [
+    "RBR",
+    26,
+    35,
+    false,
+    151.2106,
+    150.5955
+   ],
+   [
+    "RBR",
+    52,
+    58,
+    false,
+    153.3263,
+    150.4097
+   ],
+   [
+    "RBR",
+    72,
+    86,
+    false,
+    147.4307,
+    147.1173
+   ],
+   [
+    "RBR",
+    125,
+    127,
+    true,
+    155.148,
+    154.0256
+   ],
+   [
+    "DBD",
+    133,
+    145,
+    false,
+    150.9101,
+    152.8386
+   ],
+   [
+    "RBR",
+    191,
+    207,
+    false,
+    146.5218,
+    145.1328
+   ],
+   [
+    "RBR",
+    193,
+    204,
+    false,
+    149.4367,
+    148.1103
+   ],
+   [
+    "DBD",
+    229,
+    242,
+    false,
+    151.4049,
+    152.3324
+   ],
+   [
+    "RBR",
+    239,
+    254,
+    false,
+    146.4938,
+    146.0812
+   ],
+   [
+    "RBD",
+    249,
+    -1,
+    false,
+    155.7609,
+    156.8506
+   ],
+   [
+    "DBR",
+    263,
+    269,
+    true,
+    139.4265,
+    138.4954
+   ],
+   [
+    "DBD",
+    278,
+    287,
+    false,
+    138.2373,
+    138.5955
+   ],
+   [
+    "DBD",
+    281,
+    284,
+    false,
+    134.8569,
+    134.9143
+   ],
+   [
+    "DBR",
+    284,
+    306,
+    false,
+    133.4979,
+    132.5163
+   ],
+   [
+    "RBR",
+    287,
+    302,
+    false,
+    136.1347,
+    135.0312
+   ],
+   [
+    "DBD",
+    306,
+    308,
+    false,
+    134.7476,
+    137.4708
+   ],
+   [
+    "RBD",
+    333,
+    339,
+    true,
+    138.0327,
+    139.0691
+   ],
+   [
+    "RBR",
+    403,
+    409,
+    true,
+    129.1798,
+    128.2402
+   ],
+   [
+    "DBD",
+    424,
+    429,
+    false,
+    126.0453,
+    126.7268
+   ]
+  ]
+ }
+}

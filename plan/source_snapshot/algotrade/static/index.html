@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AlgoTrade Signals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f5f8; --panel: #ffffff; --panel-2: #f8f9fb; --ink: #121722; --ink-2: #3b4352; --muted: #6b7486;
+    --line: #e3e6ec; --line-2: #eef0f4;
+    --up: #0b8a4e; --up-bg: #e2f5eb; --down: #c9302a; --down-bg: #fce8e6;
+    --warn: #9a5b00; --warn-bg: #fdf1dc; --neutral-bg: #eef0f4; --accent: #3358d4; --accent-ink: #ffffff;
+    --accent-soft: #e8edfc; --shadow: 0 1px 2px rgb(16 24 40 / .06), 0 1px 3px rgb(16 24 40 / .05);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0e13; --panel: #131820; --panel-2: #171d26; --ink: #e9ecf1; --ink-2: #c3c9d4; --muted: #8a93a3;
+      --line: #232a35; --line-2: #1b212b;
+      --up: #3dd08c; --up-bg: #10301f; --down: #ff6e66; --down-bg: #3a1715;
+      --warn: #f2b453; --warn-bg: #362710; --neutral-bg: #1f2631; --accent: #7d9bff; --accent-ink: #0b0e13;
+      --accent-soft: #1b2440; --shadow: none;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1680px; margin: 0 auto; padding: 0 24px 48px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: default; }
+
+  /* ---- Top bar ---- */
+  .top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent);
+         backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); margin: 0 -24px 20px; padding: 12px 24px; }
+  .top-in { max-width: 1632px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding-right: 18px; border-right: 1px solid var(--line); }
+  .logo { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+          background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--up))); }
+  .logo svg { width: 18px; height: 18px; stroke: #fff; }
+  h1 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.015em; white-space: nowrap; }
+  h1 span { font-weight: 500; color: var(--muted); }
+  /* Exchange status: open / closed, time to the next open or close, exchange clock */
+  .mstat { display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }
+  .mstat b { font-weight: 600; }
+  .mstat .when { color: var(--muted); }
+  .mstat .clock { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-2); background: var(--neutral-bg);
+                  border-radius: 6px; padding: 2px 7px; }
+  .sdot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .sdot.open { background: var(--up); box-shadow: 0 0 0 3px color-mix(in srgb, var(--up) 22%, transparent); }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fact { display: inline-flex; align-items: baseline; gap: 6px; font-size: 12.5px; padding: 4px 9px; border-radius: 7px;
+          border: 1px solid var(--line); background: var(--panel); white-space: nowrap; }
+  .fact span { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .fact b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .refresh { display: flex; align-items: center; gap: 10px; }
+  .updated { font-size: 12px; color: var(--muted); white-space: nowrap; text-align: right; line-height: 1.3; }
+  .updated b { display: block; color: var(--ink-2); font-weight: 500; }
+  .markets { display: inline-flex; padding: 3px; gap: 2px; background: var(--neutral-bg); border-radius: 10px; }
+  .markets button { border: 0; background: transparent; padding: 6px 16px; border-radius: 7px; color: var(--muted);
+                    font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
+  .markets button:hover { color: var(--ink); }
+  .markets button.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow), 0 0 0 1px var(--line); }
+  .markets .mdot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+  .markets .mdot.open { background: var(--up); }
+  .markets .flag { font-size: 11px; font-weight: 700; line-height: 1; width: 18px; height: 18px; border-radius: 5px;
+                   display: inline-grid; place-items: center; background: var(--neutral-bg); color: var(--muted); }
+  .markets button.on .flag { background: var(--accent); color: var(--accent-ink); }
+  .busy { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+          animation: pulse 1s ease-in-out infinite alternate; }
+  @keyframes pulse { to { opacity: .25; } }
+  .spacer { flex: 1; }
+  .btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 13px; border-radius: 8px;
+         font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--shadow); }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn svg { width: 15px; height: 15px; stroke: currentColor; }
+  .btn:disabled svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; padding: 8px 20px; }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--accent); }
+  .btn.primary:disabled { opacity: .55; }
+
+  /* ---- Scan panel ---- */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+  .scan { padding: 14px 16px; margin-bottom: 14px; }
+  .scan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; }
+  .scan-row + .scan-row { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-2); }
+  .ctl { display: flex; align-items: center; gap: 10px; }
+  .lbl { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  .seg { display: inline-flex; background: var(--neutral-bg); border-radius: 8px; padding: 2px; gap: 2px; }
+  .seg button { border: 0; background: transparent; padding: 5px 11px; border-radius: 6px; font-size: 13px; color: var(--ink-2); }
+  .seg button:hover:not(:disabled) { color: var(--ink); }
+  .seg button.on { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: var(--shadow), 0 0 0 1px var(--line); }
+  select { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px;
+           background: var(--panel); color: var(--ink); }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; user-select: none; }
+  .switch input { appearance: none; width: 32px; height: 18px; border-radius: 9px; background: var(--line); position: relative;
+                  margin: 0; cursor: pointer; transition: background .15s; }
+  .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+                         background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .3); transition: transform .15s; }
+  .switch input:checked { background: var(--accent); }
+  .switch input:checked::after { transform: translateX(14px); }
+  .switch input:disabled { opacity: .5; }
+  .strats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; flex: 1; }
+  .sgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .sgroup .gname { font-size: 12px; font-weight: 600; color: var(--ink-2); margin-right: 2px; }
+  .fam { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 4px 3px 8px; border-radius: 9px;
+         border: 1px dashed var(--line); }
+  .fam > span { font-size: 11px; color: var(--muted); margin-right: 2px; white-space: nowrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px;
+          padding: 4px 11px 4px 9px; font-size: 12.5px; cursor: pointer; color: var(--ink-2); background: var(--panel);
+          user-select: none; transition: background .1s, border-color .1s; }
+  .chip input { display: none; }
+  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--muted); }
+  .chip:hover { border-color: var(--muted); }
+  .chip:has(input:checked) { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--ink); }
+  .chip:has(input:checked)::before { background: var(--accent); border-color: var(--accent); }
+  .chip:has(input:disabled) { opacity: .6; cursor: default; }
+  .links { display: inline-flex; gap: 10px; font-size: 12px; color: var(--muted); }
+  .links button { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 500; }
+  .run { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+
+  .notice { display: flex; gap: 10px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line);
+            border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
+  .notice.err { border-left-color: var(--down); }
+
+  /* ---- KPIs ---- */
+  .tiles { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile { padding: 12px 14px; }
+  .tile .k { color: var(--muted); font-size: 12px; font-weight: 500; }
+  .tile .v { font-size: 22px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .tile.sep { border-left: 3px solid var(--line); }
+
+  /* ---- Signals table ---- */
+  .list-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+  .tab { border: 0; background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 7px; font-weight: 500; font-size: 13px; }
+  .tab:hover { color: var(--ink); background: var(--neutral-bg); }
+  .tab.on { background: var(--neutral-bg); color: var(--ink); font-weight: 600; }
+  .tab .n { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 6px; border-radius: 10px;
+            background: var(--panel); border: 1px solid var(--line); font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; }
+  .tab.on .n { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .hint { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 1120px; }
+  thead th { position: sticky; top: 0; background: var(--panel-2); z-index: 1; }
+  th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--line-2); white-space: nowrap; vertical-align: middle; }
+  th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+       cursor: pointer; user-select: none; }
+  th:not([data-sort=""]):hover { color: var(--ink); }
+  th.sorted { color: var(--ink); }
+  tbody tr:hover td { background: var(--panel-2); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td .sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .stock { display: flex; align-items: center; gap: 8px; }
+  .sym { font-weight: 650; color: inherit; text-decoration: none; }
+  .sym:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .side { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; }
+  .side.BUY { background: var(--up-bg); color: var(--up); }
+  .side.SELL { background: var(--down-bg); color: var(--down); }
+  .tf { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .s-ACTIVE { background: var(--neutral-bg); color: var(--ink); }
+  .s-T1_HIT, .s-T2_HIT { background: var(--up-bg); color: var(--up); }
+  .s-SL_HIT { background: var(--down-bg); color: var(--down); }
+  .s-BREAKEVEN, .s-EXPIRED { background: var(--warn-bg); color: var(--warn); }
+  .s-PENDING { background: var(--accent-soft); color: var(--accent); }
+  .s-PENDING::before { animation: pulse 1.2s ease-in-out infinite alternate; }
+  .s-CANCELLED { background: var(--neutral-bg); color: var(--muted); }
+  .up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--muted); }
+  .pnl { font-weight: 600; }
+  .stars { color: var(--warn); letter-spacing: 1px; font-size: 13px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; min-width: 200px; max-width: 280px; }
+  .tags span { font-size: 11px; color: var(--ink-2); background: var(--neutral-bg); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+
+  /* SL -> entry -> T1 -> T2 range with current-price marker */
+  .range { position: relative; width: 150px; height: 24px; }
+  .range .bar { position: absolute; top: 10px; left: 0; right: 0; height: 4px; border-radius: 2px;
+                background: linear-gradient(to right, color-mix(in srgb, var(--down) 35%, transparent) var(--e),
+                                                      color-mix(in srgb, var(--up) 35%, transparent) var(--e)); }
+  .range .tick { position: absolute; top: 7px; width: 2px; height: 10px; margin-left: -1px; border-radius: 1px; background: var(--muted); }
+  .range .tick.entry { background: var(--ink); height: 12px; top: 6px; }
+  .range .dot { position: absolute; top: 6px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%;
+                border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--muted); }
+  .range.pending .dot { background: var(--accent) !important; }
+
+  .empty { padding: 56px 16px; text-align: center; color: var(--muted); }
+  .empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+
+  @media (max-width: 1100px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px 32px; } .top { margin: 0 -16px 16px; padding: 10px 16px; }
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .run { margin-left: 0; width: 100%; justify-content: space-between; }
+    .scan-row > *, .strats, .sgroup { min-width: 0; }
+    .strats { flex-basis: 100%; order: 2; }
+    .chip { white-space: nowrap; }
+    .ctl { flex-wrap: wrap; }
+    .seg { flex-wrap: wrap; }
+    .top-in { gap: 10px; }
+    .tile .v { font-size: 19px; }
+    .brand { border-right: 0; padding-right: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><div class="top-in">
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>
+      <h1>AlgoTrade <span>Signals</span></h1>
+    </div>
+    <nav class="markets" id="markets"></nav>
+    <div class="mstat" id="mstat"></div>
+    <div class="spacer"></div>
+    <div class="facts" id="facts"></div>
+    <div class="refresh">
+      <div class="updated" id="updated"></div>
+      <button class="btn" id="refresh" title="Re-check open signals against the latest prices"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
+    </div>
+  </div></header>
+
+  <section class="card scan" id="scanPanel">
+    <div class="scan-row">
+      <div class="ctl"><span class="lbl">Timeframe</span><div class="seg" id="tfs"></div></div>
+      <div class="ctl"><span class="lbl">Min votes</span><select id="minScore"></select></div>
+      <div class="run">
+        <label class="switch"><input type="checkbox" id="send"> Send to Telegram</label>
+        <button id="scan" class="btn primary">Run scan</button>
+      </div>
+    </div>
+    <div class="scan-row">
+      <div class="ctl" style="align-self: flex-start; padding-top: 5px;"><span class="lbl">Strategies</span></div>
+      <div class="strats" id="strats"></div>
+      <div class="links"><span id="stratCount"></span><button id="allStrats" type="button">All</button><button id="noStrats" type="button">None</button></div>
+    </div>
+    <div class="scan-row">
+      <div class="ctl"><span class="lbl">Filters</span></div>
+      <div class="strats" id="filters"></div>
+      <div class="links"><span>Veto signals against the index</span></div>
+    </div>
+  </section>
+  <div class="notice" id="notice" hidden></div>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="card">
+    <div class="list-head"><nav class="tabs" id="tabs"></nav><span class="hint" id="listHint"></span></div>
+    <div class="tablewrap"><table>
+      <thead><tr id="head"></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <div class="empty" id="empty" hidden></div>
+  </section>
+</div>
+
+<script>
+const STATUS_TEXT = { PENDING: "Pending", CANCELLED: "Cancelled", ACTIVE: "Active", T1_HIT: "T1 hit", T2_HIT: "T2 hit", SL_HIT: "SL hit",
+                      BREAKEVEN: "Breakeven", EXPIRED: "Expired" };
+const TABS = [
+  ["pending", "Pending entry", s => s.status === "PENDING"],
+  ["active", "Active", s => s.open && s.status !== "PENDING"],
+  ["closed", "Closed", s => !s.open],
+  ["all", "All", () => true],
+];
+const EMPTY = {
+  pending: ["No pending entries", "Run a scan to find new setups. Their entry orders wait here until price reaches them."],
+  active: ["No active trades", "Pending entries move here once price reaches the entry."],
+  closed: ["Nothing closed yet", "Trades show up here after a stop, a target, a time exit or a cancelled entry."],
+  all: ["No signals yet", "Run a scan to get started."],
+};
+// [sort key, header, numeric]
+const COLS = [
+  ["symbol", "Stock"], ["bar_time", "Signal"], ["status", "Status"], ["entry", "Entry", 1],
+  ["current", "LTP / Exit", 1], ["pnl_pct", "P&L", 1], [null, "SL → Entry → T1 → T2"],
+  ["stop_loss", "SL", 1], ["target1", "T1", 1], ["target2", "T2", 1], ["score", "Score"],
+  ["reasons", "Strategies"],
+];
+const FLAGS = { IN: "₹", US: "$" };  // currency badge on the market switch
+
+const ORDER_TEXT = { limit: "limit", stop: "stop" };
+let data = [], tab = "pending", sortKey = "bar_time", sortDir = -1;
+// Selected market ("IN" / "US"); each market has its own signals, scan settings and scan status
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+let market = store.get("market") === "US" ? "US" : "IN";
+// A link like #US/active opens that market and tab
+{
+  const [m, t] = location.hash.slice(1).split("/");
+  if (m === "IN" || m === "US") market = m;
+  if (TABS.some(x => x[0] === t)) tab = t;
+}
+const setHash = () => history.replaceState(null, "", `#${market}/${tab}`);
+let cfg = { currency: "₹", locale: "en-IN", tv_prefix: "NSE:" };
+const inr = v => v == null ? "–" : cfg.currency + Number(v).toLocaleString(cfg.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const sgn = (v, d = 2, suf = "") => (v > 0 ? "+" : "") + v.toFixed(d) + suf;
+const cls = v => v > 0 ? "up" : v < 0 ? "down" : "flat";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function rangeBar(s) {
+  const lo = Math.min(s.stop_loss, s.target2), hi = Math.max(s.stop_loss, s.target2);
+  const pos = v => {
+    let p = (v - lo) / (hi - lo) * 100;
+    if (s.side === "SELL") p = 100 - p;
+    return Math.max(0, Math.min(100, p));
+  };
+  const color = s.pnl_pct >= 0 ? "var(--up)" : "var(--down)";
+  const ref = s.fill_price ?? s.entry;
+  return `<div class="range ${s.status === "PENDING" ? "pending" : ""}" style="--e:${pos(ref)}%"
+    title="SL ${inr(s.stop_loss)} · Entry ${inr(ref)} · T1 ${inr(s.target1)} · T2 ${inr(s.target2)} · Now ${inr(s.current)}">
+    <div class="bar"></div>
+    <div class="tick entry" style="left:${pos(ref)}%"></div>
+    <div class="tick" style="left:${pos(s.target1)}%"></div>
+    <div class="dot" style="left:${pos(s.current)}%;background:${color}"></div></div>`;
+}
+
+function renderTiles() {
+  const pending = data.filter(s => s.status === "PENDING");
+  const open = data.filter(s => s.open && s.status !== "PENDING");
+  const closed = data.filter(s => !s.open && s.status !== "CANCELLED");
+  const wins = closed.filter(s => s.pnl_r > 0).length;
+  const avg = arr => arr.length ? arr.reduce((a, s) => a + s.pnl_pct, 0) / arr.length : 0;
+  const totalR = closed.reduce((a, s) => a + s.pnl_r, 0);
+  const tiles = [
+    ["Pending entries", pending.length],
+    ["Active trades", open.length],
+    ["Target 1 reached", open.filter(s => s.status === "T1_HIT").length],
+    ["Avg open P&L", open.length ? `<span class="${cls(avg(open))}">${sgn(avg(open), 2, "%")}</span>` : "–"],
+    ["Closed trades", closed.length, "sep"],
+    ["Win rate", closed.length ? Math.round(wins / closed.length * 100) + "%" : "–"],
+    ["Total R", closed.length ? `<span class="${cls(totalR)}">${sgn(totalR, 1)}</span>` : "–"],
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(([k, v, extra]) =>
+    `<div class="card tile ${extra ?? ""}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = TABS.map(([id, label, f]) =>
+    `<button class="tab ${id === tab ? "on" : ""}" data-tab="${id}">${label}<span class="n">${data.filter(f).length}</span></button>`
+  ).join("");
+}
+
+function signalTime(s) {
+  return s.timeframe === "1d" || !s.bar_time ? s.bar_date : s.bar_time.replace("T", " ").slice(0, 16);
+}
+
+function renderTable() {
+  document.getElementById("head").innerHTML = COLS.map(([k, label, num]) =>
+    `<th class="${num ? "num" : ""} ${k === sortKey ? "sorted" : ""}" data-sort="${k ?? ""}">${label}${k === sortKey ? (sortDir > 0 ? " ↑" : " ↓") : ""}</th>`).join("");
+  const filter = TABS.find(t => t[0] === tab)[2];
+  const rows = data.filter(filter).sort((a, b) => {
+    const x = a[sortKey], y = b[sortKey];
+    return (x > y ? 1 : x < y ? -1 : 0) * sortDir;
+  });
+  const empty = document.getElementById("empty");
+  empty.hidden = rows.length > 0;
+  document.querySelector(".tablewrap").hidden = rows.length === 0;
+  if (!rows.length) empty.innerHTML = `<b>${EMPTY[tab][0]}</b>${EMPTY[tab][1]}`;
+  document.getElementById("listHint").textContent = rows.length ? `${rows.length} signal${rows.length === 1 ? "" : "s"} · click a column to sort` : "";
+  document.getElementById("rows").innerHTML = rows.map(s => {
+    const noPos = s.status === "PENDING" || s.status === "CANCELLED";
+    const order = ORDER_TEXT[s.entry_type];
+    return `<tr>
+    <td><div class="stock"><a class="sym" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener">${esc(s.symbol)}</a>
+      <span class="side ${s.side}">${s.side}</span></div></td>
+    <td>${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
+    <td><span class="pill s-${s.status}">${STATUS_TEXT[s.status] ?? s.status}</span></td>
+    <td class="num">${inr(s.entry)}${order ? `<div class="sub">${order}` +
+      `${s.fill_price != null && s.fill_price !== s.entry ? ` · filled ${inr(s.fill_price)}` : ""}</div>` : ""}</td>
+    <td class="num">${inr(s.current)}${s.status === "PENDING" && s.to_entry_pct != null
+      ? `<div class="sub">${s.to_entry_pct.toFixed(2)}% to entry</div>` : ""}</td>
+    <td class="num">${noPos ? `<span class="flat">–</span>`
+      : `<span class="pnl ${cls(s.pnl_pct)}">${sgn(s.pnl_pct, 2, "%")}</span><div class="sub ${cls(s.pnl_r)}">${sgn(s.pnl_r)}R</div>`}</td>
+    <td>${rangeBar(s)}</td>
+    <td class="num">${inr(s.stop_loss)}</td>
+    <td class="num">${inr(s.target1)}</td>
+    <td class="num">${inr(s.target2)}</td>
+    <td class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</td>
+    <td><div class="tags">${String(s.reasons ?? "").split(", ").filter(Boolean).map(r => `<span>${esc(r)}</span>`).join("")}</div></td>
+  </tr>`;
+  }).join("");
+}
+
+function render() { renderTiles(); renderTabs(); renderTable(); setHash(); }
+
+function show(j) {
+  if (j.market !== market) return;  // response for a market that is no longer selected
+  data = j.signals; cfg = j.config; lastRefresh = j.last_refresh;
+  document.getElementById("facts").innerHTML = [
+    ["Universe", esc(cfg.universe)],
+    ["Capital", `${cfg.currency}${cfg.capital.toLocaleString(cfg.locale)}`],
+    ["Risk", `${cfg.risk_pct}% / trade`],
+  ].map(([k, v]) => `<div class="fact"><span>${k}</span><b>${v}</b></div>`).join("");
+  renderClock();
+  render();
+}
+
+// ---- Exchange clock (regular hours, weekdays; holidays aren't known) ----
+const EXCHANGE = { IN: ["NSE", "IST"], US: ["US market", "ET"] };
+let lastRefresh = null;
+const toMin = hhmm => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+const dur = mins => mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+
+function exchangeNow(m) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: m.tz, weekday: "short",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map(p => [p.type, p.value]));
+  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(parts.weekday);
+  return { day, mins: +parts.hour * 60 + +parts.minute, time: `${parts.hour}:${parts.minute}` };
+}
+
+function marketState(m) {
+  const now = exchangeNow(m), open = toMin(m.session[0]), close = toMin(m.session[1]);
+  const weekday = now.day >= 1 && now.day <= 5;
+  if (weekday && now.mins >= open && now.mins <= close) return { open: true, when: `closes in ${dur(close - now.mins)}`, now };
+  if (weekday && now.mins < open) return { open: false, when: `opens in ${dur(open - now.mins)}`, now };
+  const next = now.day === 5 || now.day === 6 ? "Mon" : now.day === 0 ? "Mon" : "tomorrow";
+  return { open: false, when: `opens ${next} ${m.session[0]}`, now };
+}
+
+function ago(ts) {
+  if (!ts) return "checking…";  // first refresh after the server starts
+  const mins = Math.round((Date.now() - new Date(ts.replace(" ", "T"))) / 60000);
+  return mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : `${dur(mins)} ago`;
+}
+
+function renderClock() {
+  const m = META?.markets.find(x => x.code === market);
+  const el = document.getElementById("mstat");
+  if (m) {
+    const st = marketState(m), [ex, tz] = EXCHANGE[m.code] ?? [m.name, ""];
+    el.innerHTML = `<span class="sdot ${st.open ? "open" : ""}"></span><b>${ex} ${st.open ? "open" : "closed"}</b>` +
+      `<span class="when">${st.when}</span><span class="clock" title="Exchange time">${st.now.time} ${tz}</span>`;
+    el.title = `Regular hours ${m.session[0]}–${m.session[1]} ${tz}, Mon–Fri (holidays not included)`;
+  }
+  document.getElementById("updated").innerHTML = `Prices<b>${ago(lastRefresh)}</b>`;
+  document.querySelectorAll("#markets .mdot").forEach(d => {
+    const mk = META?.markets.find(x => x.code === d.dataset.m);
+    d.classList.toggle("open", !!mk && marketState(mk).open);
+  });
+}
+setInterval(renderClock, 30000);
+
+async function load(path = "/api/signals", opts) {
+  const res = await fetch(`${path}?market=${market}`, opts);
+  show(await res.json());
+}
+
+document.getElementById("tabs").onclick = e => {
+  const b = e.target.closest("[data-tab]"); if (!b) return;
+  tab = b.dataset.tab; render();
+};
+document.getElementById("head").onclick = e => {
+  const k = e.target.closest("th")?.dataset.sort; if (!k) return;
+  sortDir = k === sortKey ? -sortDir : -1; sortKey = k; renderTable();
+};
+document.getElementById("refresh").onclick = async e => {
+  const btn = e.currentTarget, label = btn.querySelector("span");
+  btn.disabled = true; label.textContent = "Refreshing…";  // re-checks every open signal, can take a while
+  try { await load("/api/refresh", { method: "POST" }); }
+  finally { btn.disabled = false; label.textContent = "Refresh"; }
+};
+
+
+// ---- Scan settings ----
+let STRATS = [], META = null;
+const optsBy = {};    // market -> { timeframe, strategies, minScore, known }
+const scanning = {};  // market -> start time of the running scan
+const notes = {};     // market -> last scan message
+let opts = null;
+// India keeps the original storage key so earlier choices survive
+const optsKey = m => m === "IN" ? "scanOpts" : `scanOpts:${m}`;
+
+function notice(html, err = false, mk = market) {
+  notes[mk] = { html, err };
+  if (mk === market) renderNotice();
+}
+
+function renderNotice() {
+  const n = document.getElementById("notice"), note = notes[market];
+  n.hidden = !note;
+  if (note) { n.innerHTML = note.html; n.className = "notice" + (note.err ? " err" : ""); }
+}
+
+function renderMarkets() {
+  document.getElementById("markets").innerHTML = (META?.markets ?? [{ code: "IN", name: "India" }, { code: "US", name: "US" }])
+    .map(m => `<button type="button" data-market="${m.code}" class="${m.code === market ? "on" : ""}">` +
+      `<span class="flag">${FLAGS[m.code] ?? ""}</span>${esc(m.name)}` +
+      (scanning[m.code] ? `<span class="busy" title="Scan running"></span>`
+        : `<span class="mdot" data-m="${m.code}" title="Market open / closed"></span>`) + `</button>`).join("");
+  renderClock();
+}
+
+function optsFor(mk) {
+  if (optsBy[mk]) return optsBy[mk];
+  const saved = store.get(optsKey(mk));
+  // Keep saved choices; strategies added since then start ticked unless they are opt-in
+  const known = saved?.known ?? saved?.strategies ?? [];
+  return optsBy[mk] = {
+    timeframe: saved?.timeframe ?? META.defaults.timeframe,
+    strategies: STRATS.filter(s => saved
+      ? saved.strategies.includes(s.name) || (!known.includes(s.name) && s.default)
+      : s.default).map(s => s.name),
+    known: STRATS.map(s => s.name),
+    minScore: saved?.minScore ?? META.defaults.min_score,
+    filters: (saved?.filters ?? []).filter(f => META.filters.some(x => x.name === f)),
+  };
+}
+
+function renderScanPanel() {
+  document.querySelectorAll("#tfs button").forEach(b => b.classList.toggle("on", b.dataset.tf === opts.timeframe));
+  document.querySelectorAll("#strats input").forEach(c => c.checked = opts.strategies.includes(c.value));
+  document.querySelectorAll("#filters input").forEach(c => c.checked = opts.filters.includes(c.value));
+  const n = opts.strategies.length;
+  // Strategies in the same family (the zone patterns) share one vote
+  const votes = new Set(opts.strategies.map(name => STRATS.find(s => s.name === name)?.family ?? name)).size;
+  opts.minScore = Math.min(Math.max(opts.minScore, 1), Math.max(votes, 1));
+  document.getElementById("minScore").innerHTML = votes
+    ? Array.from({ length: votes }, (_, k) => `<option value="${k + 1}" ${k + 1 === opts.minScore ? "selected" : ""}>${k + 1} of ${votes}</option>`).join("")
+    : `<option>–</option>`;
+  document.getElementById("stratCount").textContent =
+    `${n} of ${STRATS.length}` + (votes !== n ? ` · ${votes} vote${votes === 1 ? "" : "s"}` : "");
+  const busy = scanning[market] != null;
+  document.querySelectorAll("#scanPanel button, #scanPanel input, #scanPanel select").forEach(el => el.disabled = busy);
+  document.getElementById("scan").disabled = busy || n === 0;
+  document.getElementById("scan").textContent = busy
+    ? `Scanning… ${Math.round((Date.now() - scanning[market]) / 1000)}s` : "Run scan";
+  store.set(optsKey(market), opts);
+}
+
+function chip(s) {
+  return `<label class="chip" title="${esc(s.description)}"><input type="checkbox" value="${esc(s.name)}">${esc(s.name)}</label>`;
+}
+
+async function loadMeta() {
+  const m = META = await (await fetch("/api/meta")).json();
+  STRATS = m.strategies;
+  opts = optsFor(market);
+  renderMarkets();
+  document.getElementById("tfs").innerHTML = m.timeframes.map(t =>
+    `<button type="button" data-tf="${t.value}">${t.label}</button>`).join("");
+  // Strategies sharing a family (the zone patterns) are boxed together, since they count as one vote
+  const groups = [...new Set(STRATS.map(s => s.group))];
+  document.getElementById("strats").innerHTML = groups.map(g => {
+    const list = STRATS.filter(s => s.group === g);
+    const solo = list.filter(s => s.family === s.name);
+    const fams = [...new Set(list.filter(s => s.family !== s.name).map(s => s.family))];
+    return `<div class="sgroup"><span class="gname">${esc(g)}</span>${solo.map(chip).join("")}` +
+      fams.map(f => `<span class="fam"><span>${esc(f)} · 1 vote</span>` +
+        list.filter(s => s.family === f).map(chip).join("") + `</span>`).join("") + `</div>`;
+  }).join("");
+  document.getElementById("filters").innerHTML = m.filters.map(f =>
+    `<label class="chip" title="${esc(f.description)}"><input type="checkbox" value="${esc(f.name)}">${esc(FILTER_LABEL[f.name] ?? f.name)}</label>`).join("");
+  renderScanPanel();
+}
+
+document.getElementById("markets").onclick = e => {
+  const b = e.target.closest("[data-market]"); if (!b || b.dataset.market === market) return;
+  market = b.dataset.market; store.set("market", market);
+  data = []; tab = "pending"; render();
+  renderMarkets(); renderNotice();
+  if (META) { opts = optsFor(market); renderScanPanel(); }
+  load();
+};
+
+document.getElementById("tfs").onclick = e => {
+  const b = e.target.closest("[data-tf]"); if (!b) return;
+  opts.timeframe = b.dataset.tf; renderScanPanel();
+};
+document.getElementById("filters").onchange = () => {
+  opts.filters = [...document.querySelectorAll("#filters input:checked")].map(c => c.value);
+  renderScanPanel();
+};
+document.getElementById("strats").onchange = () => {
+  opts.strategies = [...document.querySelectorAll("#strats input:checked")].map(c => c.value);
+  renderScanPanel();
+};
+document.getElementById("allStrats").onclick = () => { opts.strategies = STRATS.map(s => s.name); renderScanPanel(); };
+document.getElementById("noStrats").onclick = () => { opts.strategies = []; renderScanPanel(); };
+document.getElementById("minScore").onchange = e => { opts.minScore = +e.target.value; renderScanPanel(); };
+
+const FILTER_LABEL = { trend: "Market trend", rs: "Relative strength" };
+const TF_LABEL = { "5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hour", "1d": "daily", "all": "all timeframe" };
+
+document.getElementById("scan").onclick = async () => {
+  // The scan belongs to the market it was started on, even if the user switches markets meanwhile
+  const mk = market, o = opts, name = META.markets.find(m => m.code === mk)?.name ?? mk;
+  const send = document.getElementById("send").checked;
+  scanning[mk] = Date.now();
+  renderMarkets(); renderScanPanel();
+  const tick = setInterval(() => { if (market === mk) renderScanPanel(); }, 1000);
+  const what = `${name}, ${TF_LABEL[o.timeframe]} bars, ${o.strategies.length} strateg${o.strategies.length === 1 ? "y" : "ies"}, at least ${o.minScore} agreeing` +
+    (o.filters.length ? `, filters: ${o.filters.map(f => FILTER_LABEL[f] ?? f).join(" + ")}` : "");
+  const say = (html, err) => notice(html, err, mk);
+  say(`Scanning on ${what}. This takes about ${o.timeframe === "all" ? "2–5 minutes" : "15–60 seconds"}.`);
+  try {
+    const res = await fetch("/api/scan", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ market: mk, send, timeframe: o.timeframe, strategies: o.strategies,
+                            min_score: o.minScore, filters: o.filters }) });
+    const j = await res.json();
+    if (!res.ok) { say(esc(j.error || "Scan failed"), true); return; }
+    if (market === mk) tab = "pending";  // new signals start as pending entries
+    show(j);
+    const r = j.scan;
+    if (!r.found) {
+      say(`Scan finished (${what}): no setups found.`);
+    } else if (!r.new) {
+      say(`Scan finished (${what}): ${r.found} setup${r.found === 1 ? "" : "s"} found, none new. They're already on the dashboard.`);
+    } else {
+      const where = send ? `${r.sent} sent to Telegram` : "added to the dashboard only";
+      const failed = send && r.sent < r.new ? ` · <b>${r.new - r.sent} failed to send</b>` : "";
+      say(`Scan finished (${what}): <b>${r.new} new</b> (${r.symbols.map(esc).join(", ")}). ${where}${failed}.`);
+    }
+  } catch (err) {
+    say("Could not reach the server: " + esc(err.message), true);
+  } finally {
+    clearInterval(tick); delete scanning[mk];
+    renderMarkets();
+    if (market === mk) renderScanPanel();
+  }
+};
+
+renderMarkets();
+loadMeta();
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>
