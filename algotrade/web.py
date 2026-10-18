@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 
 from . import access, broker, config, kotak, markets, performance, state, telegram_bot, tracker
-from .scanner import FILTERS, fetch_index, scan_and_alert
+from .scanner import FILTERS, ScanStopped, check_stop, clear_stop, fetch_index, request_stop, scan_and_alert
 from .strategies import DEFAULT_STRATEGIES, describe, family_of
 
 log = logging.getLogger(__name__)
@@ -503,6 +503,8 @@ def _scan_timeframes(timeframes: list[str], **kw) -> dict:
     With more than one timeframe, symbols are labelled with their timeframe."""
     total = {"found": 0, "new": 0, "sent": 0, "symbols": []}
     for tf in timeframes:
+        if tf != timeframes[0]:
+            check_stop(kw["market"])   # stop between timeframes too, not only inside one
         r = scan_and_alert(timeframe=tf, **kw)
         for k in ("found", "new", "sent"):
             total[k] += r[k]
@@ -526,11 +528,15 @@ def api_scan():
     lock = _scan_locks[mkt.code]
     if not lock.acquire(blocking=False):
         return jsonify({"error": f"A {mkt.name} scan is already running"}), 409
+    clear_stop(mkt.code)
     try:
         result = _scan_timeframes([v for v, _ in TIMEFRAMES] if timeframe == ALL_TF else [timeframe],
                                   send=bool(body.get("send", False)), strategies=strategies,
                                   min_score=min_score, market=mkt.code, filters=filters)
         result.update(timeframe=timeframe, strategies=strategies, min_score=min_score, filters=filters)
+    except ScanStopped:
+        log.info("%s scan stopped from the dashboard", mkt.name)
+        return jsonify({**_signals_payload(mkt), "scan": {"stopped": True}})
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
@@ -539,6 +545,16 @@ def api_scan():
     finally:
         lock.release()
     return jsonify({**_signals_payload(mkt), "scan": result})
+
+
+@app.post("/api/scan/stop")
+def api_scan_stop():
+    """Ask the running scan of ?market= to stop; it ends at its next step (signals already saved stay)."""
+    mkt = _market()
+    if not _scan_locks[mkt.code].locked():
+        return jsonify({"error": f"No {mkt.name} scan is running"}), 409
+    request_stop(mkt.code)
+    return jsonify({"ok": True})
 
 
 # ---- health, watchlist and price alerts, order history, signal charts ------------------------------

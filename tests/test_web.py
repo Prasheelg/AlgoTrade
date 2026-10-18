@@ -340,3 +340,30 @@ def test_us_index_stays_on_yahoo(client, index_feed, monkeypatch):
     monkeypatch.setattr(kotak, "index_quote", lambda name: pytest.fail("no Kotak index for the US"))
     index_feed.feed["US"] = closes(5000.0, 5050.0)
     assert client.get("/api/index?market=US").get_json()["last"] == 5050.0
+
+
+# ---- /api/scan/stop -------------------------------------------------------------------------------
+
+def test_scan_stop_without_a_running_scan_409(client):
+    r = client.post("/api/scan/stop?market=US")
+    assert r.status_code == 409 and r.get_json() == {"error": "No US scan is running"}
+
+
+def test_scan_stop_sets_flag_and_scan_reports_stopped(client, monkeypatch):
+    from algotrade import scanner
+
+    def fake_scan(**kw):
+        # Stop pressed while the first timeframe runs: the next timeframe never starts
+        assert client.post("/api/scan/stop?market=IN").get_json() == {"ok": True}
+        return scan_result()
+    rec = Recorder(fake_scan)
+    monkeypatch.setattr(web, "scan_and_alert", rec)
+    scanner.request_stop("IN")   # a leftover request from before is cleared when a scan starts
+    try:
+        r = client.post("/api/scan", json={"timeframe": "all"})
+        assert r.status_code == 200
+        j = r.get_json()
+        assert j["scan"] == {"stopped": True} and "signals" in j
+        assert [c[1]["timeframe"] for c in rec.calls] == ["5m"]
+    finally:
+        scanner.clear_stop("IN")

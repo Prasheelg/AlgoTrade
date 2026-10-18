@@ -1,5 +1,6 @@
 """Scans the universe, combines strategy votes and builds trade suggestions."""
 import logging
+import threading
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -11,6 +12,26 @@ from .strategies import DEFAULT_STRATEGIES, FAMILIES, STRATEGIES, family_of
 from .universe import get_universe
 
 log = logging.getLogger(__name__)
+
+# Stop requests from the dashboard, one per market: scan() checks between steps and raises ScanStopped
+_stops = {code: threading.Event() for code in markets.MARKETS}
+
+
+class ScanStopped(Exception):
+    """A running scan was stopped on request."""
+
+
+def request_stop(market: str) -> None:
+    _stops[markets.get(market).code].set()
+
+
+def clear_stop(market: str) -> None:
+    _stops[markets.get(market).code].clear()
+
+
+def check_stop(market: str) -> None:
+    if _stops[market].is_set():
+        raise ScanStopped(f"{market} scan stopped")
 
 
 @dataclass
@@ -235,7 +256,9 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
     unknown = set(filters or []) - set(FILTERS)
     if unknown:
         raise ValueError(f"Unknown filters: {', '.join(sorted(unknown))}")
+    check_stop(market)
     data = fetch_ohlcv(symbols, timeframe, market=market)
+    check_stop(market)
     index_close = fetch_index(timeframe, market)
     try:
         data, index_close = fill_missing_days(data, index_close, timeframe, market)
@@ -244,6 +267,7 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
     now = markets.get(market).now()  # one exchange-clock reading for the whole scan
     signals: list[Signal] = []
     for sym, df in data.items():
+        check_stop(market)
         try:
             df = completed_bars(df, timeframe, market, now)  # never evaluate a still-forming bar
             sig = evaluate(sym, add_all(df, index_close), min_score=min_score, strategies=strategies,
@@ -256,6 +280,7 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
         from . import events
         kept = []
         for sig in signals:
+            check_stop(market)
             why = events.soon(sig.symbol, market)
             if why:
                 log.info("%s skipped by the events filter: %s", sig.symbol, why)

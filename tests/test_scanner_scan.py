@@ -439,3 +439,36 @@ def test_fill_failure_does_not_stop_scan(monkeypatch):
     monkeypatch.setattr(scanner, "fetch_ohlcv", lambda *a, **k: {})
     monkeypatch.setattr(scanner, "fetch_index", lambda *a, **k: None)
     assert scanner.scan(["A"], "1d", market="IN") == []
+
+
+# ---- stop requests ---------------------------------------------------------------------------
+
+def test_scan_stops_mid_loop_and_flag_is_per_market(monkeypatch, frames):
+    """A stop request raised during the symbol loop ends the scan; other markets are unaffected."""
+    monkeypatch.setattr(scanner, "fetch_ohlcv", FakeFetch(frames))
+    seen = []
+
+    def evaluate(sym, df, **kw):
+        seen.append(sym)
+        scanner.request_stop("IN")   # pressed Stop while the first symbol was being evaluated
+        return None
+    monkeypatch.setattr(scanner, "evaluate", evaluate)
+    try:
+        with pytest.raises(scanner.ScanStopped):
+            scanner.scan(symbols=["AAA", "BBB"], market="IN")
+        assert seen == ["AAA"]
+        scanner.check_stop("US")      # the US flag is untouched
+        scanner.clear_stop("IN")
+        scanner.check_stop("IN")
+    finally:
+        scanner.clear_stop("IN")
+
+
+def test_scan_stopped_before_download(monkeypatch):
+    monkeypatch.setattr(scanner, "fetch_ohlcv", _fail)
+    scanner.request_stop("US")
+    try:
+        with pytest.raises(scanner.ScanStopped):
+            scanner.scan(symbols=["AAA"], market="US")
+    finally:
+        scanner.clear_stop("US")

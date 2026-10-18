@@ -797,6 +797,7 @@
       <div class="run">
         <label class="switch"><input type="checkbox" id="send"> Send to Telegram</label>
         <button id="scan" class="btn primary">Run scan</button>
+        <button id="scanStop" type="button" class="btn close-trade" hidden>Stop</button>
       </div>
     </div>
     <div class="scan-row sc-row">
@@ -1286,6 +1287,7 @@ document.getElementById("refresh").onclick = async e => {
 let STRATS = [], META = null;
 const optsBy = {};    // market -> { timeframe, strategies, minScore, known }
 const scanning = {};  // market -> start time of the running scan
+const stopping = {};  // market -> when Stop was pressed for its running scan
 const notes = {};     // market -> last scan message
 let opts = null;
 // India keeps the original storage key so earlier choices survive
@@ -1352,6 +1354,10 @@ function renderScanPanel() {
   document.getElementById("scan").disabled = busy || n === 0;
   document.getElementById("scan").textContent = busy
     ? `Scanning… ${Math.round((Date.now() - scanning[market]) / 1000)}s` : "Run scan";
+  const stop = document.getElementById("scanStop");
+  stop.hidden = !busy;
+  stop.disabled = stopping[market] != null;
+  stop.textContent = stopping[market] != null ? "Stopping…" : "Stop";
   store.set(optsKey(market), opts);
 }
 
@@ -1457,9 +1463,10 @@ document.getElementById("scan").onclick = async () => {
                             min_score: o.minScore, filters: o.filters }) });
     const j = await res.json();
     if (!res.ok) { say(esc(j.error || "Scan failed"), true); return; }
+    const r = j.scan;
+    if (r.stopped) { show(j); say(`Scan stopped (${what}). Signals it had already saved stay on the dashboard.`); return; }
     if (market === mk) tab = "pending";  // new signals start as pending entries
     show(j);
-    const r = j.scan;
     if (!r.found) {
       say(`Scan finished (${what}): no setups found.`);
     } else if (!r.new) {
@@ -1472,10 +1479,22 @@ document.getElementById("scan").onclick = async () => {
   } catch (err) {
     say("Could not reach the server: " + esc(err.message), true);
   } finally {
-    clearInterval(tick); delete scanning[mk];
+    clearInterval(tick); delete scanning[mk]; delete stopping[mk];
     renderMarkets();
     if (market === mk) renderScanPanel();
   }
+};
+
+// Stop the running scan of the market on screen: the server ends it at its next step
+document.getElementById("scanStop").onclick = async () => {
+  const mk = market;
+  if (scanning[mk] == null || stopping[mk] != null) return;
+  stopping[mk] = Date.now(); renderScanPanel();
+  try {
+    const res = await fetch(`/api/scan/stop?market=${mk}`, { method: "POST" });
+    if (!res.ok) { delete stopping[mk]; alert((await res.json()).error || "Could not stop the scan"); }
+  } catch (err) { delete stopping[mk]; alert("Could not reach the server: " + err.message); }
+  if (market === mk) renderScanPanel();
 };
 
 // ---- Performance view: closed trades before / after costs (/api/performance) ----
