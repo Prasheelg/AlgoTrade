@@ -567,6 +567,24 @@ def api_scan():
     return jsonify({**_signals_payload(mkt), "scan": result})
 
 
+@app.post("/api/signals/delete")
+def api_signals_delete():
+    """Delete signals of ?market= by key ({"keys": [...]}). A signal whose Auto-trade order is still in
+    progress is kept, so the app never loses track of a real order; those come back in "kept"."""
+    from . import orders
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    mkt = _market()
+    keys = (request.get_json(silent=True) or {}).get("keys")
+    if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
+        raise ValueError('Send {"keys": ["<signal key>", ...]}')
+    busy = {t["key"] for t in orders.all_trades() if t["state"] in orders.ACTIVE_STATES}
+    kept = [k for k in keys if k in busy]
+    n = state.delete_signals([k for k in keys if k not in busy], mkt.code)
+    log.info("Deleted %d %s signals from the dashboard%s", n, mkt.name, f" ({len(kept)} kept: Auto-trade)" if kept else "")
+    return jsonify({**_signals_payload(mkt), "deleted": n, "kept": kept})
+
+
 @app.post("/api/scan/stop")
 def api_scan_stop():
     """Ask the running scan of ?market= to stop; it ends at its next step (signals already saved stay)."""

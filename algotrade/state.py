@@ -96,6 +96,15 @@ def open_signals() -> list[dict]:
         return [dict(r) for r in con.execute(q, OPEN_STATUSES)]
 
 
+def delete_signals(keys: list[str], market: str) -> int:
+    """Delete these signals of one market (a later scan may find them again). Returns how many went."""
+    if not keys:
+        return 0
+    with _conn() as con:
+        q = f"DELETE FROM signals WHERE market = ? AND key IN ({','.join('?' * len(keys))})"
+        return con.execute(q, (market, *keys)).rowcount
+
+
 def update_signal(key: str, **fields) -> None:
     fields["updated_at"] = datetime.now().isoformat(timespec="seconds")
     sets = ", ".join(f"{k} = ?" for k in fields)

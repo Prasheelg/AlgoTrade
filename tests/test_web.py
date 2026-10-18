@@ -395,3 +395,41 @@ def test_scan_stop_answers_while_a_download_is_still_running(client, monkeypatch
         assert web._scan_locks["US"].acquire(timeout=5)   # the scan thread ends and frees the lock
         web._scan_locks["US"].release()
         scanner.clear_stop("US")
+
+
+# ---- /api/signals/delete --------------------------------------------------------------------------
+
+def test_signals_delete_by_key_and_market(client):
+    a, b, us = make_signal(symbol="A"), make_signal(symbol="B"), make_signal(symbol="C", market="US")
+    state.record([a, b, us], telegram=False)
+    # a US key sent with ?market=IN is not touched: deletes stay inside the market on screen
+    r = client.post("/api/signals/delete?market=IN", json={"keys": [a.key, us.key]})
+    assert r.status_code == 200
+    j = r.get_json()
+    assert j["deleted"] == 1 and j["kept"] == [] and j["market"] == "IN"
+    assert [s["symbol"] for s in j["signals"]] == ["B"]
+    assert {s["symbol"] for s in state.all_signals()} == {"B", "C"}
+
+
+def test_signals_delete_keeps_ones_with_auto_trade_in_progress(client):
+    from algotrade import orders
+    a, b = make_signal(symbol="A"), make_signal(symbol="B")
+    state.record([a, b], telegram=False)
+    orders._save(a.key, symbol="A", state=orders.OPEN)
+    orders._save(b.key, symbol="B", state=orders.CLOSED)
+    j = client.post("/api/signals/delete", json={"keys": [a.key, b.key]}).get_json()
+    assert j["deleted"] == 1 and j["kept"] == [a.key]
+    assert [s["symbol"] for s in state.all_signals()] == ["A"]
+
+
+@pytest.mark.parametrize("body", [{}, {"keys": []}, {"keys": "A"}, {"keys": [1]}])
+def test_signals_delete_validation(client, body):
+    r = client.post("/api/signals/delete", json=body)
+    assert r.status_code == 400 and "keys" in r.get_json()["error"]
+
+
+def test_signals_delete_needs_trade_access(client):
+    state.record([make_signal(symbol="A")], telegram=False)
+    r = client.post("/api/signals/delete", json={"keys": ["x"]}, environ_base={"REMOTE_ADDR": "192.168.1.20"})
+    assert r.status_code in (302, 401, 403)
+    assert len(state.all_signals()) == 1

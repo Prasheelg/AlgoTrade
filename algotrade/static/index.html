@@ -174,6 +174,8 @@
   .tab { border: 0; background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 7px; font-weight: 500; font-size: 13px; }
   .tab:hover { color: var(--ink); background: var(--neutral-bg); }
   .tab.on { background: var(--neutral-bg); color: var(--ink); font-weight: 600; }
+  #clearTab { margin-left: auto; padding: 4px 12px; font-size: 12px; }
+  .sig-del { color: var(--muted); }
   .tab .n { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 6px; border-radius: 10px;
             background: var(--panel); border: 1px solid var(--line); font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; }
   .tab.on .n { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -816,7 +818,8 @@
   <section class="tiles" id="tiles"></section>
 
   <section class="card">
-    <div class="list-head"><nav class="tabs" id="tabs"></nav><span class="hint" id="listHint"></span></div>
+    <div class="list-head"><nav class="tabs" id="tabs"></nav><span class="hint" id="listHint"></span>
+      <button type="button" class="btn close-trade" id="clearTab" hidden title="Delete every signal in this tab">Clear</button></div>
     <div class="tablewrap"><table>
       <thead><tr id="head"></tr></thead>
       <tbody id="rows"></tbody>
@@ -1127,6 +1130,9 @@ function renderTable() {
   document.querySelector(".tablewrap").hidden = rows.length === 0;
   if (!rows.length) empty.innerHTML = `<b>${EMPTY[tab][0]}</b>${EMPTY[tab][1]}`;
   document.getElementById("listHint").textContent = rows.length ? `${rows.length} signal${rows.length === 1 ? "" : "s"} · click a column to sort` : "";
+  const clr = document.getElementById("clearTab");
+  clr.hidden = !rows.length;
+  clr.textContent = tab === "all" ? `Clear all ${rows.length}` : `Clear ${rows.length} ${tab}`;
   document.getElementById("rows").innerHTML = rows.map(s => {
     const noPos = s.status === "PENDING" || s.status === "CANCELLED";
     const order = ORDER_TEXT[s.entry_type];
@@ -1147,8 +1153,9 @@ function renderTable() {
     <td class="num">${inr(s.target2)}</td>
     <td class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</td>
     <td><div class="tags">${String(s.reasons ?? "").split(", ").filter(Boolean).map(r => `<span>${esc(r)}</span>`).join("")}</div></td>
-    <td>${market === "IN" ? `<div class="row-acts v"><button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
-      `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button></div>` : ""}</td>
+    <td><div class="row-acts v">${market === "IN" ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
+      `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button>` : ""}` +
+      `<button type="button" class="btn sig-del" data-sdel="${esc(s.key)}" title="Delete this signal" aria-label="Delete ${esc(s.symbol)} signal">✕</button></div></td>
   </tr>`;
   }).join("");
 }
@@ -2104,10 +2111,44 @@ document.getElementById("rows").addEventListener("click", e => {
   }
   const sell = e.target.closest("[data-ssell]");
   if (sell) { openSell(sell.dataset.ssell); return; }
+  const del = e.target.closest("[data-sdel]");
+  if (del) {
+    const s = data.find(x => x.key === del.dataset.sdel); if (!s) return;
+    const what = `${s.side} ${s.symbol} (${STATUS_TEXT[s.status] ?? s.status}, ${signalTime(s)})`;
+    if (confirm(`Delete the ${what} signal?\n\nA later scan can add it again if the setup still qualifies.`)) deleteSignals([s.key], del);
+    return;
+  }
   const b = e.target.closest("[data-sbuy]"); if (!b) return;
   const s = data.find(x => x.key === b.dataset.sbuy); if (!s) return;
   signalBuy(s);
 });
+
+// Delete signals from the dashboard (not orders: Kotak is never touched). Ones with an Auto-trade order
+// still in progress are kept by the server so the app keeps tracking that order.
+async function deleteSignals(keys, btn) {
+  const mk = market;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`/api/signals/delete?market=${mk}`, { method: "POST", headers: { "Content-Type": "application/json" },
+                                                                 body: JSON.stringify({ keys }) });
+    const j = await res.json();
+    if (!res.ok) { alert(j.error || "Could not delete"); return; }
+    show(j);
+    const kept = j.kept.length ? ` ${j.kept.length} kept: an Auto-trade order is still in progress (close it under Portfolio › App trades first).` : "";
+    notice(`Deleted ${j.deleted} signal${j.deleted === 1 ? "" : "s"}.${kept}`, !!j.kept.length, mk);
+  } catch (err) { alert("Could not reach the server: " + err.message); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+document.getElementById("clearTab").onclick = e => {
+  const f = TABS.find(t => t[0] === tab)[2];
+  const keys = data.filter(f).map(s => s.key); if (!keys.length) return;
+  const name = META?.markets.find(m => m.code === market)?.name ?? market;
+  if (!confirm(`Delete all ${keys.length} ${tab === "all" ? "" : tab + " "}${name} signal${keys.length === 1 ? "" : "s"}?` +
+               `\n\nThis can't be undone. Later scans can add setups again if they still qualify.` +
+               (data.filter(f).some(s => !s.open) ? "\nClosed trades also leave the Performance stats." : ""))) return;
+  deleteSignals(keys, e.currentTarget);
+};
 
 function signalBuy(s) {
   const risk = Math.abs(s.entry - s.stop_loss);
