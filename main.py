@@ -3,7 +3,8 @@
 Every SCAN_INTERVAL_MIN minutes within each market's scan window (India 09:00-15:30 IST, US 09:30-16:00 ET) the
 scanner runs every SCAN_TIMEFRAMES timeframe with that market's scan panel settings from the dashboard
 (strategies, min votes, filters, Telegram on/off; .env until the panel is first saved), read afresh each loop.
---market IN or --market US limits a command to one market.
+--market IN or --market US limits a command to one market. The dashboard's Scanner switch starts this loop, or
+stops it (also one started with run.bat): it exits within a few seconds, ending a scan in progress at its next step.
 
 Usage:
   python main.py --test-telegram        send a test message
@@ -15,12 +16,12 @@ Usage:
 """
 import argparse
 import logging
-import time
+import threading
 from datetime import datetime, timedelta
 from time import monotonic
 
 from algotrade import config, markets, state, telegram_bot, tracker
-from algotrade.scanner import scan, scan_and_alert, set_status
+from algotrade.scanner import ScanStopped, request_stop, scan, scan_and_alert, set_status
 from algotrade.universe import get_universe
 
 TZ_LABEL = {"IN": "IST", "US": "ET"}
@@ -28,6 +29,7 @@ TZ_LABEL = {"IN": "IST", "US": "ET"}
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 log = logging.getLogger("main")
+_quit = threading.Event()   # set when the dashboard switches the scanner off (runner.STOP_KEY)
 
 
 def universe_of(code: str) -> str:
@@ -72,6 +74,10 @@ def run_scan(code: str, dry_run: bool = False) -> None:
         set_status(code, timeframe=tf)
         try:
             r = scan_and_alert(market=code, timeframe=tf, send=chosen["send"], **kw) or {}
+        except ScanStopped:   # switched off: keep what was found, skip Auto-trade
+            set_status(code, running=False, finished_at=_stamp(), timeframe=None, result=total, error=None)
+            log.info("%s scan stopped: the scanner is switching off", code)
+            return
         except Exception as exc:
             log.exception("%s %s scan failed", code, tf)
             errors.append(f"{tf}: {exc}")
@@ -115,7 +121,45 @@ def housekeeping() -> None:
             log.exception("Housekeeping (%s) failed", job.__name__)
 
 
+def _watch_stop(done: threading.Event) -> None:
+    """Poll the dashboard's off switch; on it, stop the scan in progress and end the loop."""
+    from algotrade import runner
+    while not done.wait(runner.STOP_POLL_SEC):
+        try:
+            if runner.stop_requested():
+                for code in markets.MARKETS:
+                    request_stop(code)
+                _quit.set()
+                return
+        except Exception:
+            log.exception("Checking the scanner's off switch failed")
+
+
+def _pause(seconds: float) -> None:
+    """Wait for the next loop; returns at once when the scanner is switched off."""
+    _quit.wait(seconds)
+
+
 def run_loop(codes: list[str]) -> None:
+    from algotrade import health, runner
+    runner.clear_stop()   # an off request left from before this start doesn't count
+    _quit.clear()
+    done = threading.Event()
+    threading.Thread(target=_watch_stop, args=(done,), name="stop-watch", daemon=True).start()
+    try:
+        _loop(codes)
+    finally:
+        done.set()
+        health.gone()
+        if _quit.is_set():
+            for code in codes:
+                set_status(code, running=False, timeframe=None, next_at=None)
+            runner.clear_stop()
+            log.info("Scanner switched off from the dashboard")
+            telegram_bot.send_message("🛑 <b>Scanner stopped</b> from the dashboard")
+
+
+def _loop(codes: list[str]) -> None:
     lines = []
     for code in codes:
         m = markets.get(code)
@@ -126,10 +170,12 @@ def run_loop(codes: list[str]) -> None:
         f"\nTF: {', '.join(config.SCAN_TIMEFRAMES)} · every {config.SCAN_INTERVAL_MIN} min")
     summary_sent_for: dict[str, object] = {}  # market -> exchange date whose EOD scan succeeded
     header_sent_for: dict[str, object] = {}   # market -> exchange date whose EOD header was sent
-    while True:
+    while not _quit.is_set():
         began = monotonic()
         housekeeping()
         for code in codes:
+            if _quit.is_set():
+                break
             m = markets.get(code)
             now = m.now()  # exchange time
             try:
@@ -157,7 +203,7 @@ def run_loop(codes: list[str]) -> None:
                 set_status(code, next_at=(datetime.now() + timedelta(seconds=wait)).isoformat(timespec="seconds"))
             except Exception:
                 log.exception("Saving the scan status failed")
-        time.sleep(wait)
+        _pause(wait)
 
 
 def run_backtest(code: str, symbols: str | None) -> None:

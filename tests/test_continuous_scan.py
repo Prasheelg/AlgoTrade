@@ -164,7 +164,7 @@ def test_loop_scans_from_nine_and_keeps_the_interval(monkeypatch):
     ticks = iter([0, 0, 100, 300])   # second loop: the scan took 200 s
     monkeypatch.setattr(main, "monotonic", lambda: next(ticks))
     monkeypatch.setattr(main, "run_scan", lambda code, dry_run=False: events.append(("scan", code)))
-    monkeypatch.setattr(main, "time", SimpleNamespace(sleep=sleep_after(2, sleeps)))
+    monkeypatch.setattr(main, "_pause", sleep_after(2, sleeps))
     with pytest.raises(StopLoop):
         main.run_loop(["IN"])
     assert events == [("update", "IN"), ("scan", "IN")]   # 08:55 nothing, 09:05 scans
@@ -204,5 +204,6 @@ def test_api_scan_status(client, monkeypatch):
     set_status("IN", running=True, timeframe="30m")
     j = client.get("/api/scan/status").get_json()
     assert j == {"alive": True, "last_seen_min": 1.5,
+                 "runner": {"running": True, "starting": False, "stopping": False, "error": None},
                  "markets": {"IN": {"running": True, "timeframe": "30m", "in_window": True},
                              "US": {"in_window": False}}}

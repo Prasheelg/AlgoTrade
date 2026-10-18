@@ -522,11 +522,26 @@ def api_scan_settings_save():
 def api_scan_status():
     """The continuous scanner, per market: running (and on which timeframe), last result, next scan, and whether
     the scanner process is alive at all."""
-    from . import health
+    from . import health, runner
     from .scanner import get_status
     return jsonify({"alive": health.scanner_running(), "last_seen_min": health.scanner_age_min(),
+                    "runner": runner.status(),
                     "markets": {code: {**get_status(code), "in_window": m.in_scan_window()}
                                 for code, m in markets.MARKETS.items()}})
+
+
+@app.post("/api/scanner")
+def api_scanner():
+    """The Scanner switch: {"on": true} starts the continuous scanner (main.py), {"on": false} stops it, also one
+    started with run.bat. It places and watches Auto-trade orders, so it needs the same access as an order."""
+    from . import runner
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    on = (request.get_json(silent=True) or {}).get("on")
+    if not isinstance(on, bool):
+        raise ValueError('Send {"on": true} or {"on": false}')
+    log.info("Scanner switched %s from %s", "on" if on else "off", access.who())
+    return jsonify(runner.start() if on else runner.stop())
 
 
 def _scan_timeframes(timeframes: list[str], **kw) -> dict:

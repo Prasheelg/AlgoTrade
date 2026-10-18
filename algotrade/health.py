@@ -10,6 +10,7 @@ Telegram when a problem starts and when it clears.
 The scanner writes a heartbeat every loop (beat()); the dashboard runs the checks (watch_once())."""
 import logging
 import os
+import sys
 from datetime import datetime, timedelta
 
 from . import backup, broker, config, kotak, markets, state, telegram_bot
@@ -29,6 +30,31 @@ def beat() -> None:
     state.set_setting(HEARTBEAT, {"pid": os.getpid()})
 
 
+def gone() -> None:
+    """Called by the scanner as it exits, so it shows as stopped at once rather than after two loops."""
+    state.set_setting(HEARTBEAT, {"pid": None, "stopped": True})
+
+
+def _pid_alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = k32.GetExitCodeProcess(h, ctypes.byref(code))
+        k32.CloseHandle(h)
+        return not ok or code.value == 259             # STILL_ACTIVE
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    return True
+
+
 def _age_min(ts: str | None, now: datetime) -> float | None:
     return (now - datetime.fromisoformat(ts)).total_seconds() / 60 if ts else None
 
@@ -40,9 +66,15 @@ def scanner_age_min(now: datetime | None = None) -> float | None:
 
 
 def scanner_running(now: datetime | None = None) -> bool:
-    """The scanner beat within two loops (plus slack): it is there to place stops and watch Auto-trade orders."""
+    """The scanner beat within two loops (plus slack): it is there to place stops and watch Auto-trade orders.
+    A scanner that exited (closed window, switched off) doesn't count, however recent its last beat."""
     age = scanner_age_min(now)
-    return age is not None and age <= 2 * config.SCAN_INTERVAL_MIN + 5
+    if age is None or age > 2 * config.SCAN_INTERVAL_MIN + 5:
+        return False
+    beat_ = state.get_setting(HEARTBEAT, None)[0] or {}
+    if beat_.get("stopped"):
+        return False
+    return not beat_.get("pid") or _pid_alive(beat_["pid"])
 
 
 def _stops(now_ist: datetime, open_: bool) -> list[dict]:

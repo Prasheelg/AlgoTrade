@@ -17,7 +17,7 @@ Credentials and settings go in `.env` (see `.env.example`).
 | `run.bat --dry-run` | Scan now and print signals without sending them |
 | `run.bat --once` | Scan now and send new signals |
 | `run.bat` | Run all the time: scan India 09:00–15:30 IST and US 09:30–16:00 ET every `SCAN_INTERVAL_MIN` (10) min on every timeframe, plus one end-of-day scan per market |
-| `run.bat --ui` | Signals dashboard at http://127.0.0.1:8050 (tracks SL/target hits, refreshes every 5 min) |
+| `run.bat --ui` | Signals dashboard at http://127.0.0.1:8050 (tracks SL/target hits, refreshes every 5 min); its **Scanner** switch in the scan panel starts or stops the continuous scanner, output in `logs/scanner.log` |
 | `run.bat --backtest --market IN --symbols NIFTY100` | Backtest the strategy, before and after costs (trades saved to `data/backtest_trades.csv`, US to `backtest_trades_US.csv`) |
 
 Add `--market IN` or `--market US` to any command to limit it to one market; by default both are scanned.

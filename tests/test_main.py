@@ -37,7 +37,7 @@ def loop(monkeypatch):
         clocks[code] = iter([datetime(*t, tzinfo=tz) for t in times])
 
     def run(codes, iterations):
-        monkeypatch.setattr(main, "time", SimpleNamespace(sleep=sleep_after(iterations, sleeps)))
+        monkeypatch.setattr(main, "_pause", sleep_after(iterations, sleeps))
         with pytest.raises(StopLoop):
             main.run_loop(codes)
         return sleeps
@@ -49,8 +49,8 @@ def test_global_time_module_untouched(loop):
     events, set_clock, run = loop
     set_clock("IN", (2024, 1, 6, 10, 0))
     run(["IN"], 1)
-    # only main.time was replaced; the shared `time` module (used by telegram_bot/web) is intact
-    assert main.time is not real_time and telegram_bot.time is real_time
+    # only main._pause was replaced; the shared `time` module (used by telegram_bot/web) is intact
+    assert telegram_bot.time is real_time
     assert type(real_time.sleep).__name__ == "builtin_function_or_method"
 
 

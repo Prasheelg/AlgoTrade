@@ -618,6 +618,7 @@
     #scanPanel.open .scan-sum svg { transform: rotate(180deg); }
     #scanPanel .run { width: auto; margin: 0; flex-shrink: 0; }
     #scanPanel .run .switch { display: none; }
+    #scanPanel .run .switch.scan-power { display: inline-flex; }
     #scanPanel .run .btn.primary { padding: 9px 18px; border-radius: 10px; }
     #scanPanel .run .scan-state { max-width: 46vw; }
     #scanPanel:not(.open) .ctl, #scanPanel:not(.open) .sc-row { display: none; }
@@ -808,6 +809,7 @@
       <div class="ctl"><span class="lbl">Min votes</span><select id="minScore"></select></div>
       <div class="run">
         <label class="switch"><input type="checkbox" id="send"> Send to Telegram</label>
+        <label class="switch scan-power" id="scanSw"><input type="checkbox" id="scanOn"> Scanner</label>
         <span class="scan-state" id="scanState" role="status"><i></i><span>Scanner…</span></span>
       </div>
     </div>
@@ -1305,6 +1307,7 @@ let STRATS = [], META = null;
 const optsBy = {};      // market -> { strategies, minScore, filters, send, saved } as stored on the server
 const scanStat = {};    // market -> the scanner's status for it (/api/scan/status)
 let scanAlive = null;   // is the scanner process running at all (null = not known yet)
+let scanRunner = null;  // the Scanner switch: { running, starting, stopping, error } (/api/scan/status "runner")
 const notes = {};       // market -> last scan message
 let opts = null;
 const TF_SHORT = { "5m": "5m", "15m": "15m", "30m": "30m", "1h": "1h", "1d": "daily" };
@@ -1395,10 +1398,19 @@ function renderScanState() {
   const win = m ? `${m.scan_window[0]}–${m.scan_window[1]} ${EXCHANGE[market]?.[1] ?? ""}, Mon–Fri` : "";
   const r = st.result, last = st.finished_at
     ? `Last scan ${hhmm(st.finished_at)}${r ? `: ${r.found} setup${r.found === 1 ? "" : "s"}, ${r.new} new` : ""}` : "No scan yet";
+  const rn = scanRunner ?? {}, box = document.getElementById("scanOn");
+  box.checked = !!(scanAlive || rn.starting) && !rn.stopping;
+  document.getElementById("scanSw").title = box.checked
+    ? "The scanner is on. Switch off to stop scanning (and Auto-trade's orders)"
+    : `Switch on to scan ${win} ${every}, all timeframes, with these settings`;
   let cls = "", text = "Scanner…", tip = "";
-  if (scanAlive === false) {
-    cls = "off"; text = "Scanner not running";
-    tip = `Start run.bat on the PC. It scans ${win} ${every}, all timeframes, with these settings.`;
+  if (rn.stopping) {
+    cls = "run"; text = "Stopping…"; tip = "The scanner ends the step it is on, then exits";
+  } else if (rn.starting) {
+    cls = "run"; text = "Starting…"; tip = "The scanner is starting up";
+  } else if (scanAlive === false) {
+    cls = "off"; text = rn.error ? "Scanner stopped (error)" : "Scanner off";
+    tip = rn.error ?? `Switch the scanner on (or start run.bat on the PC). It scans ${win} ${every}, all timeframes, with these settings.`;
   } else if (st.running) {
     cls = "run"; text = `Scanning ${TF_SHORT[st.timeframe] ?? "…"}`;
     tip = `Started ${hhmm(st.started_at)} · ${last}`;
@@ -1418,6 +1430,7 @@ async function loadScanStatus() {
   try { j = await (await fetch("/api/scan/status")).json(); } catch { return; }
   const before = scanStat[market]?.finished_at;
   scanAlive = j.alive;
+  scanRunner = j.runner ?? null;
   Object.assign(scanStat, j.markets);
   renderMarkets(); renderScanState();
   const st = scanStat[market];
@@ -1428,6 +1441,31 @@ async function loadScanStatus() {
   }
 }
 setInterval(() => { if (!document.hidden) loadScanStatus(); }, 10000);
+
+// The Scanner switch: the server starts or stops the scanner; the box only mirrors what it reports
+document.getElementById("scanSw").onclick = async e => {
+  e.preventDefault();
+  const box = document.getElementById("scanOn");
+  if (box.disabled) return;
+  const on = !box.checked;
+  if (!on && trading?.enabled && !confirm("Switch the scanner off?\n\nAuto-trade is ON. Without the scanner no new orders " +
+      "are placed, and open positions' stop-losses aren't re-placed next session or watched for exits.")) return;
+  box.disabled = true;
+  try {
+    const res = await fetch("/api/scanner", { method: "POST", headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ on }) });
+    const j = await res.json();
+    if (!res.ok) { alert(j.error || "Could not switch the scanner"); return; }
+    scanRunner = j; renderScanState();
+    for (let i = 0; i < 40; i++) {   // follow it until it is up or gone (a stop waits for the current step)
+      await new Promise(r => setTimeout(r, 1500));
+      await loadScanStatus();
+      if (!scanRunner?.starting && !scanRunner?.stopping) break;
+    }
+  } catch (err) {
+    alert("Could not reach the server: " + err.message);
+  } finally { box.disabled = false; renderScanState(); }
+};
 
 // Scan strategies as compact pill groups: [title, colour class, hint, strategy names]
 const SIG_CARDS = [
