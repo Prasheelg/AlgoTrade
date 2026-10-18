@@ -1481,7 +1481,13 @@ document.getElementById("scan").onclick = async () => {
     } else {
       const where = send ? `${r.sent} sent to Telegram` : "added to the dashboard only";
       const failed = send && r.sent < r.new ? ` · <b>${r.new - r.sent} failed to send</b>` : "";
-      say(`Scan finished (${what}): <b>${r.new} new</b> (${r.symbols.map(esc).join(", ")}). ${where}${failed}.`);
+      // Auto-trade (India, daily BUYs, only while it is ON): what it placed, skipped, or why it didn't run
+      const at = r.auto_trade;
+      const trade = !at ? ""
+        : at.blocked ? `<br><b>Auto-trade placed no orders:</b> ${esc(at.blocked)}.`
+        : `<br>Auto-trade: ${at.placed.length ? `<b>${at.placed.length} order${at.placed.length === 1 ? "" : "s"} placed</b> (${at.placed.map(esc).join(", ")})` : "no orders placed"}` +
+          `${at.skipped.length ? ` · not placed: ${at.skipped.map(esc).join("; ")}` : ""}.`;
+      say(`Scan finished (${what}): <b>${r.new} new</b> (${r.symbols.map(esc).join(", ")}). ${where}${failed}.${trade}`, !!at?.blocked);
     }
   } catch (err) {
     say("Could not reach the server: " + esc(err.message), true);

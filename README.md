@@ -156,9 +156,11 @@ past the best ask / bid on options. It fills straight away like a market order, 
 If there is no live price the order is refused rather than sent blind. The order still shows as *market* in
 the app's records and Telegram, with its limit.
 
-**What gets traded** (`algotrade/orders.py`): new **India BUY** signals found by the scanner (`run.bat` or
-`--once`) on the **daily** timeframe, as delivery (CNC). Dashboard scans, US signals, SELL signals and intraday
-signals never place orders. The scanner checks orders on every loop, also outside market hours.
+**What gets traded** (`algotrade/orders.py`): new **India BUY** signals on the **daily** timeframe, as delivery
+(CNC), found by the scanner (`run.bat` or `--once`) or by an India **Run scan** on the dashboard. A dashboard scan
+only trades while the scanner is running, because the scanner places the stop-loss after a fill and watches the
+exits; otherwise the scan message says so and no order is sent. US signals, SELL signals and intraday signals
+never place orders. The scanner checks orders on every loop, also outside market hours.
 
 - **Entry:** the signal's pending order, a limit at the entry price (pullback setups) or a stop-limit triggered
   at it (breakouts; limit 0.5% above). Quantity = the signal's size, cut so the order stays under

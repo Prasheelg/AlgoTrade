@@ -148,3 +148,16 @@ def test_stale_backup_is_a_warning(at, msgs, monkeypatch):
     monkeypatch.setattr(config, "DB_BACKUP", True)
     state.set_setting(backup.SETTING, {"day": "2026-10-13"})
     assert [p["id"] for p in health.problems()] == ["backup"]
+
+
+def test_scanner_running_follows_the_heartbeat(monkeypatch):
+    from datetime import datetime, timedelta
+    from algotrade import config, health, state
+    now = datetime(2026, 10, 19, 10, 0)
+    assert health.scanner_running(now) is False and health.scanner_age_min(now) is None   # never seen
+    monkeypatch.setattr(state, "get_setting",
+                        lambda k, d=None: ({}, (now - timedelta(minutes=2 * config.SCAN_INTERVAL_MIN + 4)).isoformat()))
+    assert health.scanner_running(now) is True
+    monkeypatch.setattr(state, "get_setting",
+                        lambda k, d=None: ({}, (now - timedelta(minutes=2 * config.SCAN_INTERVAL_MIN + 6)).isoformat()))
+    assert health.scanner_running(now) is False

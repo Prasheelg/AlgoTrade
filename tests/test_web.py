@@ -433,3 +433,49 @@ def test_signals_delete_needs_trade_access(client):
     r = client.post("/api/signals/delete", json={"keys": ["x"]}, environ_base={"REMOTE_ADDR": "192.168.1.20"})
     assert r.status_code in (302, 401, 403)
     assert len(state.all_signals()) == 1
+
+
+# ---- /api/scan → Auto-trade (India) ---------------------------------------------------------------
+
+def _scan_recording(*sigs):
+    def fake(**kw):
+        state.record(list(sigs), telegram=False)
+        return scan_result(found=len(sigs), new=len(sigs))
+    return fake
+
+
+def test_scan_hands_new_daily_buys_to_auto_trade(client, monkeypatch):
+    from algotrade import broker, health, orders
+    old = make_signal(symbol="OLD")
+    state.record([old], telegram=False)
+    day, intraday = make_signal(symbol="DAY"), make_signal(symbol="FAST", timeframe="15m")
+    sell = make_signal(symbol="SHORT", side="SELL")
+    monkeypatch.setattr(web, "scan_and_alert", _scan_recording(old, day, intraday, sell))
+    monkeypatch.setattr(broker, "trading_enabled", lambda: True)
+    monkeypatch.setattr(health, "scanner_running", lambda now=None: True)
+    rec = Recorder(lambda keys: [{"symbol": "DAY", "qty": 3, "entry_order": "OID1", "note": None}])
+    monkeypatch.setattr(orders, "trade_new", rec)
+    j = client.post("/api/scan", json={"min_score": 1}).get_json()
+    assert rec.calls == [(([day.key],), {})]                 # not OLD (already there), not 15m, not SELL
+    assert j["scan"]["auto_trade"] == {"placed": ["DAY × 3"], "skipped": [], "blocked": None}
+
+
+def test_scan_auto_trade_blocked_without_scanner(client, monkeypatch):
+    from algotrade import broker, health, orders
+    monkeypatch.setattr(web, "scan_and_alert", _scan_recording(make_signal(symbol="DAY")))
+    monkeypatch.setattr(broker, "trading_enabled", lambda: True)
+    monkeypatch.setattr(health, "scanner_running", lambda now=None: False)
+    monkeypatch.setattr(orders, "trade_new", lambda keys: pytest.fail("must not trade without the scanner"))
+    at = client.post("/api/scan", json={"min_score": 1}).get_json()["scan"]["auto_trade"]
+    assert at["placed"] == [] and "run.bat" in at["blocked"]
+
+
+def test_scan_no_auto_trade_when_off_or_us(client, monkeypatch):
+    from algotrade import broker, orders
+    monkeypatch.setattr(orders, "trade_new", lambda keys: pytest.fail("must not trade"))
+    monkeypatch.setattr(broker, "trading_enabled", lambda: False)
+    monkeypatch.setattr(web, "scan_and_alert", _scan_recording(make_signal(symbol="DAY")))
+    assert "auto_trade" not in client.post("/api/scan", json={"min_score": 1}).get_json()["scan"]
+    monkeypatch.setattr(broker, "trading_enabled", lambda: True)
+    monkeypatch.setattr(web, "scan_and_alert", _scan_recording(make_signal(symbol="AAPL", market="US")))
+    assert "auto_trade" not in client.post("/api/scan?market=US", json={"min_score": 1}).get_json()["scan"]

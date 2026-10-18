@@ -65,11 +65,7 @@ def trade(new_keys: list[str]) -> None:
     """Automatic Kotak orders (India): entries for new signals (only while Auto-trade is ON), then bring every
     live trade up to date. Order problems are logged and sent to Telegram; they never stop the scanner."""
     from algotrade import orders
-    try:
-        orders.enter(new_keys)
-        orders.reconcile()
-    except Exception:
-        log.exception("Automatic orders failed")
+    orders.trade_new(new_keys)
 
 
 def scan_settings(code: str) -> str:

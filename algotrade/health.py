@@ -33,6 +33,18 @@ def _age_min(ts: str | None, now: datetime) -> float | None:
     return (now - datetime.fromisoformat(ts)).total_seconds() / 60 if ts else None
 
 
+def scanner_age_min(now: datetime | None = None) -> float | None:
+    """Minutes since the scanner's last heartbeat, or None if it was never seen."""
+    _, at = state.get_setting(HEARTBEAT, None)
+    return _age_min(at, now or datetime.now())
+
+
+def scanner_running(now: datetime | None = None) -> bool:
+    """The scanner beat within two loops (plus slack): it is there to place stops and watch Auto-trade orders."""
+    age = scanner_age_min(now)
+    return age is not None and age <= 2 * config.SCAN_INTERVAL_MIN + 5
+
+
 def _stops(now_ist: datetime, open_: bool) -> list[dict]:
     from . import orders
     live = [t for t in orders.all_trades() if t["state"] == orders.OPEN]
@@ -79,14 +91,12 @@ def problems(last_refresh: str | None = None, now: datetime | None = None) -> li
             out += _stops(now_ist, open_)
         except Exception:
             log.exception("Health: stop-loss check failed")
-    if broker.trading_enabled():
-        beat_, at = state.get_setting(HEARTBEAT, None)
-        age = _age_min(at, now)
-        if age is None or age > 2 * config.SCAN_INTERVAL_MIN + 5:
-            out.append({"id": "scanner", "level": "critical",
-                        "text": "Auto-trade is ON but the scanner isn't running "
-                                + (f"(last seen {age:.0f} min ago)" if age is not None else "(never seen)")
-                                + ", so nothing places or watches its orders. Start run.bat."})
+    if broker.trading_enabled() and not scanner_running(now):
+        age = scanner_age_min(now)
+        out.append({"id": "scanner", "level": "critical",
+                    "text": "Auto-trade is ON but the scanner isn't running "
+                            + (f"(last seen {age:.0f} min ago)" if age is not None else "(never seen)")
+                            + ", so nothing places or watches its orders. Start run.bat."})
     if open_ and kotak.enabled():
         q = kotak.index_quote("Nifty 50")
         age = _age_min(q["time"].isoformat(), now_ist.replace(tzinfo=None)) if q and q.get("time") else None

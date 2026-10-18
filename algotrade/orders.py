@@ -273,6 +273,18 @@ def enter(keys: list[str]) -> list[dict]:
     return out
 
 
+def trade_new(keys: list[str]) -> list[dict]:
+    """Entries for new signals (only while Auto-trade is ON), then bring every live trade up to date. Returns the
+    trades created. Order problems are logged and sent to Telegram; they never stop the caller."""
+    try:
+        made = enter(keys)
+        reconcile()
+        return made
+    except Exception:
+        log.exception("Automatic orders failed")
+        return []
+
+
 def _try_entry(key: str, book: dict | None) -> dict:
     t = _get(key)
     try:

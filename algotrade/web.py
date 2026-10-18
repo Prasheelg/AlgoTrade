@@ -513,6 +513,23 @@ def _scan_timeframes(timeframes: list[str], **kw) -> dict:
     return total
 
 
+def _auto_trade(new_keys: list[str]) -> dict | None:
+    """Hand an India dashboard scan's new signals to Auto-trade, like the scanner does. Only while the scanner
+    is running: it places the stop-loss after a fill and watches the exits, so without it a filled entry would
+    sit unprotected. None when Auto-trade is off or there is nothing new."""
+    from . import health, orders
+    if not new_keys or not broker.trading_enabled():
+        return None
+    if not health.scanner_running():
+        log.warning("Dashboard scan: %d new signals not traded, the scanner isn't running", len(new_keys))
+        return {"placed": [], "skipped": [], "blocked": "the scanner (run.bat) isn't running, and it is what "
+                "places the stop-loss after a fill. Start run.bat, then scan again"}
+    made = orders.trade_new(new_keys)
+    return {"placed": [f"{t['symbol']} × {t['qty']}" for t in made if t and t["entry_order"]],
+            "skipped": [f"{t['symbol']}: {t['note']}" for t in made if t and not t["entry_order"]],
+            "blocked": None}
+
+
 @app.post("/api/scan")
 def api_scan():
     body = request.get_json(silent=True) or {}
@@ -539,9 +556,16 @@ def api_scan():
 
     def work():
         try:
+            before = {s["key"] for s in state.all_signals(mkt.code)}
             out["result"] = _scan_timeframes([v for v, _ in TIMEFRAMES] if timeframe == ALL_TF else [timeframe],
                                              send=bool(body.get("send", False)), strategies=strategies,
                                              min_score=min_score, market=mkt.code, filters=filters)
+            if mkt.code == "IN":
+                # Auto-trade only buys India daily setups, so intraday / SELL signals aren't handed over
+                at = _auto_trade([s["key"] for s in state.all_signals("IN")
+                                  if s["key"] not in before and s["timeframe"] == "1d" and s["side"] == "BUY"])
+                if at:
+                    out["result"]["auto_trade"] = at
         except ScanStopped:
             log.info("%s scan stopped from the dashboard", mkt.name)
         except Exception as exc:
