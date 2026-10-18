@@ -1322,7 +1322,9 @@ function optsFor(mk) {
       ? saved.strategies.includes(s.name) || (!known.includes(s.name) && s.default)
       : s.default).map(s => s.name),
     known: STRATS.map(s => s.name),
-    minScore: saved?.minScore ?? META.defaults.min_score,
+    // A saved Min votes only stands while the server default is the one it was chosen against
+    minScore: saved?.defMin === META.defaults.min_score ? saved.minScore : META.defaults.min_score,
+    defMin: META.defaults.min_score,
     filters: (saved?.filters ?? []).filter(f => META.filters.some(x => x.name === f)),
   };
 }
