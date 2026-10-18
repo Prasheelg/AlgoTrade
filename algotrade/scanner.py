@@ -29,6 +29,10 @@ def clear_stop(market: str) -> None:
     _stops[markets.get(market).code].clear()
 
 
+def stop_requested(market: str) -> bool:
+    return _stops[markets.get(market).code].is_set()
+
+
 def check_stop(market: str) -> None:
     if _stops[market].is_set():
         raise ScanStopped(f"{market} scan stopped")
@@ -257,7 +261,7 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
     if unknown:
         raise ValueError(f"Unknown filters: {', '.join(sorted(unknown))}")
     check_stop(market)
-    data = fetch_ohlcv(symbols, timeframe, market=market)
+    data = fetch_ohlcv(symbols, timeframe, market=market, stop=lambda: check_stop(market))
     check_stop(market)
     index_close = fetch_index(timeframe, market)
     try:

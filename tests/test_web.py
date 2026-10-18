@@ -367,3 +367,31 @@ def test_scan_stop_sets_flag_and_scan_reports_stopped(client, monkeypatch):
         assert [c[1]["timeframe"] for c in rec.calls] == ["5m"]
     finally:
         scanner.clear_stop("IN")
+
+
+def test_scan_stop_answers_while_a_download_is_still_running(client, monkeypatch):
+    """Stop returns at once even if the scan is stuck in a download; the lock stays held until it ends."""
+    import threading
+    import time
+    from algotrade import scanner
+
+    started, release = threading.Event(), threading.Event()
+
+    def slow_scan(**kw):
+        started.set()
+        release.wait(10)            # a Yahoo batch that can't be interrupted
+        scanner.check_stop(kw["market"])
+        return scan_result()
+    monkeypatch.setattr(web, "scan_and_alert", Recorder(slow_scan))
+    threading.Thread(target=lambda: started.wait(5) and scanner.request_stop("US")).start()
+    try:
+        t = time.monotonic()
+        j = client.post("/api/scan", json={"market": "US"}).get_json()
+        assert j["scan"] == {"stopped": True} and time.monotonic() - t < 3
+        r = client.post("/api/scan", json={"market": "US"})
+        assert r.status_code == 409 and "still finishing" in r.get_json()["error"]
+    finally:
+        release.set()
+        assert web._scan_locks["US"].acquire(timeout=5)   # the scan thread ends and frees the lock
+        web._scan_locks["US"].release()
+        scanner.clear_stop("US")

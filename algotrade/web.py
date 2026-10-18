@@ -8,7 +8,8 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 
 from . import access, broker, config, kotak, markets, performance, state, telegram_bot, tracker
-from .scanner import FILTERS, ScanStopped, check_stop, clear_stop, fetch_index, request_stop, scan_and_alert
+from .scanner import (FILTERS, ScanStopped, check_stop, clear_stop, fetch_index, request_stop, scan_and_alert,
+                      stop_requested)
 from .strategies import DEFAULT_STRATEGIES, describe, family_of
 
 log = logging.getLogger(__name__)
@@ -527,23 +528,42 @@ def api_scan():
         return jsonify({"error": f"Minimum agreeing votes must be between 1 and {votes}"}), 400
     lock = _scan_locks[mkt.code]
     if not lock.acquire(blocking=False):
+        if stop_requested(mkt.code):
+            return jsonify({"error": f"The stopped {mkt.name} scan is still finishing a download; "
+                                     "try again in a few seconds"}), 409
         return jsonify({"error": f"A {mkt.name} scan is already running"}), 409
     clear_stop(mkt.code)
-    try:
-        result = _scan_timeframes([v for v, _ in TIMEFRAMES] if timeframe == ALL_TF else [timeframe],
-                                  send=bool(body.get("send", False)), strategies=strategies,
-                                  min_score=min_score, market=mkt.code, filters=filters)
-        result.update(timeframe=timeframe, strategies=strategies, min_score=min_score, filters=filters)
-    except ScanStopped:
-        log.info("%s scan stopped from the dashboard", mkt.name)
-        return jsonify({**_signals_payload(mkt), "scan": {"stopped": True}})
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception as exc:
-        log.exception("Scan failed")
-        return jsonify({"error": str(exc)}), 500
-    finally:
-        lock.release()
+    # The scan runs in its own thread so Stop answers at once: a Yahoo batch download can't be interrupted
+    # and takes several seconds. The thread holds the lock until it really ends, so scans never overlap.
+    out, done = {}, threading.Event()
+
+    def work():
+        try:
+            out["result"] = _scan_timeframes([v for v, _ in TIMEFRAMES] if timeframe == ALL_TF else [timeframe],
+                                             send=bool(body.get("send", False)), strategies=strategies,
+                                             min_score=min_score, market=mkt.code, filters=filters)
+        except ScanStopped:
+            log.info("%s scan stopped from the dashboard", mkt.name)
+        except Exception as exc:
+            out["error"] = exc
+            if not isinstance(exc, ValueError):
+                log.exception("Scan failed")
+        finally:
+            lock.release()
+            done.set()
+
+    threading.Thread(target=work, name=f"scan-{mkt.code}", daemon=True).start()
+    while not done.wait(0.2):
+        if stop_requested(mkt.code):
+            done.wait(1)   # most steps end within a second; don't wait out a running download
+            break
+    if "result" not in out:
+        exc = out.get("error")
+        if exc is None:
+            return jsonify({**_signals_payload(mkt), "scan": {"stopped": True}})
+        return jsonify({"error": str(exc)}), 400 if isinstance(exc, ValueError) else 500
+    result = out["result"]
+    result.update(timeframe=timeframe, strategies=strategies, min_score=min_score, filters=filters)
     return jsonify({**_signals_payload(mkt), "scan": result})
 
 

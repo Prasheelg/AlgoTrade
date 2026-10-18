@@ -472,3 +472,16 @@ def test_scan_stopped_before_download(monkeypatch):
             scanner.scan(symbols=["AAA"], market="US")
     finally:
         scanner.clear_stop("US")
+
+
+def test_fetch_ohlcv_calls_stop_before_each_batch(monkeypatch):
+    from algotrade import data
+    downloads = []
+    monkeypatch.setattr(data.yf, "download", lambda tickers, **kw: downloads.append(tickers) or pd.DataFrame())
+
+    def stop():
+        if len(downloads) == 2:
+            raise scanner.ScanStopped("IN scan stopped")
+    with pytest.raises(scanner.ScanStopped):
+        data.fetch_ohlcv([f"S{i}" for i in range(5)], batch_size=2, stop=stop)
+    assert len(downloads) == 2
