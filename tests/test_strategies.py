@@ -214,9 +214,8 @@ def test_registry():
         "EMA 9/21 Cross", "20-bar Breakout", "Supertrend Flip", "MACD Trend Cross", "RSI Pullback",
         "Support-Resistance", "Demand-Supply", "Rally-Base-Rally", "Drop-Base-Rally", "Rally-Base-Drop",
         "Drop-Base-Drop", "Squeeze Breakout", "RSI(2) Reversion"]
-    assert st.OPT_IN == {"Squeeze Breakout", "RSI(2) Reversion"}
-    assert st.DEFAULT_STRATEGIES == [n for n in st.STRATEGIES if n not in st.OPT_IN]
-    assert len(st.DEFAULT_STRATEGIES) == 11
+    assert st.OPT_IN == set()
+    assert st.DEFAULT_STRATEGIES == list(st.STRATEGIES)   # every strategy is on by default
     assert set(st.FAMILIES) == {"Demand-Supply", "Rally-Base-Rally", "Drop-Base-Rally", "Rally-Base-Drop",
                                 "Drop-Base-Drop"}
     assert set(st.FAMILIES.values()) == {"Supply/Demand zone"}
@@ -236,7 +235,7 @@ def test_describe_shape():
                                     "family": "EMA 9/21 Cross", "group": "Indicators", "default": True}
     assert by["Support-Resistance"]["group"] == "Price action"
     assert by["Drop-Base-Drop"]["group"] == "Price action" and by["Drop-Base-Drop"]["family"] == "Supply/Demand zone"
-    assert by["Squeeze Breakout"]["default"] is False and by["RSI(2) Reversion"]["default"] is False
+    assert all(x["default"] for x in d)
 
 
 def test_strategy_votes():

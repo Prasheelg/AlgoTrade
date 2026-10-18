@@ -55,7 +55,7 @@ MIN_SCORE = int(_get("MIN_SCORE", "4"))
 CAPITAL = float(_get("CAPITAL", "100000"))
 RISK_PER_TRADE_PCT = float(_get("RISK_PER_TRADE_PCT", "1.0"))
 ALLOW_SHORTS = _get("ALLOW_SHORTS", "false").lower() in ("1", "true", "yes")
-# Strategies used by the continuous scanner / CLI (empty = all except the opt-in ones), comma-separated
+# Strategies used by the continuous scanner / CLI (empty = all), comma-separated
 STRATEGIES = [s.strip() for s in _get("STRATEGIES", "").split(",") if s.strip()]
 # Signal filters: "trend" (market above its 200 EMA) and/or "rs" (stock beating the index), comma-separated
 FILTERS = [s.strip().lower() for s in _get("FILTERS", "").split(",") if s.strip()]

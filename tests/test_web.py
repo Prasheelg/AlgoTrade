@@ -178,8 +178,8 @@ def test_scan_all_timeframes_labels_symbols(client, monkeypatch):
 
 @pytest.mark.parametrize("body,msg", [
     ({"timeframe": "2h"}, "Unsupported timeframe: 2h"),
-    ({"min_score": 10}, "Minimum agreeing votes must be between 1 and 7"),           # 11 defaults = 7 families
-    ({"min_score": -1}, "Minimum agreeing votes must be between 1 and 7"),
+    ({"min_score": 10}, "Minimum agreeing votes must be between 1 and 9"),           # 13 defaults = 9 families
+    ({"min_score": -1}, "Minimum agreeing votes must be between 1 and 9"),
     ({"strategies": ["Demand-Supply", "Rally-Base-Rally"], "min_score": 2},
      "Minimum agreeing votes must be between 1 and 1"),
     ({"strategies": ["Bogus"], "min_score": 2}, "Minimum agreeing votes must be between 1 and 1"),

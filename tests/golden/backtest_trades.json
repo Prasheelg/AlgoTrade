@@ -2,8 +2,8 @@
  "_meta": {
   "generated_with": {
    "numpy": "2.5.4",
-   "pandas": "3.0.6",
-   "python": "3.12.7"
+   "pandas": "2.3.3",
+   "python": "3.12.10"
   }
  },
  "data": {
@@ -623,7 +623,7 @@
     "entry_type": "stop",
     "exit": 563.57,
     "exit_time": "2022-11-17 00:00:00",
-    "score": 2,
+    "score": 3,
     "side": "BUY",
     "symbol": "SYM"
    },
@@ -713,7 +713,7 @@
     "entry_type": "stop",
     "exit": 584.6342,
     "exit_time": "2022-11-09 00:00:00",
-    "score": 2,
+    "score": 3,
     "side": "BUY",
     "symbol": "SYM"
    },

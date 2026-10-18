@@ -2,8 +2,8 @@
  "_meta": {
   "generated_with": {
    "numpy": "2.5.4",
-   "pandas": "3.0.6",
-   "python": "3.12.7"
+   "pandas": "2.3.3",
+   "python": "3.12.10"
   }
  },
  "data": {
@@ -3419,11 +3419,12 @@
     "qty": 57,
     "reasons": [
      "EMA 9/21 Cross",
-     "MACD Trend Cross"
+     "MACD Trend Cross",
+     "Squeeze Breakout"
     ],
     "ref": 579.75,
     "rsi": 58.5,
-    "score": 2,
+    "score": 3,
     "side": "BUY",
     "sl": 563.57,
     "targets": [
@@ -3442,11 +3443,12 @@
     "reasons": [
      "EMA 9/21 Cross",
      "MACD Trend Cross",
-     "Support-Resistance"
+     "Support-Resistance",
+     "Squeeze Breakout"
     ],
     "ref": 583.01,
     "rsi": 60.3,
-    "score": 3,
+    "score": 4,
     "side": "BUY",
     "sl": 575.53,
     "targets": [
@@ -3465,11 +3467,12 @@
     "reasons": [
      "EMA 9/21 Cross",
      "MACD Trend Cross",
-     "Support-Resistance"
+     "Support-Resistance",
+     "Squeeze Breakout"
     ],
     "ref": 584.7,
     "rsi": 61.3,
-    "score": 3,
+    "score": 4,
     "side": "BUY",
     "sl": 576.91,
     "targets": [
@@ -3477,6 +3480,50 @@
      617.99
     ],
     "vol_ratio": 1.24
+   },
+   {
+    "adx": 18.8,
+    "entry": 585.96,
+    "entry_type": "limit",
+    "i": 214,
+    "key": "SYM|BUY|2022-10-28",
+    "qty": 170,
+    "reasons": [
+     "Support-Resistance",
+     "Squeeze Breakout"
+    ],
+    "ref": 591.36,
+    "rsi": 64.8,
+    "score": 2,
+    "side": "BUY",
+    "sl": 582.31,
+    "targets": [
+     591.42,
+     596.88
+    ],
+    "vol_ratio": 0.69
+   },
+   {
+    "adx": 20.5,
+    "entry": 589.04,
+    "entry_type": "limit",
+    "i": 215,
+    "key": "SYM|BUY|2022-10-31",
+    "qty": 63,
+    "reasons": [
+     "Support-Resistance",
+     "Squeeze Breakout"
+    ],
+    "ref": 594.28,
+    "rsi": 66.2,
+    "score": 2,
+    "side": "BUY",
+    "sl": 573.3,
+    "targets": [
+     612.64,
+     636.25
+    ],
+    "vol_ratio": 0.88
    },
    {
     "adx": 18.3,
@@ -3701,6 +3748,28 @@
      644.07
     ],
     "vol_ratio": 0.8
+   },
+   {
+    "adx": 23.5,
+    "entry": 590.92,
+    "entry_type": "limit",
+    "i": 259,
+    "key": "SYM|BUY|2022-12-30",
+    "qty": 169,
+    "reasons": [
+     "Support-Resistance",
+     "RSI(2) Reversion"
+    ],
+    "ref": 596.53,
+    "rsi": 44.1,
+    "score": 2,
+    "side": "BUY",
+    "sl": 586.83,
+    "targets": [
+     597.06,
+     603.19
+    ],
+    "vol_ratio": 1.04
    },
    {
     "adx": 16.8,

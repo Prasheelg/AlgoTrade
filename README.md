@@ -27,11 +27,9 @@ Add `--market IN` or `--market US` to any command to limit it to one market; by 
 A signal is sent when at least `MIN_SCORE` of these agree on a direction:
 EMA 9/21 cross (EMA50 filter) · 20-bar breakout on 1.5x volume with ADX > 20 · Supertrend (10, 3) flip ·
 MACD cross aligned with EMA200 · RSI pullback in trend · support/resistance bounce · supply/demand zone retests
-(the five zone patterns share one vote).
-
-Opt-in strategies (unticked on the dashboard; add them to `STRATEGIES` in `.env` for the scanner):
-**Squeeze Breakout** (Bollinger Bands inside Keltner Channels for 5+ bars, then a close outside the bands) and
-**RSI(2) Reversion** (RSI(2) < 10 while price > EMA200).
+(the five zone patterns share one vote) · **Squeeze Breakout** (Bollinger Bands inside Keltner Channels for 5+ bars,
+then a close outside the bands) · **RSI(2) Reversion** (RSI(2) < 10 while price > EMA200).
+All are on by default; untick them on the dashboard or list a subset in `STRATEGIES` in `.env`.
 
 Optional filters veto signals using the market index (NIFTY 50 / S&P 500), set on the dashboard or `FILTERS` in `.env`:
 **Market trend** (BUY only while the index is above its 200-bar EMA) and **Relative strength**

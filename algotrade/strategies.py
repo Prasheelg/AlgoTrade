@@ -213,6 +213,6 @@ STRATEGIES: dict[str, Strategy] = {
     "Squeeze Breakout": squeeze_breakout,
     "RSI(2) Reversion": rsi2_reversion,
 }
-# Opt-in strategies are off unless selected (dashboard) or listed in STRATEGIES in .env
-OPT_IN = {"Squeeze Breakout", "RSI(2) Reversion"}
+# Opt-in strategies are off unless selected (dashboard) or listed in STRATEGIES in .env; none: all are on by default
+OPT_IN: set[str] = set()
 DEFAULT_STRATEGIES = [n for n in STRATEGIES if n not in OPT_IN]
