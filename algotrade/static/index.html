@@ -1687,6 +1687,12 @@ const ORDER_STATE = { PENDING: "Pending", COMPLETED: "Completed", CANCELLED: "Ca
 const MKT_NOTE = `<span title="SEBI doesn't allow market orders from apps; the limit makes it fill at once like one">sent as a limit just past the live price</span>`;
 let ordFilter = "ALL";   // Orders tab: ALL or one ORDER_STATE key
 
+// Modify / Cancel for a pending order from today's book (auto-trade orders are handled under App trades)
+const orderActs = o => o.state !== "PENDING" ? ""
+  : o.source?.kind === "auto" ? `<span class="hint" title="Close or cancel it under App trades, so Auto-trade keeps track of it">App trades ›</span>`
+  : `<div class="row-acts"><button type="button" class="btn" data-omod="${esc(o.order_id)}" style="padding:4px 11px;font-size:12px">Modify</button>` +
+    `<button type="button" class="btn close-trade" data-ocancel="${esc(o.order_id)}">Cancel</button></div>`;
+
 // [id, tab label, rows getter, columns: [header, cell(row), numeric], empty text]
 const PORT_TABS = [
   ["holdings", "Holdings", p => p.holdings, [
@@ -1713,10 +1719,7 @@ const PORT_TABS = [
     ["Status", o => `<span class="pstate ${esc(o.state)}" title="${esc(o.status)}">${esc(ORDER_STATE[o.state] ?? o.status)}</span>`],
     ["Placed by", o => `<span class="src ${esc(o.source?.kind)}">${esc(o.source?.label ?? "–")}</span>`],
     ["Reason", o => `<div class="note">${esc(o.reason)}</div>`], ["Order #", o => esc(o.order_id)],
-    ["", o => o.state !== "PENDING" ? ""
-      : o.source?.kind === "auto" ? `<span class="hint" title="Close or cancel it under App trades, so Auto-trade keeps track of it">App trades ›</span>`
-      : `<div class="row-acts"><button type="button" class="btn" data-omod="${esc(o.order_id)}" style="padding:4px 11px;font-size:12px">Modify</button>` +
-        `<button type="button" class="btn close-trade" data-ocancel="${esc(o.order_id)}">Cancel</button></div>`],
+    ["", o => orderActs(o)],
   ], ["No orders today", "Orders placed today, by you or the app, appear here."]],
   ["history", "Order history", () => portHistory ?? [], [
     ["Time", o => `${esc(o.time.slice(0, 10))}<div class="sub">${esc(o.time.slice(11, 16))}</div>`],
@@ -1728,6 +1731,8 @@ const PORT_TABS = [
     ["Status", o => `<span class="pstate ${esc(o.state)}" title="${esc(o.status)}">${esc(ORDER_STATE[o.state] ?? o.status)}</span>`],
     ["Placed by", o => `<span class="src">${esc(o.source ?? "–")}</span>`],
     ["Reason", o => `<div class="note">${esc(o.reason)}</div>`], ["Order #", o => esc(o.order_id)],
+    // History rows are snapshots: act on the live order from today's book, if it is still pending there
+    ["", o => { const live = port?.orders?.find(x => x.order_id === o.order_id); return live ? orderActs(live) : ""; }],
   ], ["No order history yet", "Orders are saved from Kotak's order book (which only holds today's) whenever the dashboard reads it, for 3 years."]],
   ["risk", "Risk", () => riskData?.positions ?? [], [
     ["Stock", r => `<span class="sym">${esc(r.symbol)}</span>`],
