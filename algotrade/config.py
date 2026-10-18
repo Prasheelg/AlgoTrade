@@ -47,7 +47,9 @@ TELEGRAM_COMMANDS = _get("TELEGRAM_COMMANDS", "true").lower() in ("1", "true", "
 EVENT_WINDOW_DAYS = int(_get("EVENT_WINDOW_DAYS", "3"))
 
 UNIVERSE = _get("UNIVERSE", "NIFTY100")
-SCAN_INTERVAL_MIN = int(_get("SCAN_INTERVAL_MIN", "15"))
+SCAN_INTERVAL_MIN = int(_get("SCAN_INTERVAL_MIN", "10"))
+# Timeframes the continuous scanner runs every loop, one after another
+SCAN_TIMEFRAMES = [s.strip() for s in _get("SCAN_TIMEFRAMES", "5m,15m,30m,1h,1d").split(",") if s.strip()]
 TIMEFRAME = _get("TIMEFRAME", "1d")
 MIN_SCORE = int(_get("MIN_SCORE", "4"))
 CAPITAL = float(_get("CAPITAL", "100000"))

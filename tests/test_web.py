@@ -95,15 +95,18 @@ def test_enrich_math():
 
 def test_meta_shape(client):
     m = client.get("/api/meta").get_json()
-    assert set(m) == {"strategies", "filters", "timeframes", "markets", "defaults"}
+    assert set(m) == {"strategies", "filters", "timeframes", "markets", "defaults", "scan"}
     assert len(m["strategies"]) == 13
     assert [f["name"] for f in m["filters"]] == ["trend", "rs", "events"]
     assert [t["value"] for t in m["timeframes"]] == ["5m", "15m", "30m", "1h", "1d", "all"]
     assert m["timeframes"][-1] == {"value": "all", "label": "All"}
     assert m["markets"] == [
-        {"code": "IN", "name": "India", "tz": "Asia/Kolkata", "session": ["09:15", "15:30"]},
-        {"code": "US", "name": "US", "tz": "America/New_York", "session": ["09:30", "16:00"]}]
+        {"code": "IN", "name": "India", "tz": "Asia/Kolkata", "session": ["09:15", "15:30"],
+         "scan_window": ["09:00", "15:30"]},
+        {"code": "US", "name": "US", "tz": "America/New_York", "session": ["09:30", "16:00"],
+         "scan_window": ["09:30", "16:00"]}]
     assert m["defaults"] == {"timeframe": "1d", "min_score": 2}
+    assert m["scan"] == {"interval_min": 15, "timeframes": ["1d"]}
 
 
 # ---- /api/refresh ---------------------------------------------------------------------------------

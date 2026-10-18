@@ -21,6 +21,7 @@ class Market:
     tv_prefix: str       # TradingView exchange prefix
     session: tuple[time, time]  # regular trading hours, exchange time
     index_symbol: str           # Yahoo ticker of the benchmark index (market filters)
+    scan_from: time | None = None  # the continuous scanner starts this early (None = at the open)
 
     def now(self) -> datetime:
         return datetime.now(ZoneInfo(self.tz))
@@ -28,6 +29,16 @@ class Market:
     def is_open(self, now: datetime | None = None) -> bool:
         now = now or self.now()
         return now.weekday() < 5 and self.session[0] <= now.time() <= self.session[1]
+
+    @property
+    def scan_window(self) -> tuple[time, time]:
+        """When the continuous scanner scans, exchange time (weekdays)."""
+        return self.scan_from or self.session[0], self.session[1]
+
+    def in_scan_window(self, now: datetime | None = None) -> bool:
+        now = now or self.now()
+        start, end = self.scan_window
+        return now.weekday() < 5 and start <= now.time() <= end
 
     def is_after_close(self, now: datetime | None = None) -> bool:
         now = now or self.now()
@@ -37,7 +48,7 @@ class Market:
 MARKETS = {
     "IN": Market("IN", "India", "🇮🇳", "₹", "en-IN", "Asia/Kolkata", config.UNIVERSE,
                  config.CAPITAL, config.MIN_PRICE, config.MIN_AVG_TURNOVER, "NSE:",
-                 (time(9, 15), time(15, 30)), "^NSEI"),
+                 (time(9, 15), time(15, 30)), "^NSEI", scan_from=time(9, 0)),
     "US": Market("US", "US", "🇺🇸", "$", "en-US", "America/New_York", config.US_UNIVERSE,
                  config.US_CAPITAL, config.US_MIN_PRICE, config.US_MIN_AVG_TURNOVER, "",
                  (time(9, 30), time(16, 0)), "^GSPC"),

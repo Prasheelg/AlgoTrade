@@ -98,3 +98,55 @@ def update(changes: dict, by: str) -> list[dict]:
     except Exception:
         log.exception("Telegram settings notice failed")
     return current()
+
+
+# ---- Scan settings: the dashboard's scan panel, per market. The continuous scanner reads them every loop. ----
+SCAN_KEY = "scan_settings_{}"
+
+
+def scan_defaults(code: str) -> dict:
+    """The .env scan settings of a market (STRATEGIES_IN … or STRATEGIES / MIN_SCORE / FILTERS)."""
+    from .strategies import DEFAULT_STRATEGIES, family_of
+    kw = config.MARKET_SCAN.get(code, {})
+    strategies = list(kw.get("strategies") or config.STRATEGIES or DEFAULT_STRATEGIES)
+    votes = len({family_of(s) for s in strategies})
+    return {"strategies": strategies, "min_score": max(1, min(kw.get("min_score") or config.MIN_SCORE, votes)),
+            "filters": list(kw.get("filters", config.FILTERS)), "send": True}
+
+
+def scan_settings(code: str) -> dict:
+    """What the scanner runs for a market: the panel's saved choices, else .env. "saved" is when they were saved
+    (None = .env)."""
+    code = markets.get(code).code
+    saved, at = state.get_setting(SCAN_KEY.format(code), None)
+    base = scan_defaults(code)
+    return {**base, **{k: saved[k] for k in base if k in (saved or {})}, "saved": at if saved else None}
+
+
+def save_scan_settings(code: str, body: dict) -> dict:
+    """Validate and store a market's scan panel: {strategies, min_score, filters, send}. Returns scan_settings()."""
+    from .scanner import FILTERS
+    from .strategies import STRATEGIES, family_of
+    code = markets.get(code).code
+    strategies, filters = body.get("strategies"), body.get("filters")
+    if not isinstance(strategies, list) or not all(isinstance(s, str) for s in strategies):
+        raise ValueError("strategies: a list of strategy names")
+    unknown = sorted(set(strategies) - set(STRATEGIES))
+    if unknown:
+        raise ValueError(f"Unknown strategies: {', '.join(unknown)}")
+    if not isinstance(filters, list) or not set(filters) <= set(FILTERS):
+        raise ValueError(f"filters: any of {', '.join(FILTERS)}")
+    votes = len({family_of(s) for s in strategies})
+    try:
+        min_score = int(body.get("min_score"))
+    except (TypeError, ValueError):
+        raise ValueError("min_score: a whole number")
+    if strategies and not 1 <= min_score <= votes:
+        raise ValueError(f"Minimum agreeing votes must be between 1 and {votes}")
+    if not isinstance(body.get("send"), bool):
+        raise ValueError("send: true or false")
+    state.set_setting(SCAN_KEY.format(code), {"strategies": strategies, "min_score": max(min_score, 1),
+                                              "filters": filters, "send": body["send"]})
+    log.info("%s scan settings saved: %d strategies, min %d, filters %s, Telegram %s", code, len(strategies),
+             min_score, filters or "none", "on" if body["send"] else "off")
+    return scan_settings(code)

@@ -12,7 +12,7 @@ import os
 import dotenv
 
 dotenv.load_dotenv = lambda *a, **k: False  # .env is never read
-for _k in ("UNIVERSE", "SCAN_INTERVAL_MIN", "TIMEFRAME", "MIN_SCORE", "CAPITAL", "RISK_PER_TRADE_PCT",
+for _k in ("UNIVERSE", "SCAN_INTERVAL_MIN", "SCAN_TIMEFRAMES", "TIMEFRAME", "MIN_SCORE", "CAPITAL", "RISK_PER_TRADE_PCT",
            "ALLOW_SHORTS", "STRATEGIES", "FILTERS", "US_UNIVERSE", "US_CAPITAL",
            "STRATEGIES_IN", "MIN_SCORE_IN", "FILTERS_IN", "STRATEGIES_US", "MIN_SCORE_US", "FILTERS_US",
            "BROKERAGE", "DP_CHARGE", "SLIPPAGE_BPS", "US_BROKERAGE", "US_SLIPPAGE_BPS",
@@ -146,7 +146,7 @@ def _isolation(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
     # config pinning
     for k, v in dict(MIN_SCORE=2, ALLOW_SHORTS=False, STRATEGIES=[], FILTERS=[], TIMEFRAME="1d",
-                     RISK_PER_TRADE_PCT=1.0, SCAN_INTERVAL_MIN=15, TELEGRAM_BOT_TOKEN="",
+                     RISK_PER_TRADE_PCT=1.0, SCAN_INTERVAL_MIN=15, SCAN_TIMEFRAMES=["1d"], TELEGRAM_BOT_TOKEN="",
                      TELEGRAM_CHAT_ID="", KOTAK_CONSUMER_KEY="", UNIVERSE="NIFTY100", US_UNIVERSE="SP100",
                      MARKET_SCAN={"IN": {}, "US": {}}, KOTAK_MOBILE="", KOTAK_UCC="", KOTAK_MPIN="",
                      KOTAK_TOTP_SECRET="").items():

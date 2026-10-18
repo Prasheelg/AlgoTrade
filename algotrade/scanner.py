@@ -296,6 +296,23 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
     return signals
 
 
+# ---- Status of the continuous scanner, per market, for the dashboard (they are separate processes) ----
+STATUS_KEY = "scan_status_{}"
+
+
+def set_status(market: str, **fields) -> None:
+    """Merge fields into a market's scan status (running, timeframe, started_at, finished_at, result, error,
+    next_at, ...)."""
+    from . import state
+    key = STATUS_KEY.format(market)
+    state.set_setting(key, {**(state.get_setting(key, None)[0] or {}), **fields})
+
+
+def get_status(market: str) -> dict:
+    from . import state
+    return state.get_setting(STATUS_KEY.format(market), None)[0] or {}
+
+
 def scan_and_alert(send: bool = True, **scan_kw) -> dict:
     """Scan, keep only signals not seen before, send them to Telegram and record them.
     With send=False new signals are recorded (visible on the dashboard) without alerting.

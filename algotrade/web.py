@@ -494,9 +494,39 @@ def api_meta():
         "filters": [{"name": k, "description": v} for k, v in FILTERS.items()],
         "timeframes": [{"value": v, "label": l} for v, l in TIMEFRAMES] + [{"value": ALL_TF, "label": "All"}],
         "markets": [{"code": m.code, "name": m.name, "tz": m.tz,
-                     "session": [t.strftime("%H:%M") for t in m.session]} for m in markets.MARKETS.values()],
+                     "session": [t.strftime("%H:%M") for t in m.session],
+                     "scan_window": [t.strftime("%H:%M") for t in m.scan_window]} for m in markets.MARKETS.values()],
         "defaults": {"timeframe": config.TIMEFRAME, "min_score": config.MIN_SCORE},
+        "scan": {"interval_min": config.SCAN_INTERVAL_MIN, "timeframes": config.SCAN_TIMEFRAMES},
     })
+
+
+@app.get("/api/scan/settings")
+def api_scan_settings():
+    """The continuous scanner's settings for ?market= (the scan panel): strategies, min_score, filters, send."""
+    from . import settings
+    return jsonify(settings.scan_settings(_market().code))
+
+
+@app.post("/api/scan/settings")
+def api_scan_settings_save():
+    """Save the scan panel for ?market=; the scanner (run.bat) uses it from its next loop. Changing what gets
+    scanned changes what Auto-trade buys, so it needs the same access as placing an order."""
+    from . import settings
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    return jsonify(settings.save_scan_settings(_market().code, request.get_json(silent=True) or {}))
+
+
+@app.get("/api/scan/status")
+def api_scan_status():
+    """The continuous scanner, per market: running (and on which timeframe), last result, next scan, and whether
+    the scanner process is alive at all."""
+    from . import health
+    from .scanner import get_status
+    return jsonify({"alive": health.scanner_running(), "last_seen_min": health.scanner_age_min(),
+                    "markets": {code: {**get_status(code), "in_window": m.in_scan_window()}
+                                for code, m in markets.MARKETS.items()}})
 
 
 def _scan_timeframes(timeframes: list[str], **kw) -> dict:

@@ -9,10 +9,14 @@ import pandas as pd
 import pytest
 
 import main
-from algotrade import backtest, config, costs, markets, telegram_bot, tracker
+from algotrade import backtest, config, costs, markets, settings, telegram_bot, tracker
+from algotrade.strategies import DEFAULT_STRATEGIES
 from conftest import Recorder, StopLoop, make_signal, sleep_after
 
-STARTUP = ("🤖 <b>Scanner started</b>\n🇮🇳 India: NIFTY100 · 09:15–15:30 IST\n   default strategies · min score 2\n"
+# What run_scan passes to scan() / scan_and_alert() with nothing saved in the scan panel and no .env overrides
+DEFAULT_KW = {"strategies": list(DEFAULT_STRATEGIES), "min_score": 2, "filters": []}
+
+STARTUP = ("🤖 <b>Scanner started</b>\n🇮🇳 India: NIFTY100 · 09:00–15:30 IST\n   default strategies · min score 2\n"
            "🇺🇸 US: SP100 · 09:30–16:00 ET\n   default strategies · min score 2\nTF: 1d · every 15 min")
 
 
@@ -61,13 +65,13 @@ def test_startup_message_and_open_market(loop):
 
 def test_startup_message_single_market_and_config(loop, monkeypatch):
     events, set_clock, run = loop
-    monkeypatch.setattr(config, "TIMEFRAME", "15m")
+    monkeypatch.setattr(config, "SCAN_TIMEFRAMES", ["5m", "15m"])
     monkeypatch.setattr(config, "SCAN_INTERVAL_MIN", 5)
     monkeypatch.setattr(config, "US_UNIVERSE", "AAPL,MSFT")
     set_clock("US", (2024, 1, 6, 12, 0))
     sleeps = run(["US"], 1)
     assert events == [("msg", "🤖 <b>Scanner started</b>\n🇺🇸 US: AAPL,MSFT · 09:30–16:00 ET\n"
-                              "   default strategies · min score 2\nTF: 15m · every 5 min")]
+                              "   default strategies · min score 2\nTF: 5m, 15m · every 5 min")]
     assert sleeps == [300]
 
 
@@ -77,7 +81,7 @@ def test_eod_scan_once_per_market_per_date(loop):
     set_clock("IN", (2024, 1, 1, 15, 45), (2024, 1, 1, 16, 0), (2024, 1, 1, 23, 0), (2024, 1, 2, 15, 31))
     run(["IN"], 4)
     hdr = ("msg", "🇮🇳 📊 <b>India end-of-day scan</b> — setups for next session:")
-    start_in = "🤖 <b>Scanner started</b>\n🇮🇳 India: NIFTY100 · 09:15–15:30 IST\n   default strategies · min score 2\nTF: 1d · every 15 min"
+    start_in = "🤖 <b>Scanner started</b>\n🇮🇳 India: NIFTY100 · 09:00–15:30 IST\n   default strategies · min score 2\nTF: 1d · every 15 min"
     assert events == [("msg", start_in), hdr, ("scan", "IN"), hdr, ("scan", "IN")]
 
 
@@ -163,7 +167,7 @@ def test_eod_header_resent_on_next_date_after_failure(loop, monkeypatch):
     """The header flag is per exchange date: a new date gets a new header even if the last scan failed."""
     events, set_clock, run = loop
     monkeypatch.setattr(main, "run_scan", flaky_scan(events, failures=2))
-    set_clock("IN", (2024, 1, 1, 16, 0), (2024, 1, 2, 9, 0), (2024, 1, 2, 16, 0), (2024, 1, 2, 16, 15))
+    set_clock("IN", (2024, 1, 1, 16, 0), (2024, 1, 2, 8, 50), (2024, 1, 2, 16, 0), (2024, 1, 2, 16, 15))
     run(["IN"], 4)
     assert events[1:] == [EOD_IN, ("scan", "IN"), EOD_IN, ("scan", "IN"), ("scan", "IN")]
 
@@ -192,9 +196,9 @@ def test_run_scan_modes(monkeypatch, capsys):
     main.run_scan("IN", dry_run=True)
     out = capsys.readouterr().out
     assert out == telegram_bot.format_signal(make_signal()) + " \n" + "-" * 40 + "\n"
-    assert main.scan.calls == [((), {"market": "IN"})]
+    assert main.scan.calls == [((), {"market": "IN", "timeframe": "1d", **DEFAULT_KW})]
     main.run_scan("US")
-    assert saa.calls == [((), {"market": "US"})]
+    assert saa.calls == [((), {"market": "US", "timeframe": "1d", "send": True, **DEFAULT_KW})]
 
 
 def test_universe_of(monkeypatch):
@@ -218,7 +222,7 @@ def cli(monkeypatch):
 
 
 def test_cli_dry_run_all_markets(cli, monkeypatch, capsys):
-    monkeypatch.setattr(main, "scan", lambda market: [make_signal(market=market, symbol=f"S{market}")])
+    monkeypatch.setattr(main, "scan", lambda market, **kw: [make_signal(market=market, symbol=f"S{market}")])
     cli("--dry-run")
     out = capsys.readouterr().out
     assert out.startswith("\n===== 🇮🇳 India =====\n")
@@ -226,7 +230,7 @@ def test_cli_dry_run_all_markets(cli, monkeypatch, capsys):
 
 
 def test_cli_dry_run_single_market_no_header(cli, monkeypatch, capsys):
-    monkeypatch.setattr(main, "scan", lambda market: [])
+    monkeypatch.setattr(main, "scan", lambda market, **kw: [])
     cli("--dry-run", "--market", "us")
     assert capsys.readouterr().out == ""
 
@@ -235,7 +239,7 @@ def test_cli_once_uses_scan_and_alert(cli, monkeypatch):
     saa = Recorder({})
     monkeypatch.setattr(main, "scan_and_alert", saa)
     cli("--once", "--market", "IN")
-    assert saa.calls == [((), {"market": "IN"})]
+    assert saa.calls == [((), {"market": "IN", "timeframe": "1d", "send": True, **DEFAULT_KW})]
 
 
 IN_SCAN = {"strategies": ["RSI Pullback", "RSI(2) Reversion"], "min_score": 1, "filters": ["trend", "rs"]}
@@ -246,7 +250,8 @@ def test_cli_once_uses_per_market_settings(cli, monkeypatch):
     saa = Recorder({})
     monkeypatch.setattr(main, "scan_and_alert", saa)
     cli("--once")
-    assert saa.calls == [((), {"market": "IN", **IN_SCAN}), ((), {"market": "US"})]
+    assert saa.calls == [((), {"market": "IN", "timeframe": "1d", "send": True, **IN_SCAN}),
+                         ((), {"market": "US", "timeframe": "1d", "send": True, **DEFAULT_KW})]
 
 
 def test_cli_dry_run_uses_per_market_settings(cli, monkeypatch):
@@ -254,7 +259,7 @@ def test_cli_dry_run_uses_per_market_settings(cli, monkeypatch):
     calls = []
     monkeypatch.setattr(main, "scan", lambda **kw: calls.append(kw) or [])
     cli("--dry-run", "--market", "IN")
-    assert calls == [{"market": "IN", **IN_SCAN}]
+    assert calls == [{"market": "IN", "timeframe": "1d", **IN_SCAN}]
 
 
 def test_scan_settings_line(monkeypatch):
@@ -331,12 +336,12 @@ def test_cli_backtest_writes_csv_to_data_dir(cli, monkeypatch, tmp_path, capsys)
     uni = Recorder(lambda spec, market: [f"{market}1", f"{market}2"])
     monkeypatch.setattr(main, "get_universe", uni)
     trades = pd.DataFrame({"symbol": ["A"], "side": ["BUY"], "R": [1.5]})
-    run = Recorder(lambda syms, tf, period, market, costs: trades if market == "IN" else pd.DataFrame())
+    run = Recorder(lambda syms, tf, period, market, costs, **kw: trades if market == "IN" else pd.DataFrame())
     monkeypatch.setattr(backtest, "run", run)
     cli("--backtest")
     assert uni.calls == [((None,), {"market": "IN"}), ((None,), {"market": "US"})]
     assert run.calls[0] == ((["IN1", "IN2"], "1d"), {"period": "5y", "market": "IN",
-                                                     "costs": costs.model_for("IN", "1d")})
+                                                     "costs": costs.model_for("IN", "1d"), **DEFAULT_KW})
     assert (tmp_path / "backtest_trades.csv").read_text().splitlines() == ["symbol,side,R", "A,BUY,1.5"]
     assert not (tmp_path / "backtest_trades_US.csv").exists()  # empty trades: no file
     out = capsys.readouterr().out
@@ -351,6 +356,6 @@ def test_cli_backtest_intraday_period_and_us_file(cli, monkeypatch, tmp_path):
     monkeypatch.setattr(backtest, "run", run)
     cli("--backtest", "--market", "US", "--symbols", "X")
     assert run.calls[0] == ((["X"], "15m"), {"period": "60d", "market": "US",
-                                             "costs": costs.model_for("US", "15m")})
+                                             "costs": costs.model_for("US", "15m"), **DEFAULT_KW})
     assert main.get_universe.calls == [(("X",), {"market": "US"})]
     assert (tmp_path / "backtest_trades_US.csv").exists()

@@ -94,6 +94,16 @@
   .busy { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
           animation: pulse 1s ease-in-out infinite alternate; }
   @keyframes pulse { to { opacity: .25; } }
+  /* Continuous scanner status in the scan panel: grey idle, green ok, pulsing blue scanning, red not running */
+  .scan-state { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted);
+                min-width: 0; white-space: nowrap; }
+  .scan-state > span { overflow: hidden; text-overflow: ellipsis; }
+  .scan-state i { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .scan-state.ok i { background: var(--up); }
+  .scan-state.run { color: var(--ink); }
+  .scan-state.run i { background: var(--accent); animation: pulse 1s ease-in-out infinite alternate; }
+  .scan-state.off { color: var(--down); }
+  .scan-state.off i { background: var(--down); }
   .spacer { flex: 1; }
   .btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 13px; border-radius: 8px;
          font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--shadow); }
@@ -609,6 +619,7 @@
     #scanPanel .run { width: auto; margin: 0; flex-shrink: 0; }
     #scanPanel .run .switch { display: none; }
     #scanPanel .run .btn.primary { padding: 9px 18px; border-radius: 10px; }
+    #scanPanel .run .scan-state { max-width: 46vw; }
     #scanPanel:not(.open) .ctl, #scanPanel:not(.open) .sc-row { display: none; }
     #scanPanel.open .scan-row:first-child { flex-wrap: wrap; }
     #scanPanel.open .scan-sum { flex-basis: calc(100% - 130px); }
@@ -794,12 +805,10 @@
       <button type="button" class="scan-sum" id="scanSum" aria-expanded="false" aria-controls="scanPanel">
         <span><b>Scan settings</b><small id="scanSumTxt"></small></span>
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-      <div class="ctl"><span class="lbl">Timeframe</span><div class="seg" id="tfs"></div></div>
       <div class="ctl"><span class="lbl">Min votes</span><select id="minScore"></select></div>
       <div class="run">
         <label class="switch"><input type="checkbox" id="send"> Send to Telegram</label>
-        <button id="scan" class="btn primary">Run scan</button>
-        <button id="scanStop" type="button" class="btn close-trade" hidden>Stop</button>
+        <span class="scan-state" id="scanState" role="status"><i></i><span>Scanner…</span></span>
       </div>
     </div>
     <div class="scan-row sc-row">
@@ -1290,15 +1299,16 @@ document.getElementById("refresh").onclick = async e => {
 };
 
 
-// ---- Scan settings ----
+// ---- Scan settings: what the continuous scanner (run.bat) runs, per market, stored on the PC ----
+// The scanner reads them at the start of every loop, so a change here applies from its next scan.
 let STRATS = [], META = null;
-const optsBy = {};    // market -> { timeframe, strategies, minScore, known }
-const scanning = {};  // market -> start time of the running scan
-const stopping = {};  // market -> when Stop was pressed for its running scan
-const notes = {};     // market -> last scan message
+const optsBy = {};      // market -> { strategies, minScore, filters, send, saved } as stored on the server
+const scanStat = {};    // market -> the scanner's status for it (/api/scan/status)
+let scanAlive = null;   // is the scanner process running at all (null = not known yet)
+const notes = {};       // market -> last scan message
 let opts = null;
-// India keeps the original storage key so earlier choices survive
-const optsKey = m => m === "IN" ? "scanOpts" : `scanOpts:${m}`;
+const TF_SHORT = { "5m": "5m", "15m": "15m", "30m": "30m", "1h": "1h", "1d": "daily" };
+const hhmm = iso => iso ? iso.slice(11, 16) : "–";
 
 function notice(html, err = false, mk = market) {
   notes[mk] = { html, err };
@@ -1315,33 +1325,46 @@ function renderMarkets() {
   document.getElementById("markets").innerHTML = (META?.markets ?? [{ code: "IN", name: "India" }, { code: "US", name: "US" }])
     .map(m => `<button type="button" data-market="${m.code}" class="${m.code === market ? "on" : ""}">` +
       `<span class="flag">${FLAGS[m.code] ?? ""}</span>${esc(m.name)}` +
-      (scanning[m.code] ? `<span class="busy" title="Scan running"></span>`
+      (scanStat[m.code]?.running ? `<span class="busy" title="Scan running"></span>`
         : `<span class="mdot" data-m="${m.code}" title="Market open / closed"></span>`) + `</button>`).join("");
   renderStatus();
 }
 
+// Until the server's copy arrives: the strategies that are on by default
 function optsFor(mk) {
-  if (optsBy[mk]) return optsBy[mk];
-  const saved = store.get(optsKey(mk));
-  // Keep saved choices; strategies added since then start ticked unless they are opt-in
-  const known = saved?.known ?? saved?.strategies ?? [];
-  return optsBy[mk] = {
-    timeframe: saved?.timeframe ?? META.defaults.timeframe,
-    strategies: STRATS.filter(s => saved
-      ? saved.strategies.includes(s.name) || (!known.includes(s.name) && s.default)
-      : s.default).map(s => s.name),
-    known: STRATS.map(s => s.name),
-    // A saved Min votes only stands while the server default is the one it was chosen against
-    minScore: saved?.defMin === META.defaults.min_score ? saved.minScore : META.defaults.min_score,
-    defMin: META.defaults.min_score,
-    filters: (saved?.filters ?? []).filter(f => META.filters.some(x => x.name === f)),
-  };
+  return optsBy[mk] ?? { strategies: STRATS.filter(s => s.default).map(s => s.name),
+                         minScore: META?.defaults.min_score ?? 1, filters: [], send: true, saved: null };
 }
 
+async function loadScanSettings(mk) {
+  try {
+    const j = await (await fetch(`/api/scan/settings?market=${mk}`)).json();
+    optsBy[mk] = { strategies: j.strategies, minScore: j.min_score, filters: j.filters, send: j.send, saved: j.saved };
+  } catch { return; }
+  if (mk === market) { opts = optsBy[mk]; renderScanPanel(); }
+}
+
+let saveTimer = null;
+function saveScanSettings() {
+  const mk = market, o = opts;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {   // several quick clicks become one save
+    try {
+      const res = await fetch(`/api/scan/settings?market=${mk}`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strategies: o.strategies, min_score: o.minScore, filters: o.filters, send: o.send }) });
+      const j = await res.json();
+      if (!res.ok) { alert(j.error || "Could not save the scan settings"); delete optsBy[mk]; loadScanSettings(mk); return; }
+      o.saved = j.saved;
+      if (mk === market) renderScanState();
+    } catch (err) { alert("Could not reach the server: " + err.message); }
+  }, 500);
+}
+function scanChanged() { renderScanPanel(); saveScanSettings(); }
+
 function renderScanPanel() {
-  document.querySelectorAll("#tfs button").forEach(b => b.classList.toggle("on", b.dataset.tf === opts.timeframe));
   document.querySelectorAll("#strats input").forEach(c => c.checked = opts.strategies.includes(c.value));
   document.querySelectorAll("#filters input").forEach(c => c.checked = opts.filters.includes(c.value));
+  document.getElementById("send").checked = opts.send;
   const n = opts.strategies.length;
   // Strategies in the same family (the zone patterns) share one vote
   const votes = new Set(opts.strategies.map(name => STRATS.find(s => s.name === name)?.family ?? name)).size;
@@ -1351,22 +1374,54 @@ function renderScanPanel() {
     : `<option>–</option>`;
   document.getElementById("stratCount").textContent =
     `${n} of ${STRATS.length} on` + (votes !== n ? ` · ${votes} vote${votes === 1 ? "" : "s"}` : "");
-  const tfName = document.querySelector(`#tfs button[data-tf="${opts.timeframe}"]`)?.textContent ?? opts.timeframe;
+  const tfs = (META?.scan.timeframes ?? []).map(t => TF_SHORT[t] ?? t).join(" · ");
   document.getElementById("scanSumTxt").textContent =
-    `${tfName} · ${votes ? `${opts.minScore} of ${votes} votes` : "no votes"} · ${n} strateg${n === 1 ? "y" : "ies"}`;
+    `${tfs} · ${votes ? `${opts.minScore} of ${votes} votes` : "no votes"} · ${n} strateg${n === 1 ? "y" : "ies"}`;
   renderCardCounts();
-  const busy = scanning[market] != null;
-  document.querySelectorAll("#scanPanel button, #scanPanel input, #scanPanel select").forEach(el => el.disabled = busy);
-  document.getElementById("scanSum").disabled = false;  // the settings can still be looked at during a scan
-  document.getElementById("scan").disabled = busy || n === 0;
-  document.getElementById("scan").textContent = busy
-    ? `Scanning… ${Math.round((Date.now() - scanning[market]) / 1000)}s` : "Run scan";
-  const stop = document.getElementById("scanStop");
-  stop.hidden = !busy;
-  stop.disabled = stopping[market] != null;
-  stop.textContent = stopping[market] != null ? "Stopping…" : "Stop";
-  store.set(optsKey(market), opts);
+  renderScanState();
 }
+
+// One line on the continuous scanner for the market on screen; the details are in the tooltip
+function renderScanState() {
+  const el = document.getElementById("scanState"); if (!el) return;
+  const st = scanStat[market] ?? {}, m = META?.markets.find(x => x.code === market);
+  const every = META ? `every ${META.scan.interval_min} min` : "";
+  const win = m ? `${m.scan_window[0]}–${m.scan_window[1]} ${EXCHANGE[market]?.[1] ?? ""}, Mon–Fri` : "";
+  const r = st.result, last = st.finished_at
+    ? `Last scan ${hhmm(st.finished_at)}${r ? `: ${r.found} setup${r.found === 1 ? "" : "s"}, ${r.new} new` : ""}` : "No scan yet";
+  let cls = "", text = "Scanner…", tip = "";
+  if (scanAlive === false) {
+    cls = "off"; text = "Scanner not running";
+    tip = `Start run.bat on the PC. It scans ${win} ${every}, all timeframes, with these settings.`;
+  } else if (st.running) {
+    cls = "run"; text = `Scanning ${TF_SHORT[st.timeframe] ?? "…"}`;
+    tip = `Started ${hhmm(st.started_at)} · ${last}`;
+  } else if (scanAlive) {
+    cls = st.error ? "off" : "ok";
+    text = st.in_window ? `Next scan ${hhmm(st.next_at)}` : `Idle · scans ${m?.scan_window[0] ?? ""}–${m?.scan_window[1] ?? ""}`;
+    tip = `${last}${st.error ? ` · problem: ${st.error}` : ""} · scans ${win} ${every}`;
+  }
+  if (opts?.saved) tip += ` · settings saved ${opts.saved.replace("T", " ").slice(0, 16)}`;
+  el.className = "scan-state " + cls;
+  el.title = tip;
+  el.lastElementChild.textContent = text;
+}
+
+async function loadScanStatus() {
+  let j;
+  try { j = await (await fetch("/api/scan/status")).json(); } catch { return; }
+  const before = scanStat[market]?.finished_at;
+  scanAlive = j.alive;
+  Object.assign(scanStat, j.markets);
+  renderMarkets(); renderScanState();
+  const st = scanStat[market];
+  if (before && st?.finished_at && st.finished_at !== before) {   // a scan just finished: show what it found
+    load();
+    if (st.error) notice(`Scan at ${hhmm(st.finished_at)} had a problem: ${esc(st.error)}`, true);
+    else if (st.result?.new) notice(`Scan at ${hhmm(st.finished_at)}: <b>${st.result.new} new</b> (${st.result.symbols.map(esc).join(", ")}).`);
+  }
+}
+setInterval(() => { if (!document.hidden) loadScanStatus(); }, 10000);
 
 // Scan strategies as compact pill groups: [title, colour class, hint, strategy names]
 const SIG_CARDS = [
@@ -1400,8 +1455,7 @@ async function loadMeta() {
   STRATS = m.strategies;
   opts = optsFor(market);
   renderMarkets();
-  document.getElementById("tfs").innerHTML = m.timeframes.map(t =>
-    `<button type="button" data-tf="${t.value}">${t.label}</button>`).join("");
+  loadScanSettings(market); loadScanStatus();
   // One card per kind; the supply/demand zone patterns get their own card since they share one vote.
   // Strategies added later that no card names go in an "Other" card, so nothing disappears.
   const byName = Object.fromEntries(STRATS.map(s => [s.name, s]));
@@ -1428,87 +1482,26 @@ document.getElementById("markets").onclick = e => {
   market = b.dataset.market; store.set("market", market);
   data = []; tab = "pending"; render();
   renderMarkets(); renderNotice();
-  if (META) { opts = optsFor(market); renderScanPanel(); }
+  if (META) { opts = optsFor(market); renderScanPanel(); loadScanSettings(market); }
   load();
   if (view === "performance") { perf = null; loadPerf(); }
   if (!quotes[market]) loadIndex();
 };
 
-document.getElementById("tfs").onclick = e => {
-  const b = e.target.closest("[data-tf]"); if (!b) return;
-  opts.timeframe = b.dataset.tf; renderScanPanel();
-};
 document.getElementById("filters").onchange = () => {
   opts.filters = [...document.querySelectorAll("#filters input:checked")].map(c => c.value);
-  renderScanPanel();
+  scanChanged();
 };
 document.getElementById("strats").onchange = () => {
   opts.strategies = [...document.querySelectorAll("#strats input:checked")].map(c => c.value);
-  renderScanPanel();
+  scanChanged();
 };
-document.getElementById("allStrats").onclick = () => { opts.strategies = STRATS.map(s => s.name); renderScanPanel(); };
-document.getElementById("noStrats").onclick = () => { opts.strategies = []; renderScanPanel(); };
-document.getElementById("minScore").onchange = e => { opts.minScore = +e.target.value; renderScanPanel(); };
+document.getElementById("allStrats").onclick = () => { opts.strategies = STRATS.map(s => s.name); scanChanged(); };
+document.getElementById("noStrats").onclick = () => { opts.strategies = []; scanChanged(); };
+document.getElementById("minScore").onchange = e => { opts.minScore = +e.target.value; scanChanged(); };
+document.getElementById("send").onchange = e => { opts.send = e.target.checked; scanChanged(); };
 
 const FILTER_LABEL = { trend: "Market trend", rs: "Relative strength" };
-const TF_LABEL = { "5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hour", "1d": "daily", "all": "all timeframe" };
-
-document.getElementById("scan").onclick = async () => {
-  // The scan belongs to the market it was started on, even if the user switches markets meanwhile
-  const mk = market, o = opts, name = META.markets.find(m => m.code === mk)?.name ?? mk;
-  const send = document.getElementById("send").checked;
-  scanning[mk] = Date.now();
-  renderMarkets(); renderScanPanel();
-  const tick = setInterval(() => { if (market === mk) renderScanPanel(); }, 1000);
-  const what = `${name}, ${TF_LABEL[o.timeframe]} bars, ${o.strategies.length} strateg${o.strategies.length === 1 ? "y" : "ies"}, at least ${o.minScore} agreeing` +
-    (o.filters.length ? `, filters: ${o.filters.map(f => FILTER_LABEL[f] ?? f).join(" + ")}` : "");
-  const say = (html, err) => notice(html, err, mk);
-  say(`Scanning on ${what}. This takes about ${o.timeframe === "all" ? "2–5 minutes" : "15–60 seconds"}.`);
-  try {
-    const res = await fetch("/api/scan", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ market: mk, send, timeframe: o.timeframe, strategies: o.strategies,
-                            min_score: o.minScore, filters: o.filters }) });
-    const j = await res.json();
-    if (!res.ok) { say(esc(j.error || "Scan failed"), true); return; }
-    const r = j.scan;
-    if (r.stopped) { show(j); say(`Scan stopped (${what}). Signals it had already saved stay on the dashboard.`); return; }
-    if (market === mk) tab = "pending";  // new signals start as pending entries
-    show(j);
-    if (!r.found) {
-      say(`Scan finished (${what}): no setups found.`);
-    } else if (!r.new) {
-      say(`Scan finished (${what}): ${r.found} setup${r.found === 1 ? "" : "s"} found, none new. They're already on the dashboard.`);
-    } else {
-      const where = send ? `${r.sent} sent to Telegram` : "added to the dashboard only";
-      const failed = send && r.sent < r.new ? ` · <b>${r.new - r.sent} failed to send</b>` : "";
-      // Auto-trade (India, daily BUYs, only while it is ON): what it placed, skipped, or why it didn't run
-      const at = r.auto_trade;
-      const trade = !at ? ""
-        : at.blocked ? `<br><b>Auto-trade placed no orders:</b> ${esc(at.blocked)}.`
-        : `<br>Auto-trade: ${at.placed.length ? `<b>${at.placed.length} order${at.placed.length === 1 ? "" : "s"} placed</b> (${at.placed.map(esc).join(", ")})` : "no orders placed"}` +
-          `${at.skipped.length ? ` · not placed: ${at.skipped.map(esc).join("; ")}` : ""}.`;
-      say(`Scan finished (${what}): <b>${r.new} new</b> (${r.symbols.map(esc).join(", ")}). ${where}${failed}.${trade}`, !!at?.blocked);
-    }
-  } catch (err) {
-    say("Could not reach the server: " + esc(err.message), true);
-  } finally {
-    clearInterval(tick); delete scanning[mk]; delete stopping[mk];
-    renderMarkets();
-    if (market === mk) renderScanPanel();
-  }
-};
-
-// Stop the running scan of the market on screen: the server ends it at its next step
-document.getElementById("scanStop").onclick = async () => {
-  const mk = market;
-  if (scanning[mk] == null || stopping[mk] != null) return;
-  stopping[mk] = Date.now(); renderScanPanel();
-  try {
-    const res = await fetch(`/api/scan/stop?market=${mk}`, { method: "POST" });
-    if (!res.ok) { delete stopping[mk]; alert((await res.json()).error || "Could not stop the scan"); }
-  } catch (err) { delete stopping[mk]; alert("Could not reach the server: " + err.message); }
-  if (market === mk) renderScanPanel();
-};
 
 // ---- Performance view: closed trades before / after costs (/api/performance) ----
 let perf = null, perfDays = [0, 30, 90].includes(store.get("perfDays")) ? store.get("perfDays") : 0, bdTab = "Strategy";

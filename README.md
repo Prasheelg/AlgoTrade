@@ -16,7 +16,7 @@ Credentials and settings go in `.env` (see `.env.example`).
 | `run.bat --test-telegram` | Send a test message to the group |
 | `run.bat --dry-run` | Scan now and print signals without sending them |
 | `run.bat --once` | Scan now and send new signals |
-| `run.bat` | Run all the time: scan India 09:15–15:30 IST and US 09:30–16:00 ET every N min, plus one end-of-day scan per market |
+| `run.bat` | Run all the time: scan India 09:00–15:30 IST and US 09:30–16:00 ET every `SCAN_INTERVAL_MIN` (10) min on every timeframe, plus one end-of-day scan per market |
 | `run.bat --ui` | Signals dashboard at http://127.0.0.1:8050 (tracks SL/target hits, refreshes every 5 min) |
 | `run.bat --backtest --market IN --symbols NIFTY100` | Backtest the strategy, before and after costs (trades saved to `data/backtest_trades.csv`, US to `backtest_trades_US.csv`) |
 
@@ -40,19 +40,30 @@ results or an ex-dividend date within `EVENT_WINDOW_DAYS` (3) days, from Yahoo's
 patchy for small ones; live scans only, backtests ignore it).
 
 ### Per-market scanner settings
-The continuous scanner and `--once` / `--dry-run` can use different settings per market: `STRATEGIES_IN`,
-`MIN_SCORE_IN` and `FILTERS_IN` for India, `STRATEGIES_US`, `MIN_SCORE_US` and `FILTERS_US` for the US. A market
-without them uses `STRATEGIES`, `MIN_SCORE` and `FILTERS`. `--backtest` uses the same per-market settings, so it
-tests what the scanner runs. The startup message on Telegram lists what each market scans.
+**The scan panel on the dashboard is the scanner's settings.** For each market it holds the strategies, the
+minimum votes, the filters and *Send to Telegram*; changes are saved on the PC (in `signals.db`) and the scanner
+(`run.bat`) reads them at the start of every loop, so a change applies from the next scan, without a restart.
+Changing them needs the same access as placing an order. `--once`, `--dry-run` and `--backtest` use them too.
+Strategies switched off in the strategy scorecard are still left out.
 
-**India is set to RSI Pullback or RSI(2) Reversion (min score 1) with both filters**, the only India setup that was
-still positive after costs in the backtest (see Notes):
+Every loop scans each timeframe in `SCAN_TIMEFRAMES` (`5m,15m,30m,1h,1d`) one after another, every
+`SCAN_INTERVAL_MIN` (10) minutes counted from the start of the previous scan, within each market's scan window:
+**India 09:00–15:30 IST** (from before the 09:15 open), US 09:30–16:00 ET, weekdays. Instead of a Run scan button
+the panel shows the scanner's status: *Scanning 15m*, *Next scan 10:20*, *Idle* outside the window, or *Scanner not
+running* when `run.bat` isn't up; the tooltip has the last result. When a scan finds something new the signals
+list updates by itself.
+
+Until a market's panel is first changed, it starts from `.env`: `STRATEGIES_IN`, `MIN_SCORE_IN` and `FILTERS_IN`
+for India, `STRATEGIES_US`, `MIN_SCORE_US` and `FILTERS_US` for the US, else `STRATEGIES`, `MIN_SCORE` and
+`FILTERS`. The startup message on Telegram lists what each market scans.
+
+**India's `.env` is RSI Pullback or RSI(2) Reversion (min score 1) with both filters**, the only India setup that
+was still positive after costs in the backtest (see Notes):
 ```
 STRATEGIES_IN=RSI Pullback,RSI(2) Reversion
 MIN_SCORE_IN=1
 FILTERS_IN=trend,rs
 ```
-The US keeps the default vote. Dashboard scans are not affected; they use the choices made on the page.
 
 **Entry is a pending order, not the current price**, so there is time to place it:
 - bounce setups (Support-Resistance, supply/demand zones, RSI pullback) → **limit** order 0.5 × ATR below the close (BUY);
@@ -82,12 +93,12 @@ more than 1R per trade; the view makes that visible.
 
 ## Markets
 The dashboard has two markets, **India** and **US**, switched at the top of the page. Each has its own
-signals, scan settings and scan button, and both can scan at the same time.
+signals, scan settings and scanner status.
 US scans use `US_UNIVERSE` (`SP100` by default, or `SP500`, or comma-separated tickers) and `US_CAPITAL`
 (in dollars), with filters of price ≥ $5 and 20-day average turnover ≥ $20M. US alerts go to the same
 Telegram group, marked 🇺🇸 and priced in $. The continuous scanner (`run.bat`) runs both markets with the same
-`TIMEFRAME` and `SCAN_INTERVAL_MIN` (strategies, min score and filters can differ per market, see
-[Per-market scanner settings](#per-market-scanner-settings)), each during its own trading hours
+`SCAN_TIMEFRAMES` and `SCAN_INTERVAL_MIN` (strategies, min score and filters differ per market, see
+[Per-market scanner settings](#per-market-scanner-settings)), each during its own scan window
 (US hours follow New York time, so daylight saving is handled).
 
 ## Backtest costs
@@ -157,10 +168,8 @@ If there is no live price the order is refused rather than sent blind. The order
 the app's records and Telegram, with its limit.
 
 **What gets traded** (`algotrade/orders.py`): new **India BUY** signals on the **daily** timeframe, as delivery
-(CNC), found by the scanner (`run.bat` or `--once`) or by an India **Run scan** on the dashboard. A dashboard scan
-only trades while the scanner is running, because the scanner places the stop-loss after a fill and watches the
-exits; otherwise the scan message says so and no order is sent. US signals, SELL signals and intraday signals
-never place orders. The scanner checks orders on every loop, also outside market hours.
+(CNC), found by the scanner (`run.bat` or `--once`). US signals, SELL signals and intraday signals (5m–1h) never
+place orders. The scanner checks orders on every loop, also outside market hours.
 
 - **Entry:** the signal's pending order, a limit at the entry price (pullback setups) or a stop-limit triggered
   at it (breakouts; limit 0.5% above). Quantity = the signal's size, cut so the order stays under

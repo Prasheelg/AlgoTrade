@@ -1,7 +1,9 @@
 """NSE + US scanner -> Telegram trade suggestions.
 
-Both markets are scanned with the same settings (timeframe, strategies, min score, interval);
-each runs on its own exchange hours. --market IN or --market US limits a command to one market.
+Every SCAN_INTERVAL_MIN minutes within each market's scan window (India 09:00-15:30 IST, US 09:30-16:00 ET) the
+scanner runs every SCAN_TIMEFRAMES timeframe with that market's scan panel settings from the dashboard
+(strategies, min votes, filters, Telegram on/off; .env until the panel is first saved), read afresh each loop.
+--market IN or --market US limits a command to one market.
 
 Usage:
   python main.py --test-telegram        send a test message
@@ -14,9 +16,11 @@ Usage:
 import argparse
 import logging
 import time
+from datetime import datetime, timedelta
+from time import monotonic
 
 from algotrade import config, markets, state, telegram_bot, tracker
-from algotrade.scanner import scan, scan_and_alert
+from algotrade.scanner import scan, scan_and_alert, set_status
 from algotrade.universe import get_universe
 
 TZ_LABEL = {"IN": "IST", "US": "ET"}
@@ -30,35 +34,58 @@ def universe_of(code: str) -> str:
     return config.US_UNIVERSE if code == "US" else config.UNIVERSE
 
 
-def scanner_kw(code: str) -> dict:
-    """scan() settings for a market: .env (per-market) minus the strategies switched off in the dashboard's
-    strategy scorecard."""
-    from algotrade import performance
-    from algotrade.strategies import DEFAULT_STRATEGIES
-    kw = dict(config.MARKET_SCAN.get(code, {}))  # per-market strategies / min score / filters from .env
+def scanner_kw(code: str, chosen: dict | None = None) -> dict:
+    """scan() settings for a market: the scan panel's choices (else .env) minus the strategies switched off in
+    the dashboard's strategy scorecard."""
+    from algotrade import performance, settings
+    chosen = chosen or settings.scan_settings(code)
     off = set(performance.strategies_off(code))
-    if off:
-        names = kw.get("strategies") or config.STRATEGIES or list(DEFAULT_STRATEGIES)
-        kw["strategies"] = [n for n in names if n not in off]
-    return kw
+    return {"strategies": [n for n in chosen["strategies"] if n not in off], "min_score": chosen["min_score"],
+            "filters": list(chosen["filters"])}
+
+
+def _stamp() -> str:
+    return datetime.now().isoformat(timespec="seconds")
 
 
 def run_scan(code: str, dry_run: bool = False) -> None:
-    kw = scanner_kw(code)
-    if "strategies" in kw and not kw["strategies"]:
-        log.warning("%s: every strategy is switched off in the scorecard; nothing to scan", code)
+    """Scan every SCAN_TIMEFRAMES timeframe with the market's current panel settings. India's new daily BUY
+    signals then go to Auto-trade. Progress and the result are stored for the dashboard's scan status."""
+    from algotrade import settings
+    chosen = settings.scan_settings(code)
+    kw = scanner_kw(code, chosen)
+    if not kw["strategies"]:
+        log.warning("%s: no strategies are on (scan panel / scorecard); nothing to scan", code)
+        if not dry_run:
+            set_status(code, running=False, finished_at=_stamp(), timeframe=None,
+                       error="No strategies are ticked in the scan panel (or all are off in the scorecard)")
         return
     if dry_run:
-        for s in scan(market=code, **kw):
-            print(telegram_bot.format_signal(s), "\n" + "-" * 40)
+        for tf in config.SCAN_TIMEFRAMES:
+            for s in scan(market=code, timeframe=tf, **kw):
+                print(telegram_bot.format_signal(s), "\n" + "-" * 40)
         return
-    if code != "IN":
-        scan_and_alert(market=code, **kw)
-        return
-    before = {s["key"] for s in state.all_signals("IN")}
-    scan_and_alert(market=code, **kw)
-    new = [s["key"] for s in state.all_signals("IN") if s["key"] not in before]
-    trade(new)
+    before = {s["key"] for s in state.all_signals(code)}
+    set_status(code, running=True, started_at=_stamp(), timeframe=None, error=None)
+    total, errors = {"found": 0, "new": 0, "sent": 0, "symbols": []}, []
+    for tf in config.SCAN_TIMEFRAMES:   # one failing timeframe doesn't stop the others
+        set_status(code, timeframe=tf)
+        try:
+            r = scan_and_alert(market=code, timeframe=tf, send=chosen["send"], **kw) or {}
+        except Exception as exc:
+            log.exception("%s %s scan failed", code, tf)
+            errors.append(f"{tf}: {exc}")
+            continue
+        for k in ("found", "new", "sent"):
+            total[k] += r.get(k, 0)
+        total["symbols"] += [f"{x} ({tf})" for x in r.get("symbols", [])]
+    set_status(code, running=False, finished_at=_stamp(), timeframe=None, result=total,
+               error="; ".join(errors) or None)
+    if code == "IN":   # Auto-trade only buys India daily setups
+        trade([x["key"] for x in state.all_signals("IN")
+               if x["key"] not in before and x["timeframe"] == "1d" and x["side"] == "BUY"])
+    if errors:
+        raise RuntimeError(f"{code} scan failed on {', '.join(e.split(':')[0] for e in errors)}")
 
 
 def trade(new_keys: list[str]) -> None:
@@ -70,11 +97,11 @@ def trade(new_keys: list[str]) -> None:
 
 def scan_settings(code: str) -> str:
     """One-line summary of what the scanner runs for a market."""
+    from algotrade.strategies import DEFAULT_STRATEGIES
     kw = scanner_kw(code)
-    names = kw.get("strategies") or config.STRATEGIES
-    filters = kw.get("filters", config.FILTERS)
-    return (f"{', '.join(names) if names else 'default strategies'} · min score {kw.get('min_score', config.MIN_SCORE)}"
-            + (f" · filters {', '.join(filters)}" if filters else ""))
+    names = "default strategies" if kw["strategies"] == list(DEFAULT_STRATEGIES) else ", ".join(kw["strategies"])
+    return (f"{names or 'no strategies'} · min score {kw['min_score']}"
+            + (f" · filters {', '.join(kw['filters'])}" if kw["filters"] else ""))
 
 
 def housekeeping() -> None:
@@ -92,20 +119,21 @@ def run_loop(codes: list[str]) -> None:
     lines = []
     for code in codes:
         m = markets.get(code)
-        start, end = (t.strftime("%H:%M") for t in m.session)
+        start, end = (t.strftime("%H:%M") for t in m.scan_window)
         lines.append(f"{m.flag} {m.name}: {universe_of(code)} · {start}–{end} {TZ_LABEL[code]}\n   {scan_settings(code)}")
     telegram_bot.send_message(
         "🤖 <b>Scanner started</b>\n" + "\n".join(lines) +
-        f"\nTF: {config.TIMEFRAME} · every {config.SCAN_INTERVAL_MIN} min")
+        f"\nTF: {', '.join(config.SCAN_TIMEFRAMES)} · every {config.SCAN_INTERVAL_MIN} min")
     summary_sent_for: dict[str, object] = {}  # market -> exchange date whose EOD scan succeeded
     header_sent_for: dict[str, object] = {}   # market -> exchange date whose EOD header was sent
     while True:
+        began = monotonic()
         housekeeping()
         for code in codes:
             m = markets.get(code)
             now = m.now()  # exchange time
             try:
-                if m.is_open(now):
+                if m.in_scan_window(now):
                     tracker.update_all(market=code)
                     run_scan(code)
                 else:
@@ -122,7 +150,14 @@ def run_loop(codes: list[str]) -> None:
                         trade([])  # keep live orders in line overnight (e.g. stops re-placed as AMO)
             except Exception:
                 log.exception("%s scan failed", m.name)
-        time.sleep(config.SCAN_INTERVAL_MIN * 60)
+        # The interval runs from the start of a loop, so scans stay SCAN_INTERVAL_MIN apart however long they take
+        wait = max(30, round(config.SCAN_INTERVAL_MIN * 60 - (monotonic() - began)))
+        for code in codes:
+            try:
+                set_status(code, next_at=(datetime.now() + timedelta(seconds=wait)).isoformat(timespec="seconds"))
+            except Exception:
+                log.exception("Saving the scan status failed")
+        time.sleep(wait)
 
 
 def run_backtest(code: str, symbols: str | None) -> None:
@@ -130,7 +165,7 @@ def run_backtest(code: str, symbols: str | None) -> None:
     syms = get_universe(symbols, market=code)
     log.info("Backtesting %d %s symbols on %s ...", len(syms), markets.get(code).name, config.TIMEFRAME)
     trades = backtest.run(syms, config.TIMEFRAME, period="5y" if config.TIMEFRAME == "1d" else "60d", market=code,
-                          costs=costs.model_for(code, config.TIMEFRAME), **config.MARKET_SCAN.get(code, {}))
+                          costs=costs.model_for(code, config.TIMEFRAME), **scanner_kw(code))
     print(f"\n=== {markets.get(code).name} ===")
     print(backtest.summarize(trades))
     if not trades.empty:
