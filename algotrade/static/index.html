@@ -1344,11 +1344,17 @@ async function loadScanSettings(mk) {
   if (mk === market) { opts = optsBy[mk]; renderScanPanel(); }
 }
 
+// Pick up changes saved elsewhere (the phone, another tab), unless this page has a save of its own pending
+function refreshScanSettings() { if (!saveTimer && !document.hidden && META) loadScanSettings(market); }
+setInterval(refreshScanSettings, 30000);
+document.addEventListener("visibilitychange", refreshScanSettings);
+
 let saveTimer = null;
 function saveScanSettings() {
   const mk = market, o = opts;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {   // several quick clicks become one save
+    saveTimer = null;
     try {
       const res = await fetch(`/api/scan/settings?market=${mk}`, { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ strategies: o.strategies, min_score: o.minScore, filters: o.filters, send: o.send }) });
