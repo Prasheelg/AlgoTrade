@@ -1447,7 +1447,8 @@ document.getElementById("scanSw").onclick = async e => {
   e.preventDefault();
   const box = document.getElementById("scanOn");
   if (box.disabled) return;
-  const on = !box.checked;
+  // From the server's state, not box.checked: a click on the box itself has already flipped it by now
+  const rn = scanRunner ?? {}, on = !((scanAlive || rn.starting) && !rn.stopping);
   if (!on && trading?.enabled && !confirm("Switch the scanner off?\n\nAuto-trade is ON. Without the scanner no new orders " +
       "are placed, and open positions' stop-losses aren't re-placed next session or watched for exits.")) return;
   box.disabled = true;
