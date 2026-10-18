@@ -166,8 +166,15 @@ If there is no live price the order is refused rather than sent blind. The order
 the app's records and Telegram, with its limit.
 
 **What gets traded** (`algotrade/orders.py`): new **India BUY** signals on the **daily** timeframe, as delivery
-(CNC), found by the scanner (`run.bat` or `--once`). US signals, SELL signals and intraday signals (5m–1h) never
-place orders. The scanner checks orders on every loop, also outside market hours.
+(CNC), found by the scanner (`run.bat` or `--once`), and with **Auto-trade intraday signals** on (Settings, or
+`INTRADAY_AUTO_TRADE`) also on **5m–1h**, as intraday (MIS). US and SELL signals never place orders. One app trade
+per stock at a time. The scanner checks orders on every loop, also outside market hours.
+
+- **Intraday trades** work like daily ones (entry, stop, target 1 / 2) with these differences: entries only in
+  market hours until `INTRADAY_LAST_ENTRY` (14:30), their own cap `MAX_INTRADAY_ORDERS_PER_DAY` (2; daily
+  signals keep `MAX_ORDERS_PER_DAY`), checked every minute between scans so a fill gets its stop quickly, and at
+  `INTRADAY_SQUARE_OFF` (15:00) unfilled entries are cancelled and positions sold, before Kotak's own square-off.
+  One still open in the app after the close (the scanner was off at 15:00) is marked closed, with a notice.
 
 - **Entry:** the signal's pending order, a limit at the entry price (pullback setups) or a stop-limit triggered
   at it (breakouts; limit 0.5% above). Quantity = the signal's size, cut so the order stays under

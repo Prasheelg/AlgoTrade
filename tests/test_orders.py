@@ -98,7 +98,7 @@ def test_stop_entry_and_amo_when_closed(kotak, monkeypatch):
 
 @pytest.mark.parametrize("kw,why", [
     (dict(side="SELL"), "only BUY"),
-    (dict(timeframe="15m"), "only daily"),
+    (dict(timeframe="15m"), "intraday signals aren't traded"),   # INTRADAY_AUTO_TRADE off
     (dict(market="US"), None),                      # not an India signal: not looked up at all
     (dict(entry=12000.0, stop_loss=11900.0), "costs more than MAX_ORDER_VALUE"),
 ])

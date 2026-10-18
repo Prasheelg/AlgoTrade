@@ -606,9 +606,9 @@ def api_scan():
                                              send=bool(body.get("send", False)), strategies=strategies,
                                              min_score=min_score, market=mkt.code, filters=filters)
             if mkt.code == "IN":
-                # Auto-trade only buys India daily setups, so intraday / SELL signals aren't handed over
+                # Auto-trade buys India setups (intraday ones when switched on in Settings); SELLs aren't handed over
                 at = _auto_trade([s["key"] for s in state.all_signals("IN")
-                                  if s["key"] not in before and s["timeframe"] == "1d" and s["side"] == "BUY"])
+                                  if s["key"] not in before and s["side"] == "BUY"])
                 if at:
                     out["result"]["auto_trade"] = at
         except ScanStopped:

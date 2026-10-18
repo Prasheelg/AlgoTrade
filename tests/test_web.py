@@ -447,7 +447,7 @@ def _scan_recording(*sigs):
     return fake
 
 
-def test_scan_hands_new_daily_buys_to_auto_trade(client, monkeypatch):
+def test_scan_hands_new_buys_to_auto_trade(client, monkeypatch):
     from algotrade import broker, health, orders
     old = make_signal(symbol="OLD")
     state.record([old], telegram=False)
@@ -459,7 +459,8 @@ def test_scan_hands_new_daily_buys_to_auto_trade(client, monkeypatch):
     rec = Recorder(lambda keys: [{"symbol": "DAY", "qty": 3, "entry_order": "OID1", "note": None}])
     monkeypatch.setattr(orders, "trade_new", rec)
     j = client.post("/api/scan", json={"min_score": 1}).get_json()
-    assert rec.calls == [(([day.key],), {})]                 # not OLD (already there), not 15m, not SELL
+    # not OLD (already there), not SELL; intraday ones too (orders decides whether intraday is traded)
+    assert len(rec.calls) == 1 and sorted(rec.calls[0][0][0]) == sorted([day.key, intraday.key])
     assert j["scan"]["auto_trade"] == {"placed": ["DAY × 3"], "skipped": [], "blocked": None}
 
 

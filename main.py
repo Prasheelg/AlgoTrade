@@ -51,8 +51,9 @@ def _stamp() -> str:
 
 
 def run_scan(code: str, dry_run: bool = False) -> None:
-    """Scan every SCAN_TIMEFRAMES timeframe with the market's current panel settings. India's new daily BUY
-    signals then go to Auto-trade. Progress and the result are stored for the dashboard's scan status."""
+    """Scan every SCAN_TIMEFRAMES timeframe with the market's current panel settings. India's new BUY signals
+    then go to Auto-trade (intraday ones only when that is on). Progress and the result are stored for the
+    dashboard's scan status."""
     from algotrade import settings
     chosen = settings.scan_settings(code)
     kw = scanner_kw(code, chosen)
@@ -87,9 +88,8 @@ def run_scan(code: str, dry_run: bool = False) -> None:
         total["symbols"] += [f"{x} ({tf})" for x in r.get("symbols", [])]
     set_status(code, running=False, finished_at=_stamp(), timeframe=None, result=total,
                error="; ".join(errors) or None)
-    if code == "IN":   # Auto-trade only buys India daily setups
-        trade([x["key"] for x in state.all_signals("IN")
-               if x["key"] not in before and x["timeframe"] == "1d" and x["side"] == "BUY"])
+    if code == "IN":   # Auto-trade buys India setups: daily always, intraday when switched on in Settings
+        trade([x["key"] for x in state.all_signals("IN") if x["key"] not in before and x["side"] == "BUY"])
     if errors:
         raise RuntimeError(f"{code} scan failed on {', '.join(e.split(':')[0] for e in errors)}")
 
@@ -135,6 +135,13 @@ def _watch_stop(done: threading.Event) -> None:
             log.exception("Checking the scanner's off switch failed")
 
 
+def _intraday_guard(done: threading.Event) -> None:
+    """Between scans: keep live intraday trades protected (stop after a fill) and square them off on time."""
+    from algotrade import orders
+    while not done.wait(orders.GUARD_SEC):
+        orders.guard_tick()
+
+
 def _pause(seconds: float) -> None:
     """Wait for the next loop; returns at once when the scanner is switched off."""
     _quit.wait(seconds)
@@ -146,6 +153,8 @@ def run_loop(codes: list[str]) -> None:
     _quit.clear()
     done = threading.Event()
     threading.Thread(target=_watch_stop, args=(done,), name="stop-watch", daemon=True).start()
+    if "IN" in codes:
+        threading.Thread(target=_intraday_guard, args=(done,), name="intraday-guard", daemon=True).start()
     try:
         _loop(codes)
     finally:
