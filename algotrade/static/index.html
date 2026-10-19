@@ -66,13 +66,23 @@
   h1 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.015em; white-space: nowrap; }
   h1 span { font-weight: 500; color: var(--muted); }
   /* Status strip: session, exchange clock, index, account settings, data feed */
-  /* Part of the top bar (so it stays put while the page scrolls), its second row. Each segment's divider sits 1px
-     left of it; the strip clips the one at the start of every line, and is pulled left so the first segment's
-     text lines up with the brand above */
-  .sbar { display: flex; flex-wrap: wrap; align-items: center; row-gap: 10px; padding: 0 16px 0 0; margin-left: -16px;
-          flex: 1 1 100%; overflow: hidden; white-space: nowrap; font-size: 13px; }
+  /* The top bar's second row (so it stays put while the page scrolls), under a hairline, on one line (swipe /
+     scroll sideways when it doesn't fit). Each segment's divider sits 1px left of it; the strip is pulled left so
+     the first segment's text lines up with the brand above, which hides that segment's divider */
+  .top-strip { margin-top: 12px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+  .sbar { display: flex; flex-wrap: nowrap; align-items: center; padding: 0 16px 0 0; margin-left: -16px;
+          flex: 1 1 100%; overflow-x: auto; scrollbar-width: none; white-space: nowrap; font-size: 12.5px; }
   .sbar::-webkit-scrollbar { display: none; }
-  .top-strip { margin-top: 10px; }
+  /* Laptop widths: one row of controls (icon-only buttons, tighter spacing) */
+  @media (max-width: 1500px) {
+    .top-in { column-gap: 12px; }
+    .brand { padding-right: 12px; }
+    h1 span, #refresh span, .sbar .feed { display: none; }
+    #refresh { padding: 7px 9px; }
+  }
+  @media (max-width: 1280px) { #views button, .markets button { padding: 6px 11px; } }
+  @media (max-width: 1240px) and (min-width: 641px) { .sbar .acct { display: none; } }
+  @media (max-width: 1180px) and (min-width: 641px) { h1 { display: none; } .brand { padding-right: 0; border-right: 0; } }
   .sseg { display: flex; align-items: center; gap: 9px; padding: 2px 16px; margin-left: -1px; border-left: 1px solid var(--line-2); }
   .sseg.end { margin-left: auto; }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -1255,13 +1265,13 @@ function renderStatus() {
   if (cfg.universe) {
     parts.push(seg("Account", `<span class="sv">${esc(cfg.universe)}</span><span class="sv dim">·</span>` +
       `<span class="sv">${cfg.currency}${cfg.capital.toLocaleString(cfg.locale)}</span><span class="sv dim">·</span>` +
-      `<span class="sv">${cfg.risk_pct}% risk / trade</span>`, "", "Universe · capital · risk per trade (set in .env)"));
+      `<span class="sv">${cfg.risk_pct}% risk / trade</span>`, "acct", "Universe · capital · risk per trade (set in .env)"));
   }
   const mins = minsSince(lastRefresh);
   // Price freshness + feed in one segment
   parts.push(seg("Data", `<span class="fresh ${mins == null ? "none" : mins > 10 ? "stale" : ""}"></span>` +
     `<span class="sv">Updated <span id="sbAgo">${ago(lastRefresh)}</span></span>` +
-    (cfg.live ? `<span class="sv dim">· Live · ${esc(cfg.live)}</span>` : `<span class="sv dim delay">· Delayed 15 min</span>`), "end",
+    (cfg.live ? `<span class="sv dim feed">· Live · ${esc(cfg.live)}</span>` : `<span class="sv dim delay">· Delayed 15 min</span>`), "end",
     (lastRefresh ? `Open signals re-checked at ${lastRefresh}. ` : "") + (cfg.live
       ? `Prices for tracking are real-time from ${cfg.live}; scan history comes from Yahoo Finance`
       : "Yahoo Finance, free feed delayed up to about 15 min")));
