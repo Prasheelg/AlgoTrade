@@ -1,4 +1,4 @@
-"""orders: intraday (MIS) Auto-trade for 5m-1h signals: entry window, own daily cap, one trade per stock, the
+"""orders: intraday (MIS) Auto-trade for 5m-1h signals: entry window, one trade per stock, the
 15:00 square-off, and trades left after the close."""
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -13,12 +13,11 @@ IST = ZoneInfo("Asia/Kolkata")
 
 @pytest.fixture
 def clock(kotak, monkeypatch):
-    """Set India's clock (Monday 2024-01-01 by default); market hours follow it. Intraday trading on, cap 2."""
+    """Set India's clock (Monday 2024-01-01 by default); market hours follow it. Intraday trading on."""
     now = {"t": datetime(2024, 1, 1, 10, 0, tzinfo=IST)}
     monkeypatch.setattr(markets.Market, "now", lambda self: now["t"].astimezone(ZoneInfo(self.tz)))
     monkeypatch.setattr(orders, "_market_open", lambda: markets.get("IN").is_open())
     monkeypatch.setattr(config, "INTRADAY_AUTO_TRADE", True)
-    monkeypatch.setattr(config, "MAX_INTRADAY_ORDERS_PER_DAY", 2)
 
     def set_(h, m, day=1):
         now["t"] = datetime(2024, 1, day, h, m, tzinfo=IST)
@@ -48,14 +47,6 @@ def test_intraday_entry_window(clock, kotak, hm, why):
 def test_intraday_off_in_settings(clock, kotak, monkeypatch):
     monkeypatch.setattr(config, "INTRADAY_AUTO_TRADE", False)
     assert "Auto-trade intraday signals is off" in orders.enter([fast()])[0]["note"]
-
-
-def test_daily_and_intraday_caps_are_separate(clock, kotak, monkeypatch):
-    monkeypatch.setattr(config, "MAX_INTRADAY_ORDERS_PER_DAY", 1)
-    monkeypatch.setattr(config, "MAX_ORDERS_PER_DAY", 1)
-    got = orders.enter([signal("A"), fast("B"), fast("C", tf="5m"), signal("RELIANCE")])
-    assert [t["state"] for t in got] == ["ENTRY", "ENTRY", "SKIPPED", "SKIPPED"]
-    assert "daily limit of 1 intraday orders" in got[2]["note"] and "daily limit of 1 orders" in got[3]["note"]
 
 
 def test_one_trade_per_stock(clock, kotak):

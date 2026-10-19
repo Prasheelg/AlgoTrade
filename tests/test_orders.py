@@ -43,7 +43,6 @@ def kotak(monkeypatch):
     fake = FakeKotak()
     monkeypatch.setattr(broker, "call", fake)
     monkeypatch.setattr(orders, "_market_open", lambda: True)
-    monkeypatch.setattr(config, "MAX_ORDERS_PER_DAY", 2)
     monkeypatch.setattr(config, "MAX_ORDER_VALUE", 10000.0)
     msgs = Recorder(True)
     monkeypatch.setattr(orders.telegram_bot, "send_message", msgs)
@@ -115,11 +114,10 @@ def test_skipped_signals(kotak, kw, why):
     assert kotak.placed == []
 
 
-def test_daily_cap_counts_placed_entries(kotak):
+def test_no_cap_on_trades_per_day(kotak):
     keys = [signal(symbol=s) for s in ("A", "B", "C")]
     orders.enter(keys)
-    assert [trade(k)["state"] for k in keys] == ["ENTRY", "ENTRY", "SKIPPED"]
-    assert "daily limit of 2" in trade(keys[2])["note"]
+    assert [trade(k)["state"] for k in keys] == ["ENTRY", "ENTRY", "ENTRY"]
 
 
 def test_same_signal_never_entered_twice(kotak):

@@ -2,9 +2,9 @@
 
 Scope: India, BUY only, signals found by the scanner (run.bat / --once). Daily signals are delivery (CNC)
 trades; with INTRADAY_AUTO_TRADE on, 5m-1h signals are intraday (MIS) trades.
-- New entries need the dashboard's Auto-trade switch ON and respect MAX_ORDERS_PER_DAY (new daily-signal trades
-  per day; intraday ones have MAX_INTRADAY_ORDERS_PER_DAY) and MAX_ORDER_VALUE (quantity is cut to fit; a share
-  dearer than the cap is skipped). One app trade per stock at a time.
+- New entries need the dashboard's Auto-trade switch ON and respect MAX_ORDER_VALUE (quantity is cut to fit; a
+  share dearer than the cap is skipped) and MAX_OPEN_RISK_PCT. No cap on trades per day. One app trade per stock
+  at a time.
 - Intraday: entries only in market hours until INTRADAY_LAST_ENTRY; at INTRADAY_SQUARE_OFF unfilled entries are
   cancelled and positions sold (intraday_guard). While intraday trades are live the scanner reconciles every
   GUARD_SEC, so a fill gets its stop within about a minute rather than at the next scan.
@@ -296,17 +296,12 @@ def enter(keys: list[str]) -> list[dict]:
         t["product"] = _product(t)
         why = _eligible(sig)
         trades = all_trades()
-        today = sum(1 for x in trades if x["created_day"] == t["created_day"] and x["entry_order"]
-                    and intraday(x) == intraday(t))
-        cap_n = config.MAX_INTRADAY_ORDERS_PER_DAY if intraday(t) else config.MAX_ORDERS_PER_DAY
         if why is None and any(x["symbol"] == t["symbol"] and x["state"] in ACTIVE_STATES for x in trades):
             why = f"already trading {t['symbol']} (from another signal)"
         risk = abs(sig["entry"] - sig["stop_loss"])
         mkt = markets.get("IN")
         qty = int((mkt.capital * config.RISK_PER_TRADE_PCT / 100) // risk) if risk else 0
         qty = min(qty, int(mkt.capital // sig["entry"]), int(config.MAX_ORDER_VALUE // sig["entry"]))
-        if why is None and today >= cap_n:
-            why = f"daily limit of {cap_n} {'intraday ' if intraday(t) else ''}orders reached"
         if why is None and qty < 1:
             why = f"one share costs more than MAX_ORDER_VALUE ₹{config.MAX_ORDER_VALUE:,.0f}"
         cap = mkt.capital * config.MAX_OPEN_RISK_PCT / 100

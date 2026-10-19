@@ -50,7 +50,7 @@ def test_other_process_picks_up_changes(cfg, msgs):
     assert config.RISK_PER_TRADE_PCT == 0.5
 
 
-@pytest.mark.parametrize("changes,msg", [({"CAPITAL": 10}, "between"), ({"MAX_ORDERS_PER_DAY": 1.5}, "whole number"),
+@pytest.mark.parametrize("changes,msg", [({"CAPITAL": 10}, "between"), ({"OPTIONS_MAX_LOTS": 1.5}, "whole number"),
                                          ({"DAILY_SUMMARY": "yes"}, "on or off"), ({"KOTAK_MPIN": "1"}, "Can't change"),
                                          ({"CAPITAL": "abc"}, "a number")])
 def test_bad_settings_change_nothing(cfg, changes, msg):
@@ -72,7 +72,6 @@ def test_settings_api_needs_trading_access(cfg, msgs):
 
 def test_open_risk_caps_auto_trade(cfg, monkeypatch, msgs):
     monkeypatch.setattr(config, "MAX_OPEN_RISK_PCT", 0.5)          # ₹500 on ₹1,00,000
-    monkeypatch.setattr(config, "MAX_ORDERS_PER_DAY", 5)
     monkeypatch.setattr(config, "MAX_ORDER_VALUE", 1e6)
     placed = []
     monkeypatch.setattr(broker, "call", lambda m, **kw: {"data": []} if m == "order_report" else placed.append(kw) or {"nOrdNo": "1"})

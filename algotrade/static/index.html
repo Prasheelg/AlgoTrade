@@ -2772,7 +2772,7 @@ const tradeBox = document.getElementById("trade");
 function renderTrading() {
   const t = trading, sw = document.getElementById("tradeSw");
   if (!t) return;
-  const lim = t.limits, cap = `max ${lim.max_orders_per_day} orders/day · ₹${lim.max_order_value.toLocaleString("en-IN")} per order`;
+  const lim = t.limits, cap = `max ₹${lim.max_order_value.toLocaleString("en-IN")} per order`;
   tradeBox.checked = t.enabled;
   tradeBox.disabled = !t.credentials && !t.enabled;
   sw.classList.toggle("on", t.enabled);
@@ -2793,7 +2793,7 @@ document.getElementById("tradeSw").onclick = async e => {
   if (!trading || tradeBox.disabled) return;
   const on = !trading.enabled, lim = trading.limits;
   if (on && !confirm("Turn ON automatic trading?\n\nIndia signals will be sent to Kotak as REAL orders without asking you.\n" +
-      `Limits: at most ${lim.max_orders_per_day} orders a day, ₹${lim.max_order_value.toLocaleString("en-IN")} per order.\n\n` +
+      `Limit: ₹${lim.max_order_value.toLocaleString("en-IN")} per order.\n\n` +
       "You can switch it off here at any time.")) return;
   tradeBox.disabled = true;
   try {
@@ -3269,7 +3269,7 @@ async function openSettings() {
   if (st) renderSt();
 }
 const ST_GROUPS = [["Sizing", ["CAPITAL", "RISK_PER_TRADE_PCT", "MAX_OPEN_RISK_PCT", "US_CAPITAL"]],
-  ["Order limits", ["MAX_ORDERS_PER_DAY", "MAX_ORDER_VALUE", "STOCK_MAX_ORDER_VALUE", "OPTIONS_MAX_LOTS"]],
+  ["Order limits", ["MAX_ORDER_VALUE", "STOCK_MAX_ORDER_VALUE", "OPTIONS_MAX_LOTS"]],
   ["Market orders (sent as limits)", ["MARKET_PROTECTION_PCT", "OPTION_PROTECTION_PCT"]],
   ["Signals and Telegram", ["EVENT_WINDOW_DAYS", "DAILY_SUMMARY", "TELEGRAM_COMMANDS", "LIVE_FEED", "DB_BACKUP"]]];
 function renderSt() {

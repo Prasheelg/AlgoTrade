@@ -156,7 +156,7 @@ def trading_status() -> dict:
     st, changed_at = state.get_setting(TRADING_KEY, {"enabled": False})
     return {"enabled": bool(st.get("enabled")), "changed_at": changed_at, "changed_by": st.get("by"),
             "account": st.get("account"), "credentials": not missing_credentials(),
-            "limits": {"max_orders_per_day": config.MAX_ORDERS_PER_DAY, "max_order_value": config.MAX_ORDER_VALUE}}
+            "limits": {"max_order_value": config.MAX_ORDER_VALUE}}
 
 
 def trading_enabled() -> bool:

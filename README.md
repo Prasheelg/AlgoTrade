@@ -155,8 +155,8 @@ TOTP alerts in the Kotak app. `kotak.py` (live quotes) stays read-only; trading 
 for confirmation, first checks that the Kotak login works (it stays off if not), and turns red while live. The
 switch is stored in `signals.db`, so the scanner (`run.bat`) sees a change on its next order, without a restart.
 Every change is posted to Telegram. It can only be switched **on** from the PC running the dashboard; switching
-**off** works from any device. Hard caps per day apply on top: `MAX_ORDERS_PER_DAY` (2) and `MAX_ORDER_VALUE`
-(₹10,000 per order) in `.env`.
+**off** works from any device. There is no limit on trades per day; `MAX_ORDER_VALUE`
+(₹10,000 per order) and `MAX_OPEN_RISK_PCT` (risk at the stops across all trades) still apply.
 
 **No market orders.** SEBI doesn't allow market orders through the API for retail clients, so the app never
 sends one. Wherever you choose *Market* (or the app sells at once), it sends a **limit just past the live
@@ -171,8 +171,7 @@ the app's records and Telegram, with its limit.
 per stock at a time. The scanner checks orders on every loop, also outside market hours.
 
 - **Intraday trades** work like daily ones (entry, stop, target 1 / 2) with these differences: entries only in
-  market hours until `INTRADAY_LAST_ENTRY` (14:30), their own cap `MAX_INTRADAY_ORDERS_PER_DAY` (2; daily
-  signals keep `MAX_ORDERS_PER_DAY`), checked every minute between scans so a fill gets its stop quickly, and at
+  market hours until `INTRADAY_LAST_ENTRY` (14:30), checked every minute between scans so a fill gets its stop quickly, and at
   `INTRADAY_SQUARE_OFF` (15:00) unfilled entries are cancelled and positions sold, before Kotak's own square-off.
   One still open in the app after the close (the scanner was off at 15:00) is marked closed, with a notice.
 

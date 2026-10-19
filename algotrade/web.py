@@ -428,7 +428,7 @@ def api_trading_set():
     try:
         lim = st["limits"]
         telegram_bot.send_message(
-            f"🟢 <b>Automatic trading ON</b> · {st['account']}\nmax {lim['max_orders_per_day']} orders/day · "
+            f"🟢 <b>Automatic trading ON</b> · {st['account']}\nmax "
             f"₹{lim['max_order_value']:,.0f} per order" if enabled else "🔴 <b>Automatic trading OFF</b>")
     except Exception:
         log.exception("Telegram notice for the trading switch failed")

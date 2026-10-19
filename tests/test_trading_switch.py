@@ -14,7 +14,7 @@ def test_settings_roundtrip():
 def test_trading_off_by_default_with_limits():
     st = broker.trading_status()
     assert st == {"enabled": False, "changed_at": None, "changed_by": None, "account": None, "credentials": False,
-                  "limits": {"max_orders_per_day": 2, "max_order_value": 10000.0}}
+                  "limits": {"max_order_value": 10000.0}}
     assert broker.trading_enabled() is False
 
 
@@ -69,7 +69,7 @@ def test_api_get(client):
 def test_api_enable_from_this_pc_notifies(client, logged_in):
     r = post(client, {"enabled": True})
     assert r.status_code == 200 and r.get_json()["enabled"] is True
-    assert "Automatic trading ON" in client.msgs.calls[0][0][0] and "max 2 orders/day" in client.msgs.calls[0][0][0]
+    assert "Automatic trading ON" in client.msgs.calls[0][0][0] and "₹10,000 per order" in client.msgs.calls[0][0][0]
     assert r.get_json()["changed_by"] == "dashboard (this PC)"
 
 
