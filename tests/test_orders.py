@@ -285,8 +285,8 @@ def test_price_gapping_through_the_stop_sells(kotak):
 
 def test_unfilled_exit_is_repriced(kotak):
     key = opened(kotak)
-    state.update_signal(key, status="T2_HIT")
-    orders.reconcile()                              # sell 103 @ 99.00
+    kotak.ltp["RELIANCE"] = 108.5                   # target 2 (108)
+    orders.reconcile()                              # sell 103 @ 107.40
     orders.reconcile()                              # just placed: left alone
     assert len(kotak.placed) == 3
     orders._save(key, exit_at="2000-01-01T00:00:00")
@@ -319,7 +319,7 @@ def test_no_stop_alert_once(kotak):
 
 def test_target1_moves_stop_to_fill(kotak):
     key = opened(kotak)
-    state.update_signal(key, status="T1_HIT")
+    kotak.ltp["RELIANCE"] = 103.6                   # target 1 (103.5) on the live price
     orders.reconcile()
     t = trade(key)
     assert kotak.cancelled == ["102"] and t["stop"] == 99.0 and t["be_moved"] == 1 and t["stop_order"] == "103"
@@ -328,18 +328,44 @@ def test_target1_moves_stop_to_fill(kotak):
     assert len(kotak.placed) == 3
 
 
-@pytest.mark.parametrize("status,why", [("T2_HIT", "target 2"), ("EXPIRED", "time exit")])
-def test_target2_or_time_exit_sells_with_a_limit(kotak, status, why):
+@pytest.mark.parametrize("ltp,status,why,price", [(108.0, "ACTIVE", "target 2", "106.90"),
+                                                  (100.0, "EXPIRED", "time exit", "99.00")])
+def test_target2_or_time_exit_sells_with_a_limit(kotak, ltp, status, why, price):
     key = opened(kotak)
+    kotak.ltp["RELIANCE"] = ltp
     state.update_signal(key, status=status)
     orders.reconcile()
     t = trade(key)
     assert kotak.cancelled == ["102"] and t["state"] == "EXITING" and t["exit_order"] == "103"
     assert (kotak.placed[-1]["order_type"], kotak.placed[-1]["price"], kotak.placed[-1]["transaction_type"]) == (
-        "L", "99.00", "S")                          # live 100, 1% below: no market orders via the API
+        "L", price, "S")                            # 1% below the live price: no market orders via the API
     kotak.fill("103", 101, 108.2)
     orders.reconcile()
     assert (trade(key)["state"], trade(key)["exit_price"], trade(key)["note"]) == ("CLOSED", 108.2, why)
+
+
+@pytest.mark.parametrize("status", ["T1_HIT", "T2_HIT", "SL_HIT"])
+def test_tracker_paper_result_does_not_move_a_real_position(kotak, status):
+    key = opened(kotak)                             # live 100: between the stop and target 1
+    state.update_signal(key, status=status)
+    orders.reconcile()
+    t = trade(key)
+    assert (t["state"], t["stop"], t["be_moved"], kotak.cancelled) == ("OPEN", 96.0, 0, [])
+
+
+def test_targets_are_stored_on_the_trade(kotak):
+    key = opened(kotak)
+    assert (trade(key)["target1"], trade(key)["target2"]) == (103.5, 108.0)
+
+
+def test_filled_below_the_stop_sells_at_once(kotak):
+    key = opened(kotak)
+    kotak.book["102"]["ordSt"] = "rejected"         # Kotak refuses a sell stop above the live price
+    kotak.ltp["RELIANCE"] = 95.5
+    orders.reconcile()
+    t = trade(key)
+    assert t["state"] == "EXITING" and "price below the stop" in t["note"]
+    assert (kotak.placed[-1]["transaction_type"], kotak.placed[-1]["price"]) == ("S", "94.50")
 
 
 def test_open_positions_keep_stops_when_switch_off(kotak):

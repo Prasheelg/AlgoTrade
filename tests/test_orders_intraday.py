@@ -97,13 +97,12 @@ def test_intraday_left_after_the_close_is_not_carried_over(clock, kotak):
     assert any("still open in the app" in m for m in texts(kotak))
 
 
-def test_guard_tick_only_with_live_intraday_trades(clock, kotak, monkeypatch):
+def test_guard_tick_watches_every_live_trade_in_market_hours(clock, kotak, monkeypatch):
     calls = []
     monkeypatch.setattr(orders, "reconcile", lambda: calls.append(1))
-    orders.enter([signal("A")])                              # a daily trade: the scan loop looks after it
     orders.guard_tick()
-    assert calls == []
-    orders._save(fast("B"), symbol="B", state="ENTRY", timeframe="15m", created_day="2024-01-01", qty=1)
+    assert calls == []                                       # nothing live
+    orders.enter([signal("A")])                              # a daily trade is watched too
     orders.guard_tick()
     assert calls == [1]
     clock(16, 0)

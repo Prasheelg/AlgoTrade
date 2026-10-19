@@ -12,8 +12,10 @@ trades; with INTRADAY_AUTO_TRADE on, 5m-1h signals are intraday (MIS) trades.
   Kotak orders last one day, so an unfilled entry is placed again each session until the tracker cancels the
   signal. Outside market hours orders go in as AMO. Before (re)placing an entry the order book must show no
   open buy order for that stock, so a position is never doubled.
-- After a fill a stop-loss protects the position, placed again every session. At target 1 it moves to the fill
-  price; at target 2 or the time exit the position is sold.
+- After a fill a stop-loss protects the position, placed again every session. The position is then watched on
+  its own live price, not the signal tracker's paper result (which assumes a fill at the signal's entry and stops
+  following the signal once it is done): at target 1 the stop moves to the fill price; at target 2, at the
+  tracker's time exit, or with price already below the stop and no working stop order, the position is sold.
 - SEBI allows no market orders via the API for retail clients, so nothing here is a market order: the stop is a
   stop-limit (limit SL_LIMIT_BUFFER below the trigger) and sells are limits MARKET_PROTECTION_PCT below the live
   price. If price gaps through a stop's limit the position is sold at a fresh price; an unfilled sell is
@@ -37,7 +39,7 @@ STOP_LIMIT_BUFFER = 0.005   # breakout entry: limit 0.5% above the trigger
 SL_LIMIT_BUFFER = 0.01      # stop-loss = stop-limit: limit 1% below the trigger
 EXIT_REPRICE_SEC = 120      # an unfilled sell is cancelled and placed again at the live price after this long
 STOP_MAX_FAILS = 3          # stop-loss rejections in a row before the app stops retrying (and says so)
-GUARD_SEC = 60              # scanner: reconcile this often while intraday trades are live
+GUARD_SEC = 60              # scanner: reconcile this often in market hours while app trades are live
 SQUARE_OFF_NOTE = "intraday square-off"
 # Skipped for this alone (a pre-open scan): entered once the market opens that day, see retry_waiting
 CLOSED_NOTE = "intraday signals are only traded while the market is open"
@@ -52,9 +54,11 @@ ACTIVE_STATES = (NEW, ENTRY, OPEN, EXITING)
 _COLUMNS = """key TEXT PRIMARY KEY, symbol TEXT, state TEXT, qty INTEGER, entry_type TEXT, entry REAL,
     stop REAL, entry_order TEXT, stop_order TEXT, exit_order TEXT, fill_price REAL, exit_price REAL,
     be_moved INTEGER DEFAULT 0, created_day TEXT, opened_at TEXT, closed_at TEXT, note TEXT, alerted TEXT,
-    updated_at TEXT, exit_at TEXT, stop_fails INTEGER DEFAULT 0, timeframe TEXT, product TEXT"""
-# columns newer than the first version (older rows: daily, CNC)
-_ADDED = {"exit_at": "TEXT", "stop_fails": "INTEGER DEFAULT 0", "timeframe": "TEXT", "product": "TEXT"}
+    updated_at TEXT, exit_at TEXT, stop_fails INTEGER DEFAULT 0, timeframe TEXT, product TEXT, target1 REAL,
+    target2 REAL"""
+# columns newer than the first version (older rows: daily, CNC; no targets: the signal's are used)
+_ADDED = {"exit_at": "TEXT", "stop_fails": "INTEGER DEFAULT 0", "timeframe": "TEXT", "product": "TEXT",
+          "target1": "REAL", "target2": "REAL"}
 
 
 def _conn():
@@ -292,7 +296,8 @@ def enter(keys: list[str]) -> list[dict]:
         if sig is None or (old and not _waiting(old)):
             continue
         t = {"symbol": sig["symbol"], "entry_type": sig["entry_type"] or "limit", "entry": sig["entry"],
-             "stop": sig["stop_loss"], "created_day": _today(), "timeframe": sig["timeframe"] or "1d"}
+             "stop": sig["stop_loss"], "target1": sig["target1"], "target2": sig["target2"],
+             "created_day": _today(), "timeframe": sig["timeframe"] or "1d"}
         t["product"] = _product(t)
         why = _eligible(sig)
         trades = all_trades()
@@ -348,15 +353,16 @@ def trade_new(keys: list[str]) -> list[dict]:
 
 
 def guard_tick() -> None:
-    """The scanner's intraday guard, every GUARD_SEC in market hours: enter signals that were waiting for the open,
-    then while intraday trades are live, reconcile (fills get their stop quickly) and square off at
-    INTRADAY_SQUARE_OFF. Cheap when there are none."""
+    """The scanner's trade watch, every GUARD_SEC in market hours: enter signals that were waiting for the open,
+    then while app trades are live, reconcile: fills get their stop quickly, open positions are checked against
+    their targets and stop on the live price, intraday ones square off at INTRADAY_SQUARE_OFF. Cheap when there
+    are none."""
     try:
         if not _market_open():
             return
         with _lock:
             retry_waiting()
-        if not any(intraday(t) and t["state"] in ACTIVE_STATES for t in all_trades()):
+        if not any(t["state"] in ACTIVE_STATES for t in all_trades()):
             return
         with _lock:
             reconcile()
@@ -437,7 +443,7 @@ def reconcile() -> None:
 
 
 def _live_prices(symbols: list[str]) -> dict[str, float]:
-    """Live prices of open positions (to spot a stop that price gapped through); {} if quotes fail."""
+    """Live prices of open positions (their targets and stop are watched on these); {} if quotes fail."""
     if not symbols or not _market_open():
         return {}
     try:
@@ -460,6 +466,8 @@ def _step(t: dict, book: dict, sig: dict | None, enabled: bool, ltp: float | Non
     if st == ENTRY:
         _step_entry(t, book, sig_status, enabled)
     elif st == OPEN:
+        if t["target1"] is None and sig:   # trades from before targets were stored on them
+            t = {**t, "target1": sig["target1"], "target2": sig["target2"]}
         _step_open(t, book, sig_status, ltp)
     elif st == EXITING:
         _step_exit(t, book)
@@ -542,9 +550,14 @@ def _step_open(t: dict, book: dict, sig_status: str, ltp: float | None = None) -
         _, avg = _filled(stop_o)
         _closed(t, avg or t["stop"], "stop-loss")
         return
-    gapped = ltp is not None and order_state(stop_o) == "OPEN" and ltp < _stop_limit(t["stop"])
-    if sig_status in ("T2_HIT", "EXPIRED") or gapped:
-        why = "stop-loss (price gapped below its limit)" if gapped else "target 2" if sig_status == "T2_HIT" else "time exit"
+    # Exits follow this position's live price; of the tracker's statuses only the time exit counts
+    stop_open = order_state(stop_o) == "OPEN"
+    gapped = ltp is not None and stop_open and ltp < _stop_limit(t["stop"])
+    below = ltp is not None and not stop_open and ltp <= t["stop"]   # e.g. filled below the stop: no stop can go in
+    t2 = ltp is not None and t["target2"] is not None and ltp >= t["target2"]
+    if t2 or sig_status == "EXPIRED" or gapped or below:
+        why = ("stop-loss (price gapped below its limit)" if gapped else "stop-loss (price below the stop)" if below
+               else "target 2" if t2 else "time exit")
         oid = _place_exit(t, ltp=ltp)   # the sell goes in before the stop is cancelled
         if order_state(stop_o) == "OPEN":
             _cancel(t["stop_order"])
@@ -552,7 +565,7 @@ def _step_open(t: dict, book: dict, sig_status: str, ltp: float | None = None) -
         _notify(f"📤 <b>{t['symbol']}</b> selling × {t['qty']} ({why}) · limit ₹{sell_price(ltp or _ltp(t['symbol']), tick_of(t['symbol'])):,.2f}"
                 if ltp else f"📤 <b>{t['symbol']}</b> selling × {t['qty']} ({why})")
         return
-    if sig_status == "T1_HIT" and not t["be_moved"]:
+    if ltp is not None and t["target1"] is not None and ltp >= t["target1"] and not t["be_moved"]:
         new_stop = max(t["stop"], t["fill_price"] or t["entry"])
         if order_state(stop_o) == "OPEN":
             _cancel(t["stop_order"])

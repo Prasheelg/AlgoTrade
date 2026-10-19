@@ -132,12 +132,30 @@ def _live_ltp(mkt: markets.Market, sigs: list[dict]) -> None:
             s["ltp"] = q[s["symbol"]]["ltp"]
 
 
+def _real_trades(code: str) -> dict[str, dict]:
+    """Signal key -> the Auto-trade order actually sent to Kotak for it (fill, exit, P&L), India only. The signal's
+    own status is the tracker's paper result; this is what happened on the account."""
+    if code != "IN":
+        return {}
+    from . import orders
+    out = {}
+    for t in orders.all_trades():
+        if not t["entry_order"]:
+            continue
+        pnl = (round((t["exit_price"] - t["fill_price"]) * t["qty"], 2)
+               if t["exit_price"] is not None and t["fill_price"] is not None else None)
+        out[t["key"]] = {"state": t["state"], "qty": t["qty"], "fill_price": t["fill_price"],
+                         "exit_price": t["exit_price"], "pnl": pnl, "note": t["note"]}
+    return out
+
+
 def _signals_payload(mkt: markets.Market) -> dict:
     sigs = state.all_signals(mkt.code)
     _live_ltp(mkt, sigs)
+    real = _real_trades(mkt.code)
     return {
         "market": mkt.code,
-        "signals": [_enrich(s) for s in sigs],
+        "signals": [{**_enrich(s), "trade": real.get(s["key"])} for s in sigs],
         "last_refresh": _last_refresh["at"],
         "config": {"universe": mkt.universe, "timeframe": config.TIMEFRAME, "capital": mkt.capital,
                    "risk_pct": config.RISK_PER_TRADE_PCT, "currency": mkt.currency, "locale": mkt.locale,

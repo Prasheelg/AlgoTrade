@@ -1043,6 +1043,11 @@ let view = "signals";  // "signals" or "performance"
 }
 const setHash = () => history.replaceState(null, "", `#${market}/${view === "signals" ? tab : view}`);
 let cfg = { currency: "₹", locale: "en-IN", tv_prefix: "NSE:" };
+// The Auto-trade order actually sent to Kotak for a signal, under the tracker's paper status
+const realTrade = t => !t ? "" : `<div class="sub" title="${esc(t.note ?? "")}">Kotak: ${esc(TRADE_STATE[t.state] ?? t.state)}` +
+  (t.fill_price != null ? ` × ${t.qty} @ ${inr(t.fill_price)}` : "") +
+  (t.exit_price != null ? ` → ${inr(t.exit_price)}` : "") +
+  (t.pnl != null ? ` <span class="${cls(t.pnl)}">${t.pnl > 0 ? "+" : ""}${inr(t.pnl)}</span>` : "") + `</div>`;
 const inr = v => v == null ? "–" : cfg.currency + Number(v).toLocaleString(cfg.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sgn = (v, d = 2, suf = "") => (v > 0 ? "+" : "") + v.toFixed(d) + suf;
 const cls = v => v > 0 ? "up" : v < 0 ? "down" : "flat";
@@ -1151,7 +1156,7 @@ function renderTable() {
     <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Details and chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
       <span class="side ${s.side}">${s.side}</span></div></td>
     <td>${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
-    <td><span class="pill s-${s.status}">${STATUS_TEXT[s.status] ?? s.status}</span></td>
+    <td><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}</td>
     <td class="num">${inr(s.entry)}${order ? `<div class="sub">${order}` +
       `${s.fill_price != null && s.fill_price !== s.entry ? ` · filled ${inr(s.fill_price)}` : ""}</div>` : ""}</td>
     <td class="num">${inr(s.current)}${s.status === "PENDING" && s.to_entry_pct != null
