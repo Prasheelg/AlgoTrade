@@ -39,6 +39,8 @@ EXIT_REPRICE_SEC = 120      # an unfilled sell is cancelled and placed again at 
 STOP_MAX_FAILS = 3          # stop-loss rejections in a row before the app stops retrying (and says so)
 GUARD_SEC = 60              # scanner: reconcile this often while intraday trades are live
 SQUARE_OFF_NOTE = "intraday square-off"
+# Skipped for this alone (a pre-open scan): entered once the market opens that day, see retry_waiting
+CLOSED_NOTE = "intraday signals are only traded while the market is open"
 # Entries, reconcile and the square-off run from the scanner's loop and its intraday guard thread: one at a time
 _lock = threading.RLock()
 
@@ -260,7 +262,7 @@ def _eligible(sig: dict) -> str | None:
             return "intraday signals aren't traded (Auto-trade intraday signals is off in Settings)"
         m = markets.get("IN")
         if not m.is_open():
-            return "intraday signals are only traded while the market is open"
+            return CLOSED_NOTE
         if m.now().time() >= _hhmm(config.INTRADAY_LAST_ENTRY):
             return f"too late for an intraday entry (after {config.INTRADAY_LAST_ENTRY})"
     return None
@@ -274,7 +276,8 @@ def enter(keys: list[str]) -> list[dict]:
     out = []
     for key in keys:
         sig = sigs.get(key)
-        if sig is None or _get(key):
+        old = _get(key)
+        if sig is None or (old and not _waiting(old)):
             continue
         t = {"symbol": sig["symbol"], "entry_type": sig["entry_type"] or "limit", "entry": sig["entry"],
              "stop": sig["stop_loss"], "created_day": _today(), "timeframe": sig["timeframe"] or "1d"}
@@ -309,12 +312,27 @@ def enter(keys: list[str]) -> list[dict]:
     return out
 
 
+def _waiting(t: dict) -> bool:
+    return t["state"] == SKIPPED and t["note"] == CLOSED_NOTE
+
+
+def retry_waiting() -> list[dict]:
+    """Intraday signals from today's pre-open scan, skipped only because the market was shut, get their entry
+    once it opens (if still eligible: signal pending, before INTRADAY_LAST_ENTRY, within the caps)."""
+    waiting = [t for t in all_trades() if _waiting(t)]
+    if not waiting or not _market_open():
+        return []
+    keys = [t["key"] for t in waiting if t["created_day"] == _today()]
+    return enter(keys) if keys else []
+
+
 def trade_new(keys: list[str]) -> list[dict]:
     """Entries for new signals (only while Auto-trade is ON), then bring every live trade up to date. Returns the
     trades created. Order problems are logged and sent to Telegram; they never stop the caller."""
     try:
         with _lock:
             made = enter(keys)
+            retry_waiting()
             reconcile()
             return made
     except Exception:
@@ -323,10 +341,15 @@ def trade_new(keys: list[str]) -> list[dict]:
 
 
 def guard_tick() -> None:
-    """The scanner's intraday guard, every GUARD_SEC: while intraday trades are live in market hours, reconcile
-    (fills get their stop quickly) and square off at INTRADAY_SQUARE_OFF. Cheap when there are none."""
+    """The scanner's intraday guard, every GUARD_SEC in market hours: enter signals that were waiting for the open,
+    then while intraday trades are live, reconcile (fills get their stop quickly) and square off at
+    INTRADAY_SQUARE_OFF. Cheap when there are none."""
     try:
-        if not _market_open() or not any(intraday(t) and t["state"] in ACTIVE_STATES for t in all_trades()):
+        if not _market_open():
+            return
+        with _lock:
+            retry_waiting()
+        if not any(intraday(t) and t["state"] in ACTIVE_STATES for t in all_trades()):
             return
         with _lock:
             reconcile()

@@ -118,3 +118,25 @@ def test_guard_tick_only_with_live_intraday_trades(clock, kotak, monkeypatch):
     clock(16, 0)
     orders.guard_tick()
     assert calls == [1]                                      # market closed
+
+
+def test_pre_open_signal_is_entered_at_the_open(clock, kotak):
+    clock(9, 5)                                              # pre-open scan
+    key = fast()
+    assert orders.enter([key])[0]["state"] == "SKIPPED" and kotak.placed == []
+    orders.guard_tick()
+    assert kotak.placed == []                                # still shut
+    clock(9, 16)
+    orders.guard_tick()
+    assert trade(key)["state"] == "ENTRY" and kotak.placed[0]["product"] == "MIS"
+    orders.guard_tick()
+    assert len(kotak.placed) == 1
+
+
+def test_pre_open_signal_from_an_earlier_day_is_not_retried(clock, kotak):
+    clock(15, 45)                                            # after the close
+    key = fast()
+    orders.enter([key])
+    clock(9, 16, day=2)
+    orders.guard_tick()
+    assert trade(key)["state"] == "SKIPPED" and kotak.placed == []
