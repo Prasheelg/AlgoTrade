@@ -50,6 +50,8 @@ def kotak(monkeypatch):
     fake.msgs = msgs
     fake.ltp = {"RELIANCE": 100.0, "A": 100.0, "B": 100.0}   # live prices (kotak.quotes)
     monkeypatch.setattr(kotak_quotes, "quotes", lambda syms: {s: {"ltp": fake.ltp[s]} for s in syms if s in fake.ltp})
+    fake.ticks = {}                                          # tick sizes (scrip master); 0.05 if missing
+    monkeypatch.setattr(kotak_quotes, "tick_size", lambda sym: fake.ticks.get(sym))
     state.set_setting(broker.TRADING_KEY, {"enabled": True})
     return fake
 
@@ -238,6 +240,17 @@ def test_expired_stop_replaced_but_not_overnight_when_missing(kotak, monkeypatch
     del kotak.book["103"]                           # after midnight: not in today's book -> wait
     orders.reconcile()
     assert trade(key)["stop_order"] == "103"
+
+
+def test_prices_follow_the_stocks_tick_size(kotak):
+    kotak.ticks["RELIANCE"] = 0.10
+    key = signal(entry=99.03, stop_loss=96.07)
+    orders.enter([key])
+    kotak.fill("101", 101, 99.0)
+    orders.reconcile()
+    entry, stop = kotak.placed
+    assert entry["price"] == "99.00"
+    assert stop["trigger_price"] == "96.00" and round(float(stop["price"]) * 10, 6) % 1 == 0
 
 
 def test_stop_rejections_retry_then_give_up_loudly(kotak):

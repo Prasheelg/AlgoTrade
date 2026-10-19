@@ -64,6 +64,16 @@ def neo(monkeypatch):
 
 # ---- parsing ---------------------------------------------------------------------------------------
 
+def test_tick_sizes_from_scrip_master():
+    csv = """pSymbol,pGroup,pExchSeg,pSymbolName,pTrdSymbol,dTickSize 
+3518,EQ,nse_cm,TORNTPHARM,TORNTPHARM-EQ,10
+2885,EQ,nse_cm,RELIANCE,RELIANCE-EQ,5
+9999,BE,nse_cm,ODDCO,ODDCO-BE,1
+"""
+    assert kotak.parse_tick_sizes(csv) == {"TORNTPHARM": 0.10, "RELIANCE": 0.05}
+    assert kotak.parse_tick_sizes(SCRIP_CSV) == {}           # no tick column: callers fall back to 0.05
+
+
 def test_scrip_master_maps_eq_series_only():
     assert kotak.parse_scrip_master(SCRIP_CSV) == {"RELIANCE": "2885", "M&M": "2031", "TCS": "11536"}
 

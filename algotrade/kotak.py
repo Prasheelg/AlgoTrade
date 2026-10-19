@@ -26,6 +26,7 @@ IST = ZoneInfo("Asia/Kolkata")
 
 _client = None
 _tokens: dict[str, str] = {}
+_ticks: dict[str, float] = {}
 _tokens_day: date | None = None
 _failed_at: float | None = None
 
@@ -58,6 +59,24 @@ def parse_scrip_master(csv_text: str) -> dict[str, str]:
     return dict(zip(syms, m["pSymbol"].str.strip()))
 
 
+def parse_tick_sizes(csv_text: str) -> dict[str, float]:
+    """NSE equity symbol -> tick size in rupees (dTickSize is in paise; NSE ticks run from 0.01 to 5 by price)."""
+    m = pd.read_csv(io.StringIO(csv_text), dtype=str, low_memory=False)
+    m.columns = m.columns.str.strip()
+    if "dTickSize" not in m:
+        return {}
+    m = m[m["pGroup"].str.strip() == "EQ"]
+    ticks = pd.to_numeric(m["dTickSize"], errors="coerce") / 100
+    syms = m["pTrdSymbol"].str.strip().str.removesuffix("-EQ")
+    return {s: float(t) for s, t in zip(syms, ticks) if t > 0}
+
+
+def tick_size(symbol: str) -> float | None:
+    """The stock's NSE tick size from today's scrip master, or None if unknown."""
+    tokens()
+    return _ticks.get(symbol)
+
+
 def _scrip_master_url() -> str:
     global _failed_at
     if _failed_at is not None and time.monotonic() - _failed_at < RETRY_AFTER_SEC:
@@ -76,7 +95,7 @@ def _scrip_master_url() -> str:
 
 def tokens() -> dict[str, str]:
     """Symbol -> token map, downloaded once per day and cached in DATA_DIR across restarts."""
-    global _tokens, _tokens_day
+    global _tokens, _ticks, _tokens_day
     today = datetime.now(IST).date()
     if _tokens_day != today:
         cache = config.DATA_DIR / f"kotak_{SEGMENT}_{today}.csv"
@@ -88,7 +107,7 @@ def tokens() -> dict[str, str]:
             for old in config.DATA_DIR.glob(f"kotak_{SEGMENT}_*.csv"):
                 if old != cache:
                     old.unlink(missing_ok=True)
-        _tokens, _tokens_day = parse_scrip_master(text), today
+        _tokens, _ticks, _tokens_day = parse_scrip_master(text), parse_tick_sizes(text), today
         log.info("Kotak scrip master: %d NSE equities", len(_tokens))
     return _tokens
 

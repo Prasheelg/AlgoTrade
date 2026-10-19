@@ -32,7 +32,7 @@ from . import broker, config, markets, state, telegram_bot
 
 log = logging.getLogger(__name__)
 SEGMENT = "nse_cm"
-TICK = 0.05                 # every valid NSE price is a multiple of 0.05
+TICK = 0.05                 # NSE tick when the scrip master doesn't say (it varies by price: 0.01 to 5)
 STOP_LIMIT_BUFFER = 0.005   # breakout entry: limit 0.5% above the trigger
 SL_LIMIT_BUFFER = 0.01      # stop-loss = stop-limit: limit 1% below the trigger
 EXIT_REPRICE_SEC = 120      # an unfilled sell is cancelled and placed again at the live price after this long
@@ -102,9 +102,19 @@ def _today() -> str:
     return markets.get("IN").now().date().isoformat()
 
 
-def _tick(px: float, up: bool) -> float:
-    n = px / TICK
-    return round((math.ceil(n - 1e-9) if up else math.floor(n + 1e-9)) * TICK, 2)
+def _tick(px: float, up: bool, tick: float = TICK) -> float:
+    n = px / tick
+    return round((math.ceil(n - 1e-9) if up else math.floor(n + 1e-9)) * tick, 2)
+
+
+def tick_of(symbol: str) -> float:
+    """The stock's tick size (Kotak rejects prices off it), TICK if the scrip master can't be read."""
+    try:
+        from . import kotak
+        return kotak.tick_size(symbol) or TICK
+    except Exception:
+        log.exception("Tick size for %s unavailable; using %s", symbol, TICK)
+        return TICK
 
 
 def _market_open() -> bool:
@@ -182,19 +192,21 @@ def _place(product: str = "CNC", **kw) -> str:
 
 def _place_entry(t: dict) -> str:
     kw = dict(trading_symbol=f"{t['symbol']}-EQ", transaction_type="B", quantity=str(t["qty"]), product=_product(t))
+    tk = tick_of(t["symbol"])
     if t["entry_type"] == "stop":   # breakout: stop-limit triggered at the entry
-        return _place(order_type="SL", trigger_price=f"{_tick(t['entry'], True):.2f}",
-                      price=f"{_tick(t['entry'] * (1 + STOP_LIMIT_BUFFER), True):.2f}", **kw)
-    return _place(order_type="L", price=f"{_tick(t['entry'], False):.2f}", trigger_price="0", **kw)
+        return _place(order_type="SL", trigger_price=f"{_tick(t['entry'], True, tk):.2f}",
+                      price=f"{_tick(t['entry'] * (1 + STOP_LIMIT_BUFFER), True, tk):.2f}", **kw)
+    return _place(order_type="L", price=f"{_tick(t['entry'], False, tk):.2f}", trigger_price="0", **kw)
 
 
-def _stop_limit(stop: float) -> float:
-    return _tick(stop * (1 - SL_LIMIT_BUFFER), False)
+def _stop_limit(stop: float, tick: float = TICK) -> float:
+    return _tick(stop * (1 - SL_LIMIT_BUFFER), False, tick)
 
 
 def _place_stop(t: dict, qty: int, stop: float) -> str:
     """Stop-loss as a stop-limit: triggers at the stop, sells down to SL_LIMIT_BUFFER below it (no SL-M via API)."""
-    return _place(order_type="SL", price=f"{_stop_limit(stop):.2f}", trigger_price=f"{_tick(stop, False):.2f}",
+    tk = tick_of(t["symbol"])
+    return _place(order_type="SL", price=f"{_stop_limit(stop, tk):.2f}", trigger_price=f"{_tick(stop, False, tk):.2f}",
                   trading_symbol=f"{t['symbol']}-EQ", transaction_type="S", quantity=str(qty), product=_product(t))
 
 
@@ -207,13 +219,13 @@ def _ltp(symbol: str) -> float:
     return float(q["ltp"])
 
 
-def sell_price(ltp: float) -> float:
+def sell_price(ltp: float, tick: float = TICK) -> float:
     """A sell that fills like a market order: a limit MARKET_PROTECTION_PCT below the live price."""
-    return _tick(ltp * (1 - config.MARKET_PROTECTION_PCT / 100), False)
+    return _tick(ltp * (1 - config.MARKET_PROTECTION_PCT / 100), False, tick)
 
 
 def _place_exit(t: dict, qty: int | None = None, ltp: float | None = None) -> str:
-    px = sell_price(ltp or _ltp(t["symbol"]))
+    px = sell_price(ltp or _ltp(t["symbol"]), tick_of(t["symbol"]))
     return _place(order_type="L", price=f"{px:.2f}", trigger_price="0", trading_symbol=f"{t['symbol']}-EQ",
                   transaction_type="S", quantity=str(qty or t["qty"]), product=_product(t))
 
@@ -542,7 +554,7 @@ def _step_open(t: dict, book: dict, sig_status: str, ltp: float | None = None) -
         if order_state(stop_o) == "OPEN":
             _cancel(t["stop_order"])
         _save(key, state=EXITING, exit_order=oid, exit_at=_now(), note=why)
-        _notify(f"📤 <b>{t['symbol']}</b> selling × {t['qty']} ({why}) · limit ₹{sell_price(ltp or _ltp(t['symbol'])):,.2f}"
+        _notify(f"📤 <b>{t['symbol']}</b> selling × {t['qty']} ({why}) · limit ₹{sell_price(ltp or _ltp(t['symbol']), tick_of(t['symbol'])):,.2f}"
                 if ltp else f"📤 <b>{t['symbol']}</b> selling × {t['qty']} ({why})")
         return
     if sig_status == "T1_HIT" and not t["be_moved"]:
