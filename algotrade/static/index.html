@@ -1781,6 +1781,9 @@ const PORT_TABS = [
     ["Net qty", x => qtyFmt(x.net_qty), 1], ["Bought", x => `${qtyFmt(x.buy_qty)}<div class="sub">@ ${rupee(x.buy_avg)}</div>`, 1],
     ["Sold", x => `${qtyFmt(x.sell_qty)}<div class="sub">@ ${rupee(x.sell_avg)}</div>`, 1],
     ["LTP", x => rupee(x.ltp), 1], ["P&L", x => signedRupee(x.pnl), 1],
+    // An Auto-trade position closes through its app trade, so its stop-loss is cancelled with it
+    ["", x => { const t = x.net_qty > 0 && port?.trades?.find(t => t.symbol === x.symbol && t.state === "OPEN");
+      return t ? `<button type="button" class="btn close-trade" data-close="${esc(t.key)}">Close</button>` : ""; }],
   ], ["No positions today", "Trades made today show here until they settle into holdings."]],
   ["orders", "Orders today", p => p.orders, [
     ["Time", o => esc(o.time)], ["Stock", o => `<span class="sym">${esc(o.symbol)}</span> <span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span>`],
