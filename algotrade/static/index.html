@@ -70,6 +70,8 @@
   .sbar { display: flex; flex-wrap: wrap; align-items: center; row-gap: 10px; padding: 12px 16px 12px 0; margin-bottom: 14px;
           overflow: hidden; white-space: nowrap; font-size: 13px; }
   .sbar::-webkit-scrollbar { display: none; }
+  /* Pinned under the top bar while the page scrolls (--top-h: the bar's height, set by pinStrip) */
+  .sbar { position: sticky; top: var(--top-h, 0px); z-index: 4; }
   .sseg { display: flex; align-items: center; gap: 9px; padding: 2px 16px; margin-left: -1px; border-left: 1px solid var(--line-2); }
   .sseg.end { margin-left: auto; }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -488,7 +490,7 @@
 
   /* ---- Settings, calculator, journal, scorecard, backtest, tax, market overview ---- */
   #settingsBtn span { display: none; }
-  .opt-ticket { scroll-margin-top: 76px; }   /* opened tickets scroll clear of the sticky top bar */
+  .opt-ticket { scroll-margin-top: var(--sticky-h, 76px); }   /* opened tickets scroll clear of the pinned bars */
   .st-group { margin-top: 14px; }
   .st-group > .lbl { display: block; margin-bottom: 6px; }
   .st-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 4px 14px; align-items: center; padding: 8px 0;
@@ -581,7 +583,8 @@
     #tradeSw { order: 5; height: 38px; border-radius: 11px; padding: 0 12px; }
 
     /* Status strip: a quiet line under the app bar, swipe for the rest */
-    .sbar { background: transparent; border: 0; box-shadow: none; border-radius: 0; margin: 0 -14px 10px; padding: 0 14px 0 0;
+    .sbar { background: var(--bg); border: 0; box-shadow: none; border-radius: 0; margin: 0 -14px 10px;
+            padding: 6px 14px 6px 0; top: env(safe-area-inset-top);   /* the app bar scrolls away here */
             font-size: 12.5px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
     .sseg { padding: 2px 12px; }
     .sseg:first-child { padding-left: 14px; }
@@ -1184,6 +1187,16 @@ function show(j) {
   renderStatus();
   render();
 }
+
+// The status strip stays pinned right under the top bar (which scrolls away on phones)
+function pinStrip() {
+  const top = document.querySelector(".top"), strip = document.getElementById("sbar");
+  const h = getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0;
+  document.documentElement.style.setProperty("--top-h", `${h}px`);
+  document.documentElement.style.setProperty("--sticky-h", `${h + strip.offsetHeight + 8}px`);
+}
+new ResizeObserver(pinStrip).observe(document.querySelector(".top"));
+new ResizeObserver(pinStrip).observe(document.getElementById("sbar"));
 
 // ---- Exchange clock (regular hours, weekdays; holidays aren't known) ----
 const EXCHANGE = { IN: ["NSE", "IST"], US: ["NYSE · Nasdaq", "ET"] };
