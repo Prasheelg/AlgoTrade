@@ -66,12 +66,13 @@
   h1 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.015em; white-space: nowrap; }
   h1 span { font-weight: 500; color: var(--muted); }
   /* Status strip: session, exchange clock, index, account settings, data feed */
-  /* Each segment's divider sits 1px left of it; the card clips the one at the start of every line */
-  .sbar { display: flex; flex-wrap: wrap; align-items: center; row-gap: 10px; padding: 12px 16px 12px 0; margin-bottom: 14px;
-          overflow: hidden; white-space: nowrap; font-size: 13px; }
+  /* Part of the top bar (so it stays put while the page scrolls), its second row. Each segment's divider sits 1px
+     left of it; the strip clips the one at the start of every line, and is pulled left so the first segment's
+     text lines up with the brand above */
+  .sbar { display: flex; flex-wrap: wrap; align-items: center; row-gap: 10px; padding: 0 16px 0 0; margin-left: -16px;
+          flex: 1 1 100%; overflow: hidden; white-space: nowrap; font-size: 13px; }
   .sbar::-webkit-scrollbar { display: none; }
-  /* Pinned under the top bar while the page scrolls (--top-h: the bar's height, set by pinStrip) */
-  .sbar { position: sticky; top: var(--top-h, 0px); z-index: 4; }
+  .top-strip { margin-top: 10px; }
   .sseg { display: flex; align-items: center; gap: 9px; padding: 2px 16px; margin-left: -1px; border-left: 1px solid var(--line-2); }
   .sseg.end { margin-left: auto; }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -430,7 +431,7 @@
     .top-in { gap: 10px; }
     .kpi .v { font-size: 20px; }
     .brand { border-right: 0; padding-right: 0; }
-    .sbar { padding: 10px 14px 10px 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .sbar { padding: 0 14px 0 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   }
   /* ---- Health banner (all views) ---- */
   .health { display: flex; gap: 10px; align-items: flex-start; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
@@ -566,8 +567,9 @@
     .scan, .notice, .tiles, .chart-card { margin-bottom: 12px; }
 
     /* App bar: row 1 = brand + icon actions, row 2 = market switch + Auto-trade */
-    .top { position: static; backdrop-filter: none; background: var(--bg); border-bottom: 0;
-           margin: 0 -14px 4px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; }
+    /* sticky with a negative top (pinStrip): the app bar scrolls away, the status strip under it stays */
+    .top { top: var(--top-pin, 0px); backdrop-filter: none; background: var(--bg); border-bottom: 0;
+           margin: 0 -14px 10px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; }
     .top-in { gap: 10px 8px; }
     .top-in::after { content: ""; order: 3; flex-basis: 100%; height: 0; }
     .brand { order: 0; gap: 9px; }
@@ -583,8 +585,8 @@
     #tradeSw { order: 5; height: 38px; border-radius: 11px; padding: 0 12px; }
 
     /* Status strip: a quiet line under the app bar, swipe for the rest */
-    .sbar { background: var(--bg); border: 0; box-shadow: none; border-radius: 0; margin: 0 -14px 10px;
-            padding: 6px 14px 6px 0; top: env(safe-area-inset-top);   /* the app bar scrolls away here */
+    .top-strip { margin-top: 8px; }
+    .sbar { margin: 0 -14px; padding: 0 14px 0 0;
             font-size: 12.5px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
     .sseg { padding: 2px 12px; }
     .sseg:first-child { padding-left: 14px; }
@@ -788,9 +790,9 @@
     <button class="btn icon" id="settingsBtn" type="button" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
     <button class="btn" id="logout" type="button" hidden title="Log this device out" aria-label="Log out"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Log out</span></button>
     <button class="btn" id="refresh" title="Re-check open signals against the latest prices"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
-  </div></header>
+  </div>
+  <div class="top-in top-strip"><div class="sbar" id="sbar" role="region" aria-label="Market status"></div></div></header>
 
-  <section class="card sbar" id="sbar" aria-label="Market status"></section>
   <div class="health" id="healthBox" role="alert" hidden></div>
 
   <!-- Stock buy / sell tickets: shared by the Signals and Portfolio views -->
@@ -1188,15 +1190,14 @@ function show(j) {
   render();
 }
 
-// The status strip stays pinned right under the top bar (which scrolls away on phones)
+// The top bar, status strip included, stays pinned; on phones only the strip does (the rows above scroll away)
 function pinStrip() {
   const top = document.querySelector(".top"), strip = document.getElementById("sbar");
-  const h = getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0;
-  document.documentElement.style.setProperty("--top-h", `${h}px`);
-  document.documentElement.style.setProperty("--sticky-h", `${h + strip.offsetHeight + 8}px`);
+  const pin = matchMedia("(max-width: 640px)").matches ? -(strip.offsetTop - 8) : 0;
+  document.documentElement.style.setProperty("--top-pin", `${pin}px`);
+  document.documentElement.style.setProperty("--sticky-h", `${top.offsetHeight + pin + 8}px`);
 }
 new ResizeObserver(pinStrip).observe(document.querySelector(".top"));
-new ResizeObserver(pinStrip).observe(document.getElementById("sbar"));
 
 // ---- Exchange clock (regular hours, weekdays; holidays aren't known) ----
 const EXCHANGE = { IN: ["NSE", "IST"], US: ["NYSE · Nasdaq", "ET"] };
