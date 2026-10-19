@@ -85,7 +85,10 @@ def norm_position(row: dict) -> dict:
     buy_amt = _num(row, "buyAmt", default=0.0) + _num(row, "cfBuyAmt", default=0.0)
     sell_amt = _num(row, "sellAmt", default=0.0) + _num(row, "cfSellAmt", default=0.0)
     net = _num(row, "netQty", default=buy_qty - sell_qty)
+    tsym = _text(row, "trdSym", "tradingSymbol").strip().upper()
+    seg = _text(row, "exSeg", "exchangeSegment").strip().lower() or ("nse_cm" if tsym.endswith("-EQ") else "")
     return {"symbol": _symbol(row), "product": _text(row, "prod", "product"), "net_qty": net,
+            "tsym": tsym, "segment": seg,
             "buy_qty": buy_qty, "sell_qty": sell_qty,
             "buy_avg": buy_amt / buy_qty if buy_qty and buy_amt else _num(row, "buyAvgPrc", "avgBuyPrice"),
             "sell_avg": sell_amt / sell_qty if sell_qty and sell_amt else _num(row, "sellAvgPrc", "avgSellPrice"),

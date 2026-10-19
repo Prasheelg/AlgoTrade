@@ -258,6 +258,57 @@ def sell_holding(symbol: str, qty, order_type: str = "LIMIT", price=None) -> dic
     return {**row, "order_id": str(oid)}
 
 
+# ---- closing positions (Portfolio > Positions > Close) ------------------------------------------
+
+def close_position(tsym: str, product: str) -> dict:
+    """Close today's open position in a stock or option at the market: sell a long, buy back a short, the whole
+    net quantity from Kotak's positions, as a marketable limit. Auto-trade positions are refused here: they close
+    through their app trade, which also cancels their stop-loss."""
+    from .orders import ACTIVE_STATES, all_trades, tick_of
+    from .portfolio import _rows, norm_position
+    tsym, product = tsym.strip().upper(), product.strip().upper()
+    rows = [norm_position(r) for r in _rows(broker.call("positions"))]
+    mine = [p for p in rows if p["tsym"] == tsym and p["product"].upper() == product]
+    net = int(sum(p["net_qty"] for p in mine))
+    if not mine or not net:
+        raise ValueError(f"No open {product} position in {tsym} (it may be closed already)")
+    side, qty = ("SELL" if net > 0 else "BUY"), abs(net)
+    if mine[0]["segment"] == fno.SEGMENT or (fno.contract(tsym) if not tsym.endswith("-EQ") else None):
+        c = fno.contract(tsym)
+        if c is None:
+            raise ValueError(f"Unknown option contract {tsym}")
+        lot = int(c["lot"])
+        if qty % lot:
+            raise ValueError(f"{tsym}: position of {qty} isn't whole lots of {lot}; close it in the Kotak app")
+        return _send({"c": c, "tsym": tsym, "side": side, "lots": qty // lot, "qty": qty, "order_type": "MARKET",
+                      "px": None, "product": product}, tag=" (close position)")
+    symbol = tsym.removesuffix("-EQ")
+    if any(t["symbol"] == symbol and t["state"] in ACTIVE_STATES for t in all_trades()):
+        raise ValueError(f"{symbol} is managed by Auto-trade: use its Close, which also cancels its stop-loss.")
+    px = protect(_stock_ltp(symbol), side, config.MARKET_PROTECTION_PCT, tick_of(symbol))
+    amo = "NO" if markets.get("IN").is_open() else "YES"
+    row = dict(placed_at=datetime.now().isoformat(timespec="seconds"), tsym=f"{symbol}-EQ", underlying=symbol,
+               side=side, lots=None, qty=qty, order_type="MARKET", price=px, product=product, amo=amo)
+    try:
+        res = broker.call("place_order", exchange_segment="nse_cm", product=product, validity="DAY", amo=amo,
+                          order_type="L", price=f"{px:.2f}", trigger_price="0",
+                          quantity=str(qty), trading_symbol=f"{symbol}-EQ", transaction_type=side[0])
+        data = res.get("data") if isinstance(res.get("data"), dict) else {}
+        oid = res.get("nOrdNo") or data.get("nOrdNo")
+        if not oid:
+            raise broker.BrokerError(f"place_order: no order number in {str(res)[:200]}")
+    except broker.BrokerError as exc:
+        _record(**row, error=str(exc)[:300])
+        raise
+    _record(**row, order_id=str(oid))
+    try:
+        telegram_bot.send_message(f"🖐️ <b>Close {symbol}</b> · {side} × {qty} · {_market_note(px)} · {product}"
+                                  f"{' · AMO' if amo == 'YES' else ''} · order {oid}")
+    except Exception:
+        log.exception("Telegram notice for a position close failed")
+    return {**row, "order_id": str(oid)}
+
+
 # ---- buying stocks (Portfolio > Buy stock / Holdings > Buy) -------------------------------------
 
 STOCK_PRODUCTS = ("CNC", "MIS")   # CNC = delivery into demat, MIS = intraday (squared off by the broker)

@@ -351,6 +351,24 @@ def api_holdings_sell():
     return jsonify(out)
 
 
+@app.post("/api/positions/close")
+def api_positions_close():
+    """Close an open position at the market: {"tsym", "product"}. Real order, so only from this PC."""
+    from . import manual
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    b = request.get_json(silent=True) or {}
+    try:
+        out = manual.close_position(str(b.get("tsym", "")), str(b.get("product", "")))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except broker.BrokerError as exc:
+        return jsonify({"error": f"Kotak refused: {exc}"}), 502
+    from . import portfolio
+    portfolio._cache.update(at=None, data=None)   # next read shows the order straight away
+    return jsonify(out)
+
+
 @app.post("/api/options/order")
 def api_option_order():
     """Your own option order (not Auto-trade). Real money, so only from this PC."""

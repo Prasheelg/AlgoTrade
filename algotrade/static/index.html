@@ -1787,8 +1787,10 @@ const PORT_TABS = [
     ["Sold", x => `${qtyFmt(x.sell_qty)}<div class="sub">@ ${rupee(x.sell_avg)}</div>`, 1],
     ["LTP", x => rupee(x.ltp), 1], ["P&L", x => signedRupee(x.pnl), 1],
     // An Auto-trade position closes through its app trade, so its stop-loss is cancelled with it
-    ["", x => { const t = x.net_qty > 0 && port?.trades?.find(t => t.symbol === x.symbol && t.state === "OPEN");
-      return t ? `<button type="button" class="btn close-trade" data-close="${esc(t.key)}">Close</button>` : ""; }],
+    ["", x => { if (!x.net_qty) return "";
+      const t = x.net_qty > 0 && port?.trades?.find(t => t.symbol === x.symbol && t.state === "OPEN");
+      return t ? `<button type="button" class="btn close-trade" data-close="${esc(t.key)}">Close</button>`
+        : `<button type="button" class="btn close-trade" data-pclose="${esc(x.tsym)}" data-prod="${esc(x.product)}">Close</button>`; }],
   ], ["No positions today", "Trades made today show here until they settle into holdings."]],
   ["orders", "Orders today", p => p.orders, [
     ["Time", o => esc(o.time)], ["Stock", o => `<span class="sym">${esc(o.symbol)}</span> <span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span>`],
@@ -2292,6 +2294,8 @@ document.getElementById("portRows").onclick = async e => {
   if (buy) { openBuy(buy.dataset.buy); return; }
   const sell = e.target.closest("[data-sell]");
   if (sell) { openSell(sell.dataset.sell); return; }
+  const pc = e.target.closest("[data-pclose]");
+  if (pc) { closePosition(pc); return; }
   const b = e.target.closest("[data-close]"); if (!b) return;
   const t = port.trades.find(x => x.key === b.dataset.close); if (!t) return;
   const ask = t.state === "OPEN"
@@ -2310,6 +2314,25 @@ document.getElementById("portRows").onclick = async e => {
   }
   await loadPort(true);
 };
+
+// Positions > Close on a position you opened yourself: the whole net quantity at the market
+async function closePosition(b) {
+  const p = port.positions.find(x => x.tsym === b.dataset.pclose && x.product === b.dataset.prod); if (!p) return;
+  const side = p.net_qty > 0 ? "Sell" : "Buy back";
+  if (!confirm(`Close ${p.symbol} (${p.product})?\n\n${side} all ${Math.abs(p.net_qty)} at MARKET price now ` +
+      "(sent as a limit just past the live price; an after-market order if the market is closed).\n" +
+      "This is a real order on Kotak.")) return;
+  b.disabled = true; b.textContent = "Closing…";
+  try {
+    const res = await fetch("/api/positions/close", { method: "POST", headers: { "Content-Type": "application/json" },
+                                                      body: JSON.stringify({ tsym: p.tsym, product: p.product }) });
+    const j = await res.json();
+    if (!res.ok) alert(j.error || "Could not close the position");
+  } catch (err) {
+    alert("Could not reach the server: " + err.message);
+  }
+  await loadPort(true);
+}
 
 // ---- Options view: chains for index / stock options and your own orders (/api/options/*) ----
 let optUnders = null, optChain = null, optSel = null, optTicket = null;
