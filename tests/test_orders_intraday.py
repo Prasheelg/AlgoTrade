@@ -1,5 +1,6 @@
 """orders: intraday (MIS) Auto-trade for 5m-1h signals: entry window, one trade per stock, the
 15:00 square-off, and trades left after the close."""
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -97,17 +98,35 @@ def test_intraday_left_after_the_close_is_not_carried_over(clock, kotak):
     assert any("still open in the app" in m for m in texts(kotak))
 
 
-def test_guard_tick_watches_every_live_trade_in_market_hours(clock, kotak, monkeypatch):
-    calls = []
-    monkeypatch.setattr(orders, "reconcile", lambda: calls.append(1))
+def wait_for(cond, secs=5.0):
+    end = time.monotonic() + secs
+    while not cond():
+        assert time.monotonic() < end, "timed out"
+        time.sleep(0.01)
+
+
+def test_each_live_trade_gets_a_watcher_thread(clock, kotak, monkeypatch):
+    monkeypatch.setattr(orders, "WATCH_SEC", 0.01)
     orders.guard_tick()
-    assert calls == []                                       # nothing live
-    orders.enter([signal("A")])                              # a daily trade is watched too
-    orders.guard_tick()
-    assert calls == [1]
-    clock(16, 0)
-    orders.guard_tick()
-    assert calls == [1]                                      # market closed
+    assert orders._watchers == {}                            # not the scanner: no threads (dashboard, tests)
+    orders.start_watching()
+    try:
+        a, b = signal("A"), fast("B")                        # a daily trade is watched too
+        orders.enter([a, b])
+        orders.guard_tick()
+        assert {k for k, th in orders._watchers.items() if th.is_alive()} == {a, b}
+        orders.guard_tick()
+        assert len(orders._watchers) == 2                    # one each
+        kotak.fill("101", 101, 98.9)                         # A's entry fills: its watcher places stop + target
+        wait_for(lambda: trade(a)["target_order"] is not None)
+        assert trade(a)["state"] == "OPEN" and trade(a)["stop_order"] is not None
+        kotak.fill(trade(a)["target_order"], 101, 103.5)
+        wait_for(lambda: not orders._watchers[a].is_alive())  # done: its thread ends
+        assert trade(a)["state"] == "CLOSED" and orders._watchers[b].is_alive()
+    finally:
+        orders.stop_watching()
+    assert not any(th.is_alive() for th in orders._watchers.values())
+    orders._watchers.clear()
 
 
 def test_pre_open_signal_is_entered_at_the_open(clock, kotak):

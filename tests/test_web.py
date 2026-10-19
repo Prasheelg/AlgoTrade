@@ -456,11 +456,12 @@ def test_scan_hands_new_buys_to_auto_trade(client, monkeypatch):
     monkeypatch.setattr(web, "scan_and_alert", _scan_recording(old, day, intraday, sell))
     monkeypatch.setattr(broker, "trading_enabled", lambda: True)
     monkeypatch.setattr(health, "scanner_running", lambda now=None: True)
-    rec = Recorder(lambda keys: [{"symbol": "DAY", "qty": 3, "entry_order": "OID1", "note": None}])
+    rec = Recorder(lambda keys, manage: [{"symbol": "DAY", "qty": 3, "entry_order": "OID1", "note": None}])
     monkeypatch.setattr(orders, "trade_new", rec)
     j = client.post("/api/scan", json={"min_score": 1}).get_json()
     # not OLD (already there), not SELL; intraday ones too (orders decides whether intraday is traded)
     assert len(rec.calls) == 1 and sorted(rec.calls[0][0][0]) == sorted([day.key, intraday.key])
+    assert rec.calls[0][1] == {"manage": False}   # the scanner's watchers manage them, not the dashboard
     assert j["scan"]["auto_trade"] == {"placed": ["DAY × 3"], "skipped": [], "blocked": None}
 
 

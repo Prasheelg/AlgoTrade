@@ -6,16 +6,20 @@ trades; with INTRADAY_AUTO_TRADE on, 5m-1h signals are intraday (MIS) trades.
   share dearer than the cap is skipped) and MAX_OPEN_RISK_PCT. No cap on trades per day. One app trade per stock
   at a time.
 - Intraday: entries only in market hours until INTRADAY_LAST_ENTRY; at INTRADAY_SQUARE_OFF unfilled entries are
-  cancelled and positions sold (intraday_guard). While intraday trades are live the scanner reconciles every
-  GUARD_SEC, so a fill gets its stop within about a minute rather than at the next scan.
+  cancelled and positions sold (intraday_guard, every GUARD_SEC from the scanner's guard).
 - Entry = the signal's pending order: limit at the entry (pullback) or stop-limit triggered at it (breakout).
   Kotak orders last one day, so an unfilled entry is placed again each session until the tracker cancels the
   signal. Outside market hours orders go in as AMO. Before (re)placing an entry the order book must show no
   open buy order for that stock, so a position is never doubled.
-- After a fill a stop-loss protects the position, placed again every session. The position is then watched on
-  its own live price, not the signal tracker's paper result (which assumes a fill at the signal's entry and stops
-  following the signal once it is done): at target 1 the stop moves to the fill price; at target 2, at the
-  tracker's time exit, or with price already below the stop and no working stop order, the position is sold.
+- Each live trade has its own watcher thread in the scanner (watch_all), checking Kotak every WATCH_SEC in
+  market hours until the trade is done: entry filled? then the exits.
+- After a fill two sell orders protect the position, placed again every session: a stop-loss and one target (a
+  limit at the signal's target 1). Kotak has no one-cancels-other for these, so the watcher does it: when one
+  fills the other is cancelled, and when one partly fills the other is cut to the shares still held. The
+  position is watched on its own live price, not the signal tracker's paper result (which assumes a fill at the
+  signal's entry): at the tracker's time exit, with price through the stop and no working stop order (or below
+  its limit), or at the target with no working target order (Kotak refused it TARGET_MAX_FAILS times, e.g. a
+  delivery holding already blocked by the stop), the position is sold.
 - SEBI allows no market orders via the API for retail clients, so nothing here is a market order: the stop is a
   stop-limit (limit SL_LIMIT_BUFFER below the trigger) and sells are limits MARKET_PROTECTION_PCT below the live
   price. If price gaps through a stop's limit the position is sold at a fresh price; an unfilled sell is
@@ -39,12 +43,18 @@ STOP_LIMIT_BUFFER = 0.005   # breakout entry: limit 0.5% above the trigger
 SL_LIMIT_BUFFER = 0.01      # stop-loss = stop-limit: limit 1% below the trigger
 EXIT_REPRICE_SEC = 120      # an unfilled sell is cancelled and placed again at the live price after this long
 STOP_MAX_FAILS = 3          # stop-loss rejections in a row before the app stops retrying (and says so)
-GUARD_SEC = 60              # scanner: reconcile this often in market hours while app trades are live
+TARGET_MAX_FAILS = 2        # target rejections before the app watches the target on the live price instead
+GUARD_SEC = 15              # scanner: enter waiting signals, square off, start watchers for new trades
+WATCH_SEC = 5               # a trade's watcher checks Kotak this often in market hours
+WATCH_IDLE_SEC = 60         # and this often while the market is shut
 SQUARE_OFF_NOTE = "intraday square-off"
 # Skipped for this alone (a pre-open scan): entered once the market opens that day, see retry_waiting
 CLOSED_NOTE = "intraday signals are only traded while the market is open"
-# Entries, reconcile and the square-off run from the scanner's loop and its intraday guard thread: one at a time
+# Entries, the trade watchers and the square-off run from the scanner's loop and its threads: one at a time
 _lock = threading.RLock()
+_watchers: dict[str, threading.Thread] = {}   # trade key -> its watcher (scanner only: see start_watching)
+_watching = threading.Event()
+_wake = threading.Event()                     # set when the scanner stops: watchers end at once
 
 # Live trade states
 NEW, ENTRY, OPEN, EXITING = "NEW", "ENTRY", "OPEN", "EXITING"            # in progress
@@ -55,10 +65,10 @@ _COLUMNS = """key TEXT PRIMARY KEY, symbol TEXT, state TEXT, qty INTEGER, entry_
     stop REAL, entry_order TEXT, stop_order TEXT, exit_order TEXT, fill_price REAL, exit_price REAL,
     be_moved INTEGER DEFAULT 0, created_day TEXT, opened_at TEXT, closed_at TEXT, note TEXT, alerted TEXT,
     updated_at TEXT, exit_at TEXT, stop_fails INTEGER DEFAULT 0, timeframe TEXT, product TEXT, target1 REAL,
-    target2 REAL"""
+    target2 REAL, target_order TEXT, target_fails INTEGER DEFAULT 0"""
 # columns newer than the first version (older rows: daily, CNC; no targets: the signal's are used)
 _ADDED = {"exit_at": "TEXT", "stop_fails": "INTEGER DEFAULT 0", "timeframe": "TEXT", "product": "TEXT",
-          "target1": "REAL", "target2": "REAL"}
+          "target1": "REAL", "target2": "REAL", "target_order": "TEXT", "target_fails": "INTEGER DEFAULT 0"}
 
 
 def _conn():
@@ -169,10 +179,17 @@ def order_state(o: dict | None) -> str:
     return "OPEN"
 
 
-def _filled(o: dict) -> tuple[int, float | None]:
+def _filled(o: dict | None) -> tuple[int, float | None]:
+    if not o:
+        return 0, None
     qty = int(float(o.get("fldQty") or 0))
     avg = float(o.get("avgPrc") or 0) or None
     return qty, avg
+
+
+def _unfilled(o: dict) -> int:
+    """Shares an order still has to sell (or buy)."""
+    return int(float(o.get("qty") or 0)) - _filled(o)[0]
 
 
 def _reason(o: dict) -> str:
@@ -212,6 +229,13 @@ def _place_stop(t: dict, qty: int, stop: float) -> str:
     tk = tick_of(t["symbol"])
     return _place(order_type="SL", price=f"{_stop_limit(stop, tk):.2f}", trigger_price=f"{_tick(stop, False, tk):.2f}",
                   trading_symbol=f"{t['symbol']}-EQ", transaction_type="S", quantity=str(qty), product=_product(t))
+
+
+def _place_target(t: dict, qty: int) -> str:
+    """The target: a sell limit at the signal's target 1 (rounded up to the tick)."""
+    px = _tick(t["target1"], True, tick_of(t["symbol"]))
+    return _place(order_type="L", price=f"{px:.2f}", trigger_price="0", trading_symbol=f"{t['symbol']}-EQ",
+                  transaction_type="S", quantity=str(qty), product=_product(t))
 
 
 def _ltp(symbol: str) -> float:
@@ -338,36 +362,94 @@ def retry_waiting() -> list[dict]:
     return enter(keys) if keys else []
 
 
-def trade_new(keys: list[str]) -> list[dict]:
-    """Entries for new signals (only while Auto-trade is ON), then bring every live trade up to date. Returns the
-    trades created. Order problems are logged and sent to Telegram; they never stop the caller."""
+def trade_new(keys: list[str], manage: bool = True) -> list[dict]:
+    """Entries for new signals (only while Auto-trade is ON). With manage, every live trade is then looked after:
+    by its watcher thread in the scanner, else (--once) by one reconcile pass. The dashboard passes manage=False:
+    the scanner's guard starts the watchers for its trades. Returns the trades created. Order problems are logged
+    and sent to Telegram; they never stop the caller."""
     try:
         with _lock:
             made = enter(keys)
             retry_waiting()
-            reconcile()
-            return made
+            if manage and not _watching.is_set():
+                reconcile()
+        if manage:
+            watch_all()
+        return made
     except Exception:
         log.exception("Automatic orders failed")
         return []
 
 
 def guard_tick() -> None:
-    """The scanner's trade watch, every GUARD_SEC in market hours: enter signals that were waiting for the open,
-    then while app trades are live, reconcile: fills get their stop quickly, open positions are checked against
-    their targets and stop on the live price, intraday ones square off at INTRADAY_SQUARE_OFF. Cheap when there
-    are none."""
+    """The scanner's guard, every GUARD_SEC: enter signals that were waiting for the open, square off intraday
+    trades on time, and start a watcher thread for every live trade without one. Cheap when there are none."""
     try:
-        if not _market_open():
-            return
         with _lock:
-            retry_waiting()
-        if not any(t["state"] in ACTIVE_STATES for t in all_trades()):
-            return
-        with _lock:
-            reconcile()
+            if _market_open():
+                retry_waiting()
+            intraday_guard()
+        watch_all()
     except Exception:
-        log.exception("Intraday guard failed")
+        log.exception("Trade guard failed")
+
+
+# ---- watchers: one thread per live trade --------------------------------------------------------
+
+def start_watching() -> None:
+    """The scanner owns the watchers (one process, so a trade is never stepped twice at once)."""
+    _wake.clear()
+    _watching.set()
+    watch_all()
+
+
+def stop_watching() -> None:
+    _watching.clear()
+    _wake.set()
+    for th in list(_watchers.values()):
+        th.join(timeout=10)
+
+
+def watch_all() -> None:
+    """Start a watcher for each live trade that has none (only in the scanner, after start_watching)."""
+    if not _watching.is_set():
+        return
+    for t in all_trades():
+        th = _watchers.get(t["key"])
+        if t["state"] in ACTIVE_STATES and not (th and th.is_alive()):
+            th = threading.Thread(target=_watch, args=(t["key"],), name=f"trade-{t['symbol']}", daemon=True)
+            _watchers[t["key"]] = th
+            th.start()
+
+
+def _watch(key: str) -> None:
+    """A trade's life: entry filled? then stop-loss and target, one cancelling the other, until it is done."""
+    log.info("Watching trade %s", key)
+    while _watching.is_set():
+        try:
+            with _lock:
+                if not step(key):
+                    break
+        except Exception:
+            log.exception("Watching %s failed", key)
+        _wake.wait(WATCH_SEC if _market_open() else WATCH_IDLE_SEC)
+    log.info("Stopped watching %s (%s)", key, (_get(key) or {}).get("state"))
+
+
+def step(key: str) -> bool:
+    """Bring one trade in line with Kotak's order book. False once the trade is done."""
+    t = _get(key)
+    if t is None or t["state"] not in ACTIVE_STATES:
+        return False
+    sig = next((s for s in state.all_signals("IN") if s["key"] == key), None)
+    ltp = _live_prices([t["symbol"]]).get(t["symbol"]) if t["state"] == OPEN else None
+    try:
+        _step(t, _book(), sig, broker.trading_enabled(), ltp)
+    except broker.BrokerError as exc:
+        log.warning("Order step for %s failed: %s", key, exc)
+        _save(key, note=str(exc)[:300])
+    t = _get(key)
+    return t["state"] in ACTIVE_STATES
 
 
 def intraday_guard() -> None:
@@ -467,7 +549,8 @@ def _step(t: dict, book: dict, sig: dict | None, enabled: bool, ltp: float | Non
         _step_entry(t, book, sig_status, enabled)
     elif st == OPEN:
         if t["target1"] is None and sig:   # trades from before targets were stored on them
-            t = {**t, "target1": sig["target1"], "target2": sig["target2"]}
+            _save(key, target1=sig["target1"], target2=sig["target2"])
+            t = _get(key)
         _step_open(t, book, sig_status, ltp)
     elif st == EXITING:
         _step_exit(t, book)
@@ -500,20 +583,24 @@ def _step_entry(t: dict, book: dict, sig_status: str, enabled: bool) -> None:
 def _opened(t: dict, qty: int, fill: float) -> None:
     key = t["key"]
     _save(key, state=OPEN, qty=qty, fill_price=fill, opened_at=datetime.now().isoformat(timespec="seconds"),
-          stop_order=None, stop_fails=0)
+          stop_order=None, stop_fails=0, target_order=None, target_fails=0)
     _notify(f"✅ <b>{t['symbol']}</b> bought × {qty} @ ₹{fill:,.2f}")
-    _ensure_stop(_get(key), {})   # no stop order yet: placed straight away (AMO if the market is closed)
+    # no exit orders yet: placed straight away (AMO if the market is closed), the stop first
+    _ensure_stop(_get(key), {}, qty)
+    _ensure_target(_get(key), {}, qty)
 
 
-def _ensure_stop(t: dict, book: dict) -> None:
-    """Keep a working stop-loss order for an open position."""
+def _abandon(key: str, field: str, o: dict | None) -> None:
+    """An exit order being replaced: shares it sold before it ended are no longer held."""
+    sold, _ = _filled(o)
+    _save(key, **{field: None}, **({"qty": _get(key)["qty"] - sold} if sold else {}))
+
+
+def _ensure_stop(t: dict, book: dict, left: int) -> None:
+    """Keep a working stop-loss order for the `left` shares still held."""
     o = book.get(t["stop_order"]) if t["stop_order"] else None
     os_ = order_state(o) if t["stop_order"] else "NONE"
-    if os_ == "OPEN" or (os_ == "GONE" and not _market_open()):   # see _step_entry on GONE
-        return
-    if os_ == "FILLED":
-        qty, avg = _filled(o)
-        _closed(t, avg or t["stop"], "stop-loss")
+    if (os_ == "OPEN" and _unfilled(o) <= left) or (os_ == "GONE" and not _market_open()):   # see _step_entry
         return
     fails = (t["stop_fails"] or 0) + (os_ == "REJECTED")
     if fails >= STOP_MAX_FAILS:
@@ -524,8 +611,11 @@ def _ensure_stop(t: dict, book: dict) -> None:
             _notify(f"🚨 <b>{t['symbol']}</b> has NO stop-loss: Kotak rejected it {fails} times ({why}). "
                     "The app has stopped retrying. Place a stop in the Kotak app, or Close the trade on the dashboard.")
         return
+    if os_ == "OPEN":   # the target sold some shares: the stop covers only the rest
+        _cancel(t["stop_order"])
+    _abandon(t["key"], "stop_order", o)
     try:
-        oid = _place_stop(t, t["qty"], t["stop"])
+        oid = _place_stop(t, left, t["stop"])
     except broker.BrokerError as exc:
         _save(t["key"], note=f"NO STOP: {exc}")
         if t["alerted"] != "no_stop":
@@ -539,40 +629,79 @@ def _ensure_stop(t: dict, book: dict) -> None:
     elif os_ in ("CANCELLED", "GONE") and _market_open():
         _notify(f"⚠️ <b>{t['symbol']}</b> stop-loss order {t['stop_order']} was cancelled (in the Kotak app?) "
                 f"during market hours; placed again @ ₹{t['stop']:,.2f} · order {oid}")
+    elif os_ == "OPEN":
+        _notify(f"🛡️ <b>{t['symbol']}</b> stop-loss now for the {left} shares still held · order {oid}")
     elif not t["stop_order"]:
         _notify(f"🛡️ <b>{t['symbol']}</b> stop-loss @ ₹{t['stop']:,.2f} placed · order {oid}")
+
+
+def _ensure_target(t: dict, book: dict, left: int) -> None:
+    """Keep a working target order (sell limit at target 1) for the `left` shares still held. Refused
+    TARGET_MAX_FAILS times, the target is watched on the live price instead (_step_open)."""
+    if t["target1"] is None:
+        return
+    o = book.get(t["target_order"]) if t["target_order"] else None
+    os_ = order_state(o) if t["target_order"] else "NONE"
+    if (os_ == "OPEN" and _unfilled(o) <= left) or (os_ == "GONE" and not _market_open()):
+        return
+    fails = (t["target_fails"] or 0) + (os_ == "REJECTED")
+    if fails >= TARGET_MAX_FAILS:
+        if t["alerted"] != "target_gave_up":
+            _save(t["key"], target_fails=fails, alerted="target_gave_up")
+            _notify(f"⚠️ <b>{t['symbol']}</b> target order refused by Kotak ({_reason(o) if o else 'rejected'}). "
+                    f"The app watches ₹{t['target1']:,.2f} on the live price and sells there instead.")
+        return
+    if os_ == "OPEN":   # the stop sold some shares: the target covers only the rest
+        _cancel(t["target_order"])
+    _abandon(t["key"], "target_order", o)
+    try:
+        oid = _place_target(t, left)
+    except broker.BrokerError as exc:
+        log.warning("Target order for %s not placed: %s", t["key"], exc)
+        return
+    _save(t["key"], target_order=oid, target_fails=fails)
+    if not t["target_order"]:
+        _notify(f"🎯 <b>{t['symbol']}</b> target @ ₹{t['target1']:,.2f} placed · order {oid}")
 
 
 def _step_open(t: dict, book: dict, sig_status: str, ltp: float | None = None) -> None:
     key = t["key"]
     stop_o = book.get(t["stop_order"]) if t["stop_order"] else None
-    if order_state(stop_o) == "FILLED":
-        _, avg = _filled(stop_o)
-        _closed(t, avg or t["stop"], "stop-loss")
+    tgt_o = book.get(t["target_order"]) if t["target_order"] else None
+    s_qty, s_avg = _filled(stop_o)
+    g_qty, g_avg = _filled(tgt_o)
+    stop_open, tgt_open = order_state(stop_o) == "OPEN", order_state(tgt_o) == "OPEN"
+    left = t["qty"] - s_qty - g_qty
+    if left <= 0:   # one of the pair filled: cancel the other (Kotak has no one-cancels-other)
+        if stop_open:
+            _cancel(t["stop_order"])
+        if tgt_open:
+            _cancel(t["target_order"])
+        price = (s_qty * (s_avg or t["stop"]) + g_qty * (g_avg or t["target1"] or 0)) / (s_qty + g_qty)
+        _closed(t, round(price, 2), "target" if g_qty >= s_qty else "stop-loss")
+        if left < 0:
+            _notify(f"🚨 <b>{t['symbol']}</b> the stop-loss and the target BOTH sold: {-left} shares are now "
+                    "short. Buy them back in the Kotak app.")
         return
-    # Exits follow this position's live price; of the tracker's statuses only the time exit counts
-    stop_open = order_state(stop_o) == "OPEN"
-    gapped = ltp is not None and stop_open and ltp < _stop_limit(t["stop"])
+    # Exits on this position's live price; of the tracker's statuses only the time exit counts
+    gapped = ltp is not None and stop_open and ltp < _stop_limit(t["stop"], tick_of(t["symbol"]))
     below = ltp is not None and not stop_open and ltp <= t["stop"]   # e.g. filled below the stop: no stop can go in
-    t2 = ltp is not None and t["target2"] is not None and ltp >= t["target2"]
-    if t2 or sig_status == "EXPIRED" or gapped or below:
+    hit = ltp is not None and not tgt_open and t["target1"] is not None and ltp >= t["target1"]
+    if hit or sig_status == "EXPIRED" or gapped or below:
         why = ("stop-loss (price gapped below its limit)" if gapped else "stop-loss (price below the stop)" if below
-               else "target 2" if t2 else "time exit")
-        oid = _place_exit(t, ltp=ltp)   # the sell goes in before the stop is cancelled
-        if order_state(stop_o) == "OPEN":
+               else "target" if hit else "time exit")
+        if tgt_open:    # first: a delivery holding can't be sold twice over
+            _cancel(t["target_order"])
+        oid = _place_exit(t, qty=left, ltp=ltp)   # the sell goes in before the stop is cancelled
+        if stop_open:
             _cancel(t["stop_order"])
-        _save(key, state=EXITING, exit_order=oid, exit_at=_now(), note=why)
-        _notify(f"📤 <b>{t['symbol']}</b> selling × {t['qty']} ({why}) · limit ₹{sell_price(ltp or _ltp(t['symbol']), tick_of(t['symbol'])):,.2f}"
-                if ltp else f"📤 <b>{t['symbol']}</b> selling × {t['qty']} ({why})")
+        _save(key, state=EXITING, qty=left, exit_order=oid, exit_at=_now(),
+              note=why if left == t["qty"] else f"{why} · {t['qty'] - left} sold earlier")
+        px = sell_price(ltp, tick_of(t["symbol"])) if ltp else None
+        _notify(f"📤 <b>{t['symbol']}</b> selling × {left} ({why})" + (f" · limit ₹{px:,.2f}" if px else ""))
         return
-    if ltp is not None and t["target1"] is not None and ltp >= t["target1"] and not t["be_moved"]:
-        new_stop = max(t["stop"], t["fill_price"] or t["entry"])
-        if order_state(stop_o) == "OPEN":
-            _cancel(t["stop_order"])
-        _save(key, stop=new_stop, be_moved=1, stop_order=None, stop_fails=0)
-        _notify(f"🎯 <b>{t['symbol']}</b> target 1 reached; stop moved to ₹{new_stop:,.2f}")
-        t = _get(key)
-    _ensure_stop(t, book)
+    _ensure_stop(t, book, left)
+    _ensure_target(_get(key), book, left)
 
 
 def _step_exit(t: dict, book: dict) -> None:
@@ -635,7 +764,19 @@ def close_trade(key: str, note: str = CLOSE_NOTE) -> dict:
             _save(key, state=CANCELLED, note=note)
             _notify(f"✖️ <b>{t['symbol']}</b> entry cancelled ({note})")
             return _get(key)
-    oid = _place_exit(t)
+    ltp = _ltp(t["symbol"])   # no price, no blind sell: checked before anything is cancelled
+    if t["stop_order"] or t["target_order"]:   # shares the stop or target already sold aren't sold again
+        book = _book()
+        left = t["qty"] - _filled(book.get(t["stop_order"]))[0] - _filled(book.get(t["target_order"]))[0]
+        if order_state(book.get(t["target_order"])) == "OPEN":
+            _cancel(t["target_order"])
+        if left <= 0:
+            _step_open(t, _book(), "ACTIVE")   # sold out already: closes it
+            return _get(key)
+        if left != t["qty"]:
+            _save(key, qty=left)
+            t = _get(key)
+    oid = _place_exit(t, ltp=ltp)
     _save(key, state=EXITING, exit_order=oid, exit_at=_now(), note=note)
     if t["stop_order"]:
         _cancel(t["stop_order"])

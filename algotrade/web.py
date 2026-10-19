@@ -605,7 +605,7 @@ def _auto_trade(new_keys: list[str]) -> dict | None:
         log.warning("Dashboard scan: %d new signals not traded, the scanner isn't running", len(new_keys))
         return {"placed": [], "skipped": [], "blocked": "the scanner (run.bat) isn't running, and it is what "
                 "places the stop-loss after a fill. Start run.bat, then scan again"}
-    made = orders.trade_new(new_keys)
+    made = orders.trade_new(new_keys, manage=False)   # the scanner's watchers take it from here
     return {"placed": [f"{t['symbol']} × {t['qty']}" for t in made if t and t["entry_order"]],
             "skipped": [f"{t['symbol']}: {t['note']}" for t in made if t and not t["entry_order"]],
             "blocked": None}

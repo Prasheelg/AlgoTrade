@@ -135,11 +135,16 @@ def _watch_stop(done: threading.Event) -> None:
             log.exception("Checking the scanner's off switch failed")
 
 
-def _intraday_guard(done: threading.Event) -> None:
-    """Between scans: keep live intraday trades protected (stop after a fill) and square them off on time."""
+def _trade_guard(done: threading.Event) -> None:
+    """Between scans: a watcher thread for every live trade (entry fill, then stop-loss and target), signals
+    waiting for the open entered, intraday trades squared off on time."""
     from algotrade import orders
-    while not done.wait(orders.GUARD_SEC):
-        orders.guard_tick()
+    orders.start_watching()
+    try:
+        while not done.wait(orders.GUARD_SEC):
+            orders.guard_tick()
+    finally:
+        orders.stop_watching()
 
 
 def _pause(seconds: float) -> None:
@@ -154,7 +159,7 @@ def run_loop(codes: list[str]) -> None:
     done = threading.Event()
     threading.Thread(target=_watch_stop, args=(done,), name="stop-watch", daemon=True).start()
     if "IN" in codes:
-        threading.Thread(target=_intraday_guard, args=(done,), name="intraday-guard", daemon=True).start()
+        threading.Thread(target=_trade_guard, args=(done,), name="trade-guard", daemon=True).start()
     try:
         _loop(codes)
     finally:

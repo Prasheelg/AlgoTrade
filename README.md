@@ -168,10 +168,12 @@ the app's records and Telegram, with its limit.
 **What gets traded** (`algotrade/orders.py`): new **India BUY** signals on the **daily** timeframe, as delivery
 (CNC), found by the scanner (`run.bat` or `--once`), and with **Auto-trade intraday signals** on (Settings, or
 `INTRADAY_AUTO_TRADE`) also on **5m–1h**, as intraday (MIS). US and SELL signals never place orders. One app trade
-per stock at a time. The scanner checks orders on every loop, also outside market hours.
+per stock at a time. Each live trade has its **own watcher thread** in the scanner that follows it from entry to
+exit: it checks Kotak every 5 seconds in market hours (every minute outside them) and ends when the trade is
+done. New trades get their watcher at once (dashboard scans: within 15 seconds).
 
-- **Intraday trades** work like daily ones (entry, stop, target 1 / 2) with these differences: entries only in
-  market hours until `INTRADAY_LAST_ENTRY` (14:30), checked every minute between scans so a fill gets its stop quickly, and at
+- **Intraday trades** work like daily ones (entry, stop, target) with these differences: entries only in
+  market hours until `INTRADAY_LAST_ENTRY` (14:30), and at
   `INTRADAY_SQUARE_OFF` (15:00) unfilled entries are cancelled and positions sold, before Kotak's own square-off.
   One still open in the app after the close (the scanner was off at 15:00) is marked closed, with a notice.
 
@@ -182,17 +184,22 @@ per stock at a time. The scanner checks orders on every loop, also outside marke
   signal (after `ENTRY_VALID_BARS` sessions). An entry is never placed while the order book shows an open buy
   order for the same stock, so a position can't be doubled.
 - **Stop-loss:** as soon as an entry fills, a stop-limit sell triggered at the signal's stop (limit 1% below),
-  placed again every session. At target 1 it moves to the fill price. If the price gaps below the stop's limit
+  placed again every session. If the price gaps below the stop's limit
   (so it can't fill), the position is sold at the live price instead. If Kotak rejects the stop, it is
   retried and you are told; after 3 rejections in a row the app stops retrying and sends a 🚨 alert to place
   a stop yourself or close the trade. A stop cancelled during market hours (e.g. in the Kotak app) is placed
   again, with a notice.
-- **Exit:** at target 2 or the time exit (from the signal tracker) the position is sold (limit just below the
-  live price), then the stop is cancelled. A sell that hasn't filled after 2 minutes is re-priced. If the stop
-  fills, the trade is closed.
+- **Target:** one target, the signal's target 1 (1.5R), placed as a sell limit right after the stop. Kotak has
+  no one-cancels-other for the pair, so the watcher does it: when the stop or the target fills, the other is
+  cancelled; when one partly fills, the other is cut to the shares still held. If Kotak refuses the target twice
+  (e.g. a delivery holding already blocked by the stop) the watcher sells at the target on the live price
+  instead, with a notice. Should both ever fill, a 🚨 alert says how many shares are short.
+- **Exit:** at the time exit (from the signal tracker) the position is sold (limit just below the live price):
+  the target is cancelled first, then the stop once the sell is in. A sell that hasn't filled after 2 minutes is
+  re-priced. If the stop or target fills, the trade is closed.
 - **Auto-trade OFF** stops new entries and cancels unfilled ones; open positions keep their stop and exits, so
   nothing is left unprotected.
-- **Telegram** gets every order event: placed, filled, rejected, stop placed or moved, exits, closes with P&L,
+- **Telegram** gets every order event: placed, filled, rejected, stop and target placed, exits, closes with P&L,
   and an alert if a position has no stop (retried every loop).
 - **Portfolio** (dashboard view): funds, holdings, today's positions and orders, and the app's trades.
   Prices are **live from Kotak quotes, refreshed every 5 seconds while NSE is open** (every 60 s when closed),

@@ -216,7 +216,7 @@ def opened(kotak):
     key = signal()
     orders.enter([key])
     kotak.fill("101", 101, 99.0)
-    orders.reconcile()                              # stop = order 102
+    orders.reconcile()                              # stop = order 102, target = 103
     return key
 
 
@@ -234,10 +234,10 @@ def test_expired_stop_replaced_but_not_overnight_when_missing(kotak, monkeypatch
     kotak.book["102"]["ordSt"] = "cancelled"         # lapsed at the close: re-place (AMO after hours)
     monkeypatch.setattr(orders, "_market_open", lambda: False)
     orders.reconcile()
-    assert trade(key)["stop_order"] == "103" and kotak.placed[-1]["amo"] == "YES"
-    del kotak.book["103"]                           # after midnight: not in today's book -> wait
+    assert trade(key)["stop_order"] == "104" and kotak.placed[-1]["amo"] == "YES"
+    del kotak.book["104"]                           # after midnight: not in today's book -> wait
     orders.reconcile()
-    assert trade(key)["stop_order"] == "103"
+    assert trade(key)["stop_order"] == "104"
 
 
 def test_prices_follow_the_stocks_tick_size(kotak):
@@ -246,8 +246,8 @@ def test_prices_follow_the_stocks_tick_size(kotak):
     orders.enter([key])
     kotak.fill("101", 101, 99.0)
     orders.reconcile()
-    entry, stop = kotak.placed
-    assert entry["price"] == "99.00"
+    entry, stop, target = kotak.placed
+    assert entry["price"] == "99.00" and target["price"] == "103.50"
     assert stop["trigger_price"] == "96.00" and round(float(stop["price"]) * 10, 6) % 1 == 0
 
 
@@ -269,7 +269,7 @@ def test_stop_cancelled_in_market_hours_is_replaced_with_a_notice(kotak):
     key = opened(kotak)
     kotak.book["102"]["ordSt"] = "cancelled"         # someone cancelled it in the Kotak app
     orders.reconcile()
-    assert trade(key)["stop_order"] == "103"
+    assert trade(key)["stop_order"] == "104"
     assert any("was cancelled (in the Kotak app?)" in m for m in texts(kotak))
 
 
@@ -278,23 +278,23 @@ def test_price_gapping_through_the_stop_sells(kotak):
     kotak.ltp["RELIANCE"] = 94.0                    # below the stop's limit (95.00): it can't fill
     orders.reconcile()
     t = trade(key)
-    assert t["state"] == "EXITING" and "gapped" in t["note"] and kotak.cancelled == ["102"]
+    assert t["state"] == "EXITING" and "gapped" in t["note"] and kotak.cancelled == ["103", "102"]
     p = kotak.placed[-1]
     assert (p["order_type"], p["price"], p["transaction_type"]) == ("L", "93.05", "S")   # 1% below 94
 
 
 def test_unfilled_exit_is_repriced(kotak):
     key = opened(kotak)
-    kotak.ltp["RELIANCE"] = 108.5                   # target 2 (108)
-    orders.reconcile()                              # sell 103 @ 107.40
+    state.update_signal(key, status="EXPIRED")      # time exit
+    orders.reconcile()                              # sell 104 @ 99.00
     orders.reconcile()                              # just placed: left alone
-    assert len(kotak.placed) == 3
+    assert len(kotak.placed) == 4
     orders._save(key, exit_at="2000-01-01T00:00:00")
     kotak.ltp["RELIANCE"] = 97.0
-    kotak.book["103"]["fldQty"] = "1"               # one share sold before the cancel
+    kotak.book["104"]["fldQty"] = "1"               # one share sold before the cancel
     orders.reconcile()
     t = trade(key)
-    assert kotak.cancelled[-1] == "103" and t["exit_order"] == "104" and t["qty"] == 100
+    assert kotak.cancelled[-1] == "104" and t["exit_order"] == "105" and t["qty"] == 100
     assert (kotak.placed[-1]["price"], kotak.placed[-1]["quantity"]) == ("96.00", "100")
 
 
@@ -317,40 +317,90 @@ def test_no_stop_alert_once(kotak):
     assert len([m for m in texts(kotak) if "NO stop-loss" in m]) == 1
 
 
-def test_target1_moves_stop_to_fill(kotak):
+def test_fill_places_stop_then_target(kotak):
     key = opened(kotak)
-    kotak.ltp["RELIANCE"] = 103.6                   # target 1 (103.5) on the live price
+    t, target = trade(key), kotak.placed[2]
+    assert (t["stop_order"], t["target_order"]) == ("102", "103")
+    assert (target["order_type"], target["price"], target["transaction_type"], target["quantity"]) == \
+        ("L", "103.50", "S", "101")                # one target: the signal's target 1
+    assert any("target @ ₹103.50 placed" in m for m in texts(kotak))
     orders.reconcile()
-    t = trade(key)
-    assert kotak.cancelled == ["102"] and t["stop"] == 99.0 and t["be_moved"] == 1 and t["stop_order"] == "103"
-    assert kotak.placed[-1]["trigger_price"] == "99.00"
-    orders.reconcile()                              # only once
-    assert len(kotak.placed) == 3
+    assert len(kotak.placed) == 3                   # both working: nothing more
 
 
-@pytest.mark.parametrize("ltp,status,why,price", [(108.0, "ACTIVE", "target 2", "106.90"),
-                                                  (100.0, "EXPIRED", "time exit", "99.00")])
-def test_target2_or_time_exit_sells_with_a_limit(kotak, ltp, status, why, price):
+def test_target_filled_cancels_the_stop(kotak):
     key = opened(kotak)
-    kotak.ltp["RELIANCE"] = ltp
-    state.update_signal(key, status=status)
+    kotak.fill("103", 101, 103.5)
     orders.reconcile()
     t = trade(key)
-    assert kotak.cancelled == ["102"] and t["state"] == "EXITING" and t["exit_order"] == "103"
+    assert (t["state"], t["exit_price"], t["note"]) == ("CLOSED", 103.5, "target") and kotak.cancelled == ["102"]
+
+
+def test_stop_filled_cancels_the_target(kotak):
+    key = opened(kotak)
+    kotak.fill("102", 101, 95.9)
+    orders.reconcile()
+    assert trade(key)["state"] == "CLOSED" and kotak.cancelled == ["103"]
+
+
+def test_part_filled_target_cuts_the_stop_to_the_rest(kotak):
+    key = opened(kotak)
+    kotak.fill("103", 60, 103.5, status="open")     # 60 of 101 sold at the target, still working
+    orders.reconcile()
+    t = trade(key)
+    assert kotak.cancelled == ["102"] and t["stop_order"] == "104" and kotak.placed[-1]["quantity"] == "41"
+    assert t["target_order"] == "103" and t["state"] == "OPEN"
+    orders.reconcile()
+    assert len(kotak.placed) == 4                   # stable
+    kotak.fill("103", 101, 103.5)
+    orders.reconcile()
+    assert trade(key)["state"] == "CLOSED" and kotak.cancelled == ["102", "104"]
+
+
+def test_both_exits_filled_warns_of_a_short(kotak):
+    key = opened(kotak)
+    kotak.fill("102", 101, 95.9)
+    kotak.fill("103", 101, 103.5)
+    orders.reconcile()
+    assert trade(key)["state"] == "CLOSED" and any("101 shares are now short" in m for m in texts(kotak))
+
+
+def test_refused_target_is_watched_on_the_live_price(kotak):
+    kotak.reject_types = {"L"}                      # e.g. a delivery holding already blocked by the stop
+    key = opened(kotak)
+    for _ in range(3):
+        orders.reconcile()
+    assert len([p for p in kotak.placed if p["order_type"] == "L" and p["transaction_type"] == "S"]) == \
+        orders.TARGET_MAX_FAILS
+    assert len([m for m in texts(kotak) if "watches ₹103.50 on the live price" in m]) == 1
+    kotak.reject_types = set()
+    kotak.ltp["RELIANCE"] = 103.6
+    orders.reconcile()
+    t = trade(key)
+    assert (t["state"], t["note"], kotak.cancelled) == ("EXITING", "target", ["102"])
+    assert (kotak.placed[-1]["price"], kotak.placed[-1]["quantity"]) == ("102.55", "101")
+
+
+def test_time_exit_sells_with_a_limit(kotak):
+    key = opened(kotak)
+    state.update_signal(key, status="EXPIRED")
+    orders.reconcile()
+    t = trade(key)
+    assert kotak.cancelled == ["103", "102"] and t["state"] == "EXITING" and t["exit_order"] == "104"
     assert (kotak.placed[-1]["order_type"], kotak.placed[-1]["price"], kotak.placed[-1]["transaction_type"]) == (
-        "L", price, "S")                            # 1% below the live price: no market orders via the API
-    kotak.fill("103", 101, 108.2)
+        "L", "99.00", "S")                          # 1% below the live price: no market orders via the API
+    kotak.fill("104", 101, 99.2)
     orders.reconcile()
-    assert (trade(key)["state"], trade(key)["exit_price"], trade(key)["note"]) == ("CLOSED", 108.2, why)
+    assert (trade(key)["state"], trade(key)["exit_price"], trade(key)["note"]) == ("CLOSED", 99.2, "time exit")
 
 
 @pytest.mark.parametrize("status", ["T1_HIT", "T2_HIT", "SL_HIT"])
 def test_tracker_paper_result_does_not_move_a_real_position(kotak, status):
-    key = opened(kotak)                             # live 100: between the stop and target 1
+    key = opened(kotak)                             # live 100: between the stop and the target
     state.update_signal(key, status=status)
     orders.reconcile()
     t = trade(key)
-    assert (t["state"], t["stop"], t["be_moved"], kotak.cancelled) == ("OPEN", 96.0, 0, [])
+    assert (t["state"], t["stop"], kotak.cancelled) == ("OPEN", 96.0, [])
 
 
 def test_targets_are_stored_on_the_trade(kotak):
@@ -373,7 +423,7 @@ def test_open_positions_keep_stops_when_switch_off(kotak):
     state.set_setting(broker.TRADING_KEY, {"enabled": False})
     kotak.book["102"]["ordSt"] = "cancelled"
     orders.reconcile()
-    assert trade(key)["state"] == "OPEN" and trade(key)["stop_order"] == "103"
+    assert trade(key)["state"] == "OPEN" and trade(key)["stop_order"] == "104"
 
 
 def test_one_failing_trade_does_not_stop_others(kotak, monkeypatch):
@@ -421,11 +471,11 @@ def test_close_open_trade_sells_first_then_cancels_stop(kotak):
     key = opened(kotak)
     state.set_setting(broker.TRADING_KEY, {"enabled": False})   # works with Auto-trade off too
     t = orders.close_trade(key)
-    assert (t["state"], t["exit_order"], t["note"]) == ("EXITING", "103", "closed by you")
+    assert (t["state"], t["exit_order"], t["note"]) == ("EXITING", "104", "closed by you")
     assert (kotak.placed[-1]["order_type"], kotak.placed[-1]["transaction_type"], kotak.placed[-1]["quantity"]) == \
         ("L", "S", "101")
-    assert kotak.cancelled == ["102"]
-    kotak.fill("103", 101, 100.5)
+    assert kotak.cancelled == ["103", "102"]   # the target first (frees the shares), the stop after the sell
+    kotak.fill("104", 101, 100.5)
     orders.reconcile()
     assert (orders._get(key)["state"], orders._get(key)["note"]) == ("CLOSED", "closed by you")
 
@@ -483,4 +533,6 @@ def test_close_api_kotak_error(kotak):
     kotak.fail_place = ["Market closed for AMO"]
     r = web.app.test_client().post("/api/trades/close", json={"key": key})
     assert r.status_code == 502 and "Market closed for AMO" in r.get_json()["error"]
-    assert orders._get(key)["state"] == "OPEN" and kotak.cancelled == []   # stop left in place
+    assert orders._get(key)["state"] == "OPEN" and kotak.cancelled == ["103"]   # stop left in place
+    orders.reconcile()
+    assert orders._get(key)["target_order"] == "104"                            # target placed again
