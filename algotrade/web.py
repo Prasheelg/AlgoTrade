@@ -441,6 +441,24 @@ def api_trade_close():
         return jsonify({"error": f"Kotak refused: {exc}"}), 502
 
 
+@app.post("/api/option-trades/close")
+def api_option_trade_close():
+    """Close an options Auto-trade trade by hand (sell at the bid / cancel the wait). Real orders, so only from
+    this PC."""
+    from . import options_auto
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    key = (request.get_json(silent=True) or {}).get("key")
+    if not isinstance(key, str) or not key:
+        return jsonify({"error": "Send {\"key\": \"<trade key>\"}"}), 400
+    try:
+        return jsonify(options_auto.close_trade(key))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except broker.BrokerError as exc:
+        return jsonify({"error": f"Kotak refused: {exc}"}), 502
+
+
 @app.get("/api/trading")
 def api_trading():
     return jsonify(broker.trading_status())
@@ -598,16 +616,22 @@ def _auto_trade(new_keys: list[str]) -> dict | None:
     """Hand an India dashboard scan's new signals to Auto-trade, like the scanner does. Only while the scanner
     is running: it places the stop-loss after a fill and watches the exits, so without it a filled entry would
     sit unprotected. None when Auto-trade is off or there is nothing new."""
-    from . import health, orders
+    from . import health, options_auto, orders
+    from .universe import is_index
     if not new_keys or not broker.trading_enabled():
         return None
     if not health.scanner_running():
         log.warning("Dashboard scan: %d new signals not traded, the scanner isn't running", len(new_keys))
         return {"placed": [], "skipped": [], "blocked": "the scanner (run.bat) isn't running, and it is what "
                 "places the stop-loss after a fill. Start run.bat, then scan again"}
-    made = orders.trade_new(new_keys, manage=False)   # the scanner's watchers take it from here
-    return {"placed": [f"{t['symbol']} × {t['qty']}" for t in made if t and t["entry_order"]],
-            "skipped": [f"{t['symbol']}: {t['note']}" for t in made if t and not t["entry_order"]],
+    sigs = {s["key"]: s for s in state.all_signals("IN")}
+    made = orders.trade_new([k for k in new_keys if k in sigs and sigs[k]["side"] == "BUY"
+                             and not is_index(sigs[k]["symbol"])], manage=False)   # the scanner's watchers take over
+    opts = options_auto.trade_new(new_keys)   # waits for the entry; the scanner's option watcher buys
+    return {"placed": [f"{t['symbol']} × {t['qty']}" for t in made if t and t["entry_order"]]
+                      + [f"{t['underlying']} {t['opt']} (waiting for entry)" for t in opts if t["state"] == "WAIT"],
+            "skipped": [f"{t['symbol']}: {t['note']}" for t in made if t and not t["entry_order"]]
+                       + [f"{t['underlying']} options: {t['note']}" for t in opts if t["state"] != "WAIT"],
             "blocked": None}
 
 
@@ -642,9 +666,8 @@ def api_scan():
                                              send=bool(body.get("send", False)), strategies=strategies,
                                              min_score=min_score, market=mkt.code, filters=filters)
             if mkt.code == "IN":
-                # Auto-trade buys India setups (intraday ones when switched on in Settings); SELLs aren't handed over
-                at = _auto_trade([s["key"] for s in state.all_signals("IN")
-                                  if s["key"] not in before and s["side"] == "BUY"])
+                # Auto-trade: stocks take the BUYs, options both sides (intraday ones when switched on in Settings)
+                at = _auto_trade([s["key"] for s in state.all_signals("IN") if s["key"] not in before])
                 if at:
                     out["result"]["auto_trade"] = at
         except ScanStopped:
@@ -683,7 +706,8 @@ def api_signals_delete():
     keys = (request.get_json(silent=True) or {}).get("keys")
     if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
         raise ValueError('Send {"keys": ["<signal key>", ...]}')
-    busy = {t["key"] for t in orders.all_trades() if t["state"] in orders.ACTIVE_STATES}
+    from . import options_auto
+    busy = {t["key"] for t in orders.all_trades() if t["state"] in orders.ACTIVE_STATES} |            {t["key"] for t in options_auto.all_trades() if t["state"] in options_auto.ACTIVE_STATES}
     kept = [k for k in keys if k in busy]
     n = state.delete_signals([k for k in keys if k not in busy], mkt.code)
     log.info("Deleted %d %s signals from the dashboard%s", n, mkt.name, f" ({len(kept)} kept: Auto-trade)" if kept else "")

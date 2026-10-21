@@ -160,6 +160,15 @@ def _app_trades() -> list[dict]:
         return []
 
 
+def _option_trades() -> list[dict]:
+    from . import options_auto   # read-only: all_trades() only
+    try:
+        return options_auto.all_trades()
+    except Exception:
+        log.exception("Reading option trades failed")
+        return []
+
+
 def _orders(rows: list[dict]) -> list[dict]:
     """Normalised orders, each with who placed it (Auto-trade, a manual order, or outside the app)."""
     from . import orderbook
@@ -279,6 +288,7 @@ def report(refresh: bool = False, live: bool = False) -> dict:
     out.setdefault("totals", totals([], None))
     out.setdefault("raw", {})
     out["trades"] = _app_trades()
+    out["option_trades"] = _option_trades()
     out["live"] = None
     if live:
         _apply_live(out)

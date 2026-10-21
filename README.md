@@ -235,6 +235,33 @@ scanner must be running** during market hours; with the PC off an open position 
 for that day. The order book holds only today's orders, so an order missing from it is re-placed only during
 market hours. Prices are rounded to ₹0.05.
 
+### Options Auto-trade
+With **Auto-trade options** on (Settings, or `OPTIONS_AUTO_TRADE=true`) and the Auto-trade switch ON, India signals
+on **F&O stocks** and on the **indices** in `OPTIONS_INDICES` (`NIFTY,BANKNIFTY`; also `FINNIFTY`, `MIDCPNIFTY`) are
+traded as options (`algotrade/options_auto.py`). Options are only ever **bought**, so the most a trade can lose is
+its premium.
+- **BUY signal → call, SELL signal → put.** With options on, the scanner also produces India SELL signals (as with
+  `ALLOW_SHORTS`) and scans the indices themselves (Yahoo ^NSEI / ^NSEBANK; they have no volume, so the turnover
+  check and the Relative strength filter are skipped for them). The stock trader still takes only BUYs on shares;
+  index signals are traded through options only.
+- **Entry** when the underlying reaches the signal's entry (the same pending order as for shares: at or below the
+  limit for pullbacks, past the stop for breakouts; SELLs mirror this), or once the tracker fills the signal. Only
+  then is the contract picked: the nearest expiry at least `OPTIONS_MIN_DAYS` (5) away and the
+  `OPTIONS_OTM_STEPS`-th (2nd) strike **out of the money**, skipping the one nearest the price. It is bought with a
+  limit `OPTION_PROTECTION_PCT` above the best ask. A contract without a bid and ask, or with a spread wider than
+  `OPTIONS_MAX_SPREAD_PCT` (5%), is skipped. Market hours only.
+- **Size:** as many lots as fit in `OPTIONS_MAX_PREMIUM` (₹10,000), at most `OPTIONS_MAX_LOTS`; the premium in all
+  open option trades stays under `OPTIONS_MAX_OPEN_PREMIUM` (₹30,000). A lot dearer than the cap is skipped.
+- **Exit** on the **underlying**, not the option's price: sold (limit `OPTION_PROTECTION_PCT` below the best bid)
+  when the stock or index reaches the signal's stop or target 1, when the tracker closes the signal (time exit),
+  and from `INTRADAY_SQUARE_OFF` (15:00) on the option's expiry day. Intraday signals (with *Auto-trade intraday
+  signals* on) are MIS, entered until `INTRADAY_LAST_ENTRY` and sold at `INTRADAY_SQUARE_OFF`; daily ones NRML.
+  An unfilled buy is cancelled after 60 s and bought again at a fresh price if the entry still holds; an unfilled
+  sell is re-priced after 60 s.
+- **No stop order rests at Kotak** (exits follow the underlying, which an option order can't), so exits only happen
+  while the scanner (`run.bat`) is running. One option trade per underlying at a time.
+- Trades are listed under **Portfolio > Option trades** with Close / Cancel, and every step is posted to Telegram.
+
 ### Options (manual)
 The dashboard's **Strategy Builder** tab shows live option chains for **index options** (NIFTY, BANKNIFTY, FINNIFTY,
 MIDCPNIFTY, NIFTYNXT50) and **stock options** (every NSE stock with options): pick the underlying and expiry, and

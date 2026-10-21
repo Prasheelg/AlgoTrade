@@ -115,9 +115,21 @@ def get_universe(spec: str | None = None, market: str = "IN") -> list[str]:
     return [s.strip().upper() for s in spec.split(",") if s.strip()]
 
 
+# NSE indices with options, scanned under their F&O name (OPTIONS_INDICES) -> Yahoo ticker
+INDEX_YAHOO = {"NIFTY": "^NSEI", "BANKNIFTY": "^NSEBANK", "FINNIFTY": "NIFTY_FIN_SERVICE.NS",
+               "MIDCPNIFTY": "NIFTY_MID_SELECT.NS"}
+
+
+def is_index(symbol: str) -> bool:
+    """An index scanned for its options (no shares to buy, no volume)."""
+    return symbol in INDEX_YAHOO
+
+
 def to_yahoo(symbol: str, market: str = "IN") -> str:
     if symbol.startswith("^"):  # an index, already a Yahoo ticker
         return symbol
+    if market != "US" and symbol in INDEX_YAHOO:
+        return INDEX_YAHOO[symbol]
     if market == "US":
         return symbol.replace(".", "-")  # BRK.B -> BRK-B
     return f"{symbol}.NS"

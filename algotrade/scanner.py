@@ -9,7 +9,7 @@ from . import config, markets
 from .data import fetch_ohlcv
 from .indicators import add_all
 from .strategies import DEFAULT_STRATEGIES, FAMILIES, STRATEGIES, family_of
-from .universe import get_universe
+from .universe import get_universe, is_index
 
 log = logging.getLogger(__name__)
 
@@ -87,12 +87,12 @@ FILTERS = {
 }
 
 
-def passes_filters(r: pd.Series, side: str, filters) -> bool:
-    """Missing index data (NaN) never blocks a signal."""
+def passes_filters(r: pd.Series, side: str, filters, index: bool = False) -> bool:
+    """Missing index data (NaN) never blocks a signal. An index (index=True) has no relative strength."""
     up = side == "BUY"
     if "trend" in filters and pd.notna(r["IDX_EMA200"]) and (r["IDX_CLOSE"] > r["IDX_EMA200"]) != up:
         return False
-    if "rs" in filters and pd.notna(r["RS"]) and (r["RS"] > 1) != up:
+    if "rs" in filters and not index and pd.notna(r["RS"]) and (r["RS"] > 1) != up:
         return False
     return True
 
@@ -123,9 +123,10 @@ def evaluate(symbol: str, df: pd.DataFrame, i: int = -1, min_score: int | None =
         return None
     r = df.iloc[i]
 
-    # Liquidity filters
+    # Liquidity filters (an index has no volume: its options are liquid)
+    index = mkt.code == "IN" and is_index(symbol)
     min_turnover = mkt.min_turnover / BARS_PER_DAY.get(timeframe, 1)
-    if r["Close"] < mkt.min_price or r["TURNOVER20"] < min_turnover:
+    if not index and (r["Close"] < mkt.min_price or r["TURNOVER20"] < min_turnover):
         return None
 
     raw = votes if votes is not None else strategy_votes(df, i, selected)
@@ -145,9 +146,9 @@ def evaluate(symbol: str, df: pd.DataFrame, i: int = -1, min_score: int | None =
     reasons = votes[side]
     if score[side] < min_score or score["SELL" if side == "BUY" else "BUY"] >= score[side]:
         return None
-    if side == "SELL" and not config.ALLOW_SHORTS:
-        return None
-    if filters and not passes_filters(r, side, filters):
+    if side == "SELL" and not (config.ALLOW_SHORTS or (mkt.code == "IN" and config.OPTIONS_AUTO_TRADE)):
+        return None   # India SELL signals buy puts when options Auto-trade is on
+    if filters and not passes_filters(r, side, filters, index):
         return None
 
     close = float(r["Close"])
@@ -250,7 +251,10 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
          strategies: list[str] | None = None, min_score: int | None = None,
          market: str = "IN", filters=None) -> list[Signal]:
     market = markets.get(market).code
-    symbols = symbols or get_universe(market=market)
+    if not symbols:   # the universe, plus the indices whose options Auto-trade trades
+        symbols = get_universe(market=market)
+        if market == "IN" and config.OPTIONS_AUTO_TRADE:
+            symbols = [s for s in config.OPTIONS_INDICES if is_index(s) and s not in symbols] + symbols
     timeframe = timeframe or config.TIMEFRAME
     unknown = set(strategies or config.STRATEGIES) - set(STRATEGIES)
     if unknown:

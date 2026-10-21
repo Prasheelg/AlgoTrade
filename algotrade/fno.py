@@ -201,6 +201,24 @@ def days_to_expiry(expiry: date, now: datetime | None = None) -> float:
     return max((end - now).total_seconds() / 86400, 0.0)
 
 
+def otm_contract(underlying: str, opt: str, spot_px: float, steps: int = 2, min_days: float = 5,
+                 now: datetime | None = None) -> dict | None:
+    """The contract options Auto-trade buys: on the nearest expiry at least `min_days` away, the `steps`-th strike
+    out of the money (steps=1 is the first strike past the spot: above it for a call, below it for a put).
+    None if there is no such expiry or strike."""
+    df = contracts()
+    rows = df[(df["underlying"] == underlying) & (df["opt"] == opt)]
+    exps = sorted(e for e in rows["expiry"].unique() if days_to_expiry(e, now) >= min_days)
+    if not exps:
+        return None
+    rows = rows[rows["expiry"] == exps[0]]
+    strikes = sorted(rows["strike"].unique())
+    otm = [k for k in strikes if k > spot_px] if opt == "CE" else [k for k in reversed(strikes) if k < spot_px]
+    if len(otm) < max(steps, 1):
+        return None
+    return rows[rows["strike"] == otm[max(steps, 1) - 1]].iloc[0].to_dict()
+
+
 def analyze_strategy(legs_in: list[dict]) -> dict:
     """Analyse a strategy (legs: tsym, side, lots, optional price) on live quotes: payoff curves, extremes,
     breakevens, Greeks, probability of profit. Each leg's IV comes from its live mid price."""

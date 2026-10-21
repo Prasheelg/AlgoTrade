@@ -108,7 +108,8 @@ def test_run_scan_uses_saved_panel_on_every_timeframe(scans):
     main.run_scan("IN")
     kw = {"market": "IN", "send": False, "strategies": ["RSI Pullback"], "min_score": 1, "filters": ["trend"]}
     assert calls == [{**kw, "timeframe": "15m"}, {**kw, "timeframe": "1d"}]
-    assert [sorted(t) for t in traded] == [sorted([fast.key, day.key])]   # new BUYs, any timeframe
+    # every new signal, any timeframe: trade() gives stocks the BUYs, options both sides
+    assert [sorted(t) for t in traded] == [sorted([fast.key, day.key, short.key])]
     st = get_status("IN")
     assert st["running"] is False and st["timeframe"] is None and st["error"] is None
     assert st["result"] == {"found": 3, "new": 3, "sent": 0,

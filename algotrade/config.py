@@ -33,6 +33,15 @@ INTRADAY_LAST_ENTRY = _get("INTRADAY_LAST_ENTRY", "14:30")
 INTRADAY_SQUARE_OFF = _get("INTRADAY_SQUARE_OFF", "15:00")
 # Manual option orders (dashboard Strategy Builder tab): fat-finger cap on lots per order
 OPTIONS_MAX_LOTS = int(_get("OPTIONS_MAX_LOTS", "10"))
+# Options Auto-trade (options_auto.py): India signals on F&O stocks and the indices below buy an OTM call (BUY) or
+# put (SELL), exited on the underlying's stop / target. Also needs the dashboard's Auto-trade switch ON.
+OPTIONS_AUTO_TRADE = _get("OPTIONS_AUTO_TRADE", "false").lower() in ("1", "true", "yes")
+OPTIONS_INDICES = [s.strip().upper() for s in _get("OPTIONS_INDICES", "NIFTY,BANKNIFTY").split(",") if s.strip()]
+OPTIONS_OTM_STEPS = int(_get("OPTIONS_OTM_STEPS", "2"))            # 2 = second strike out of the money
+OPTIONS_MIN_DAYS = int(_get("OPTIONS_MIN_DAYS", "5"))              # nearest expiry at least this many days away
+OPTIONS_MAX_PREMIUM = float(_get("OPTIONS_MAX_PREMIUM", "10000"))  # ₹ premium per trade (lots cut to fit)
+OPTIONS_MAX_OPEN_PREMIUM = float(_get("OPTIONS_MAX_OPEN_PREMIUM", "30000"))  # ₹ across all open option trades
+OPTIONS_MAX_SPREAD_PCT = float(_get("OPTIONS_MAX_SPREAD_PCT", "5"))  # skip contracts with a wider bid-ask spread
 # Manual stock buys (dashboard Portfolio): fat-finger cap on the value of one order, ₹
 STOCK_MAX_ORDER_VALUE = float(_get("STOCK_MAX_ORDER_VALUE", "100000"))
 # SEBI: no market orders via the API for retail clients. A "market" order is sent as a limit this far past the

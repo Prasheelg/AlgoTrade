@@ -1860,7 +1860,23 @@ const PORT_TABS = [
     ["", t => ["NEW", "ENTRY", "OPEN"].includes(t.state)
       ? `<button type="button" class="btn close-trade" data-close="${esc(t.key)}">${t.state === "OPEN" ? "Close" : "Cancel"}</button>` : ""],
   ], ["No automatic trades yet", "Trades the app places on Kotak (Auto-trade) are tracked here."]],
+  ["otrades", "Option trades", p => p.option_trades ?? [], [
+    ["Day", t => esc(t.created_day)],
+    ["Signal", t => `<span class="sym">${esc(t.underlying)}</span><div class="sub">${esc(t.side)} · ${esc(t.timeframe)}</div>`],
+    ["Option", t => t.tsym ? `${esc(t.tsym)}<div class="sub">exp ${esc(t.expiry)}</div>` : `<span class="flat">${t.opt === "CE" ? "call" : "put"}, picked at entry</span>`],
+    ["State", t => `<span class="pstate ${esc(t.state)}">${esc(OPT_STATE[t.state] ?? t.state)}</span>`],
+    ["Lots", t => t.lots ? `${t.lots}<div class="sub">${qtyFmt(t.qty)}</div>` : "–", 1],
+    ["Underlying entry", t => `${rupee(t.u_entry)}<div class="sub">${esc(t.u_entry_type)}</div>`, 1],
+    ["Stop / target", t => `${rupee(t.u_stop)}<div class="sub">${rupee(t.u_target)}</div>`, 1],
+    ["Bought", t => rupee(t.fill_price ?? t.buy_price), 1], ["Sold", t => rupee(t.exit_price), 1],
+    ["P&L", t => t.exit_price != null && t.fill_price != null ? signedRupee((t.exit_price - t.fill_price) * t.qty) : "–", 1],
+    ["Note", t => `<div class="note">${esc(t.note)}</div>`],
+    ["", t => ["WAIT", "BUYING", "OPEN"].includes(t.state)
+      ? `<button type="button" class="btn close-trade" data-oclose="${esc(t.key)}">${t.state === "OPEN" ? "Close" : "Cancel"}</button>` : ""],
+  ], ["No option trades yet", "With Auto-trade options on (Settings), signals on F&O stocks and indices buy an OTM call or put; they're tracked here."]],
 ];
+const OPT_STATE = { WAIT: "Waiting for entry", BUYING: "Buying", OPEN: "Open", SELLING: "Selling", CLOSED: "Closed",
+                    CANCELLED: "Cancelled", REJECTED: "Rejected", SKIPPED: "Skipped" };
 
 async function loadPort(refresh = false, quiet = false) {
   const btn = document.getElementById("portRefresh");
@@ -1971,6 +1987,7 @@ function renderPortTable() {
   document.getElementById("portRows").closest(".tablewrap").hidden = !rows.length;
   document.getElementById("portTabHint").textContent = portTab === "trades"
     ? "Orders the app placed through Auto-trade · Close sells at the live price"
+    : portTab === "otrades" ? "Options bought by Auto-trade · sold when the underlying hits its stop or target · Close sells at the bid"
     : portTab === "holdings" ? "Read from Kotak · Buy and Sell place real orders"
     : portTab === "orders" ? "Statuses refresh every few seconds while an order is pending · Cancel and Modify are real"
     : portTab === "history" ? "Saved from Kotak's order book (which only holds today's), kept 3 years"
@@ -2320,6 +2337,8 @@ document.getElementById("portRows").onclick = async e => {
   if (sell) { openSell(sell.dataset.sell); return; }
   const pc = e.target.closest("[data-pclose]");
   if (pc) { closePosition(pc); return; }
+  const oc = e.target.closest("[data-oclose]");
+  if (oc) { closeOptionTrade(oc); return; }
   const b = e.target.closest("[data-close]"); if (!b) return;
   const t = port.trades.find(x => x.key === b.dataset.close); if (!t) return;
   const ask = t.state === "OPEN"
@@ -2338,6 +2357,30 @@ document.getElementById("portRows").onclick = async e => {
   }
   await loadPort(true);
 };
+
+// Option trades > Close / Cancel: sells the option at the live bid, or stops waiting for the entry
+async function closeOptionTrade(b) {
+  const t = port.option_trades.find(x => x.key === b.dataset.oclose); if (!t) return;
+  const ask = t.state === "OPEN"
+    ? `Close ${t.tsym}?
+
+Sells all ${t.qty} at the live bid now (NSE must be open).
+This is a real order on Kotak.`
+    : `Cancel the ${t.underlying} option trade?
+
+Anything already bought from it is sold at the bid.`;
+  if (!confirm(ask)) return;
+  b.disabled = true; b.textContent = "Closing…";
+  try {
+    const res = await fetch("/api/option-trades/close", { method: "POST", headers: { "Content-Type": "application/json" },
+                                                          body: JSON.stringify({ key: t.key }) });
+    const j = await res.json();
+    if (!res.ok) alert(j.error || "Could not close the option trade");
+  } catch (err) {
+    alert("Could not reach the server: " + err.message);
+  }
+  await loadPort(true);
+}
 
 // Positions > Close on a position you opened yourself: the whole net quantity at the market
 async function closePosition(b) {

@@ -88,17 +88,22 @@ def run_scan(code: str, dry_run: bool = False) -> None:
         total["symbols"] += [f"{x} ({tf})" for x in r.get("symbols", [])]
     set_status(code, running=False, finished_at=_stamp(), timeframe=None, result=total,
                error="; ".join(errors) or None)
-    if code == "IN":   # Auto-trade buys India setups: daily always, intraday when switched on in Settings
-        trade([x["key"] for x in state.all_signals("IN") if x["key"] not in before and x["side"] == "BUY"])
+    if code == "IN":   # Auto-trade: India setups (stocks: BUYs; options: both sides), intraday when switched on
+        trade([x["key"] for x in state.all_signals("IN") if x["key"] not in before])
     if errors:
         raise RuntimeError(f"{code} scan failed on {', '.join(e.split(':')[0] for e in errors)}")
 
 
 def trade(new_keys: list[str]) -> None:
     """Automatic Kotak orders (India): entries for new signals (only while Auto-trade is ON), then bring every
-    live trade up to date. Order problems are logged and sent to Telegram; they never stop the scanner."""
-    from algotrade import orders
-    orders.trade_new(new_keys)
+    live trade up to date. Stocks take BUY signals (not indices); options both sides, on F&O underlyings. Order
+    problems are logged and sent to Telegram; they never stop the scanner."""
+    from algotrade import options_auto, orders
+    from algotrade.universe import is_index
+    sigs = {s["key"]: s for s in state.all_signals("IN")}
+    orders.trade_new([k for k in new_keys if k in sigs and sigs[k]["side"] == "BUY" and not is_index(sigs[k]["symbol"])])
+    if options_auto.trade_new(new_keys) and not orders._watching.is_set():
+        options_auto.step_all()   # --once: no watcher thread, so one pass now
 
 
 def scan_settings(code: str) -> str:
@@ -138,8 +143,9 @@ def _watch_stop(done: threading.Event) -> None:
 def _trade_guard(done: threading.Event) -> None:
     """Between scans: a watcher thread for every live trade (entry fill, then stop-loss and target), signals
     waiting for the open entered, intraday trades squared off on time."""
-    from algotrade import orders
+    from algotrade import options_auto, orders
     orders.start_watching()
+    threading.Thread(target=options_auto.watch, args=(done,), name="option-trades", daemon=True).start()
     try:
         while not done.wait(orders.GUARD_SEC):
             orders.guard_tick()

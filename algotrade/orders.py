@@ -295,6 +295,9 @@ def _eligible(sig: dict) -> str | None:
         return "not an India signal"
     if sig["side"] != "BUY":
         return "only BUY signals are traded"
+    from .universe import is_index
+    if is_index(sig["symbol"]):
+        return "an index: traded through its options only"
     if sig["status"] not in ("PENDING", "ACTIVE"):
         return f"signal already {sig['status']}"
     if (sig["timeframe"] or "1d") != "1d":

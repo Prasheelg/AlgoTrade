@@ -44,6 +44,11 @@ def sources() -> dict[str, dict]:
         for col, role in _ROLE.items():
             if t.get(col):
                 out[str(t[col])] = {"kind": "auto", "label": f"Auto-trade · {role}", "trade": t["key"]}
+    from .options_auto import all_trades as option_trades
+    for t in option_trades():
+        for col, role in (("buy_order", "option buy"), ("sell_order", "option sell")):
+            if t.get(col):
+                out[str(t[col])] = {"kind": "auto", "label": f"Auto-trade · {role}", "trade": t["key"]}
     return out
 
 
