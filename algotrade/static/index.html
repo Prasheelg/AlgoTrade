@@ -2337,8 +2337,8 @@ document.getElementById("portRows").onclick = async e => {
   if (sell) { openSell(sell.dataset.sell); return; }
   const pc = e.target.closest("[data-pclose]");
   if (pc) { closePosition(pc); return; }
-  const oc = e.target.closest("[data-oclose]");
-  if (oc) { closeOptionTrade(oc); return; }
+  const otc = e.target.closest("[data-oclose]");
+  if (otc) { closeOptionTrade(otc); return; }
   const b = e.target.closest("[data-close]"); if (!b) return;
   const t = port.trades.find(x => x.key === b.dataset.close); if (!t) return;
   const ask = t.state === "OPEN"
