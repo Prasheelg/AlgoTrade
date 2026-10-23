@@ -8,7 +8,7 @@ import logging
 
 import pandas as pd
 
-from . import config
+from . import config, metalabel
 from .costs import CostModel
 from .data import fetch_ohlcv
 from .indicators import add_all
@@ -30,8 +30,9 @@ def backtest_symbol(symbol: str, df: pd.DataFrame, target_idx: int = 0, max_hold
                     min_score: int | None = None, strategies: list[str] | None = None,
                     market: str = "IN", filters=None, index_close: pd.Series | None = None,
                     votes: dict[str, list] | None = None, costs: CostModel | None = None,
-                    tag_strategies: bool = False) -> list[dict]:
-    """df is raw OHLCV, or an add_all() frame when votes (from vote_table) are given."""
+                    tag_strategies: bool = False, features: bool = False) -> list[dict]:
+    """df is raw OHLCV, or an add_all() frame when votes (from vote_table) are given.
+    features: also record the signal bar's market conditions (metalabel.features) for the meta-labeling model."""
     if votes is None:
         df = add_all(df, index_close)
     names = strategies or config.STRATEGIES or DEFAULT_STRATEGIES
@@ -59,6 +60,8 @@ def backtest_symbol(symbol: str, df: pd.DataFrame, target_idx: int = 0, max_hold
         def add_costs(trade, slip_exit):
             if tag_strategies:   # which strategies voted (dashboard backtest: results per strategy)
                 trade["strategies"] = ", ".join(sig.reasons)
+            if features:
+                trade.update(signal_time=df.index[i], **metalabel.features(df, i, sig))
             if costs:
                 net = round(costs.net_r(sig.side, fill, trade["exit"], risk, sig.qty, slip_entry, slip_exit), 2)
                 trade.update(net_R=net, cost_R=round(trade["R"] - net, 2))  # R = net_R + cost_R

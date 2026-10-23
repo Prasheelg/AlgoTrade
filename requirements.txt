@@ -7,3 +7,4 @@ flask>=3.0
 kotakneoapi>=3.0
 pywebpush>=2.0
 openpyxl>=3.1
+scikit-learn>=1.4

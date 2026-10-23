@@ -240,6 +240,41 @@ def run_backtest(code: str, symbols: str | None) -> None:
         print(f"\nTrades saved to {out}")
 
 
+def run_ml_test(code: str, symbols: str | None, period: str = "10y") -> None:
+    """Walk-forward test of the meta-labeling model (metalabel.py) on daily bars. It learns from every signal
+    the strategies give (all strategies, min score 1, no filters), then is judged on later years, both on
+    those signals and on the scan panel's current setup."""
+    import pandas as pd
+    from algotrade import backtest, costs, metalabel
+    from algotrade.data import fetch_ohlcv
+    from algotrade.indicators import add_all
+    from algotrade.scanner import fetch_index
+    from algotrade.strategies import STRATEGIES
+    syms = get_universe(symbols, market=code)
+    name = markets.get(code).name
+    log.info("Meta-labeling test: %d %s symbols, %s of daily bars ...", len(syms), name, period)
+    data = fetch_ohlcv(syms, "1d", period=period, market=code)
+    index_close = fetch_index("1d", code, period=period)
+    every, live = list(STRATEGIES), scanner_kw(code)
+    kw = dict(market=code, costs=costs.model_for(code, "1d"), features=True, tag_strategies=True)
+    broad, current = [], []
+    for n, (sym, df) in enumerate(data.items(), 1):
+        df = add_all(df, index_close)
+        votes = backtest.vote_table(df, every)
+        broad += backtest.backtest_symbol(sym, df, strategies=every, min_score=1, filters=[], votes=votes, **kw)
+        current += backtest.backtest_symbol(sym, df, votes=votes, **live, **kw)
+        if n % 20 == 0:
+            log.info("%d/%d symbols backtested", n, len(data))
+    broad, current = pd.DataFrame(broad), pd.DataFrame(current)
+    for df, suffix in ((broad, ""), (current, "_current")):
+        df.to_csv(config.DATA_DIR / f"ml_trades_{code}{suffix}.csv", index=False)
+    print(f"\n=== {name}: every signal (all strategies, min score 1, no filters), {len(broad)} trades ===")
+    print(metalabel.report(metalabel.walk_forward(broad)))
+    print(f"\n=== {name}: current scan setup ({', '.join(live['strategies'])}; min score {live['min_score']}; "
+          f"filters {', '.join(live['filters']) or 'none'}), {len(current)} trades ===")
+    print(metalabel.report(metalabel.walk_forward(broad, score_on=current)) if len(current) else "No trades.")
+
+
 def kotak_check() -> None:
     """Log in to Kotak (unattended) and show the account; saves the raw responses for inspection. No orders."""
     import json
@@ -270,6 +305,7 @@ def main() -> None:
     p.add_argument("--dry-run", action="store_true", help="print signals instead of sending")
     p.add_argument("--test-telegram", action="store_true", help="send a test message")
     p.add_argument("--backtest", action="store_true", help="backtest the strategy")
+    p.add_argument("--ml-test", action="store_true", help="walk-forward test of the meta-labeling signal filter")
     p.add_argument("--ui", action="store_true", help="run the signals dashboard")
     p.add_argument("--kotak-check", action="store_true", help="log in to Kotak and show the account (no orders)")
     p.add_argument("--port", type=int, default=8050, help="dashboard port")
@@ -299,6 +335,9 @@ def main() -> None:
     elif args.ui:
         from algotrade import web
         web.serve(host=args.host, port=args.port)
+    elif args.ml_test:
+        for code in codes:
+            run_ml_test(code, args.symbols)
     elif args.backtest:
         for code in codes:
             run_backtest(code, args.symbols)

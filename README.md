@@ -19,6 +19,7 @@ Credentials and settings go in `.env` (see `.env.example`).
 | `run.bat` | Run all the time: scan India 09:00–15:30 IST and US 09:30–16:00 ET every `SCAN_INTERVAL_MIN` (10) min on every timeframe, plus one end-of-day scan per market |
 | `run.bat --ui` | Signals dashboard at http://127.0.0.1:8050 (tracks SL/target hits, refreshes every 5 min); its **Scanner** switch in the scan panel starts or stops the continuous scanner, output in `logs/scanner.log` |
 | `run.bat --backtest --market IN --symbols NIFTY100` | Backtest the strategy, before and after costs (trades saved to `data/backtest_trades.csv`, US to `backtest_trades_US.csv`) |
+| `run.bat --ml-test --market IN` | Walk-forward test of the AI signal filter (see Meta-labeling test); 10 years of daily bars, about 20 min per 100 symbols |
 
 Add `--market IN` or `--market US` to any command to limit it to one market; by default both are scanned.
 `--symbols` needs `--market`.
@@ -113,6 +114,23 @@ both columns are in the trades CSV). The cost model is in `algotrade/costs.py`:
 Fixed charges are spread over the signal's position size (`CAPITAL` × `RISK_PER_TRADE_PCT`), so a larger
 account pays less per trade in R. Charges change from time to time; check your broker's schedule and set the
 values in `.env`.
+
+## Meta-labeling test (AI signal filter)
+`--ml-test` checks whether a machine-learning model can pick out which signals tend to work. The strategies
+still decide BUY / SELL; a small gradient-boosted tree model (`algotrade/metalabel.py`, scikit-learn, runs
+locally) scores each signal from the market conditions on its bar: ADX, RSI, distance from the 50 / 200 EMA,
+ATR %, volume ratio, recent returns, relative strength, the index's trend, stop size and which strategies voted.
+It learns from every signal the strategies give (all strategies, min score 1, no filters) on 10 years of daily
+bars, and is judged **walk-forward**: each year is scored by a model trained only on trades closed before that
+year. A signal is kept when the model rates it above an average one. The report shows, after costs, all signals
+against the kept and skipped ones, per year, and by quintile of the model's score, for every signal and for the
+scan panel's current setup. Trades are saved to `data/ml_trades_<market>.csv` (`_current` for the current setup).
+
+Result (October 2026, NIFTY 100 and S&P 100, 2018–2026): **no reliable edge, so it is not used for live signals.**
+India every signal: −0.10R per trade, kept −0.07R; current setup −0.17R, kept −0.26R (worse). US every signal:
++0.07R, kept +0.08R; current setup +0.18R, kept +0.19R, but the kept trades made less in total than all of them.
+Net R did not rise from the lowest to the highest score quintile in either market, and predicting net R
+instead of win / loss gave the same picture.
 
 ## Signal tracking
 Each signal is followed on bars of its own timeframe: **Pending** until the entry is reached
