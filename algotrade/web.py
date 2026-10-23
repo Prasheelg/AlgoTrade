@@ -1154,4 +1154,6 @@ def serve(host: str = "127.0.0.1", port: int = 8050) -> None:
     from . import orderbook
     orderbook.start_watch()
     log.info("Dashboard running at http://%s:%d", host, port)
+    # Flask logs every request; the page polls constantly, so keep only warnings and errors
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
     app.run(host=host, port=port, debug=False, use_reloader=False)
