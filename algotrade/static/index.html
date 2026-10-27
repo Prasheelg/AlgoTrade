@@ -788,7 +788,7 @@
     </div>
     <nav class="markets" id="markets"></nav>
     <nav class="markets" id="views" aria-label="View">
-      <button type="button" data-view="signals"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Signals</span></button><button type="button" data-view="performance"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-3M13 16V9M18 16V6"/></svg><span>Performance</span></button><button type="button" data-view="portfolio"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Portfolio</span></button><button type="button" data-view="watchlist"><svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg><span>Watchlist</span></button><button type="button" data-view="options"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="lg">Strategy Builder</span><span class="sm">Options</span></button>
+      <button type="button" data-view="signals"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Signals</span></button><button type="button" data-view="performance"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-3M13 16V9M18 16V6"/></svg><span>Performance</span></button><button type="button" data-view="portfolio"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Portfolio</span></button><button type="button" data-view="watchlist"><svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg><span>Watchlist</span></button><button type="button" data-view="nr7"><svg viewBox="0 0 24 24"><path d="M5 4v16M10 7v10M15 10v4M20 6v12"/></svg><span>NR7</span></button><button type="button" data-view="options"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="lg">Strategy Builder</span><span class="sm">Options</span></button>
     </nav>
     <div class="spacer"></div>
     <label class="btn trade" id="tradeSw"><span class="switch"><input type="checkbox" id="trade" disabled></span>
@@ -947,6 +947,41 @@
     </section>
   </div>
 
+  <div id="nr7View" class="perf" hidden>
+    <section class="card scan">
+      <div class="scan-row">
+        <span class="lbl">NR7 index breakout</span>
+        <span class="hint" id="nr7Hint"></span>
+        <div class="run">
+          <label class="switch" title="Scan Nifty 50, Bank Nifty and Sensex each evening and watch the setups next day"><input type="checkbox" id="nr7On"> Watch</label>
+          <label class="switch"><input type="checkbox" id="nr7Send"> Send to Telegram</label>
+          <button class="btn" id="nr7Scan" type="button" title="Look for an NR7 on the latest completed session now">Scan now</button>
+        </div>
+      </div>
+      <div class="scan-row">
+        <div class="ctl"><span class="lbl">Skip days</span>
+          <input id="nr7Skip" class="opt-input" placeholder="e.g. 2027-01-31 2027-02-01" autocomplete="off" spellcheck="false"
+                 title="Event days with no new trade: Budget day and the day before, election results. Dates as YYYY-MM-DD"></div>
+        <span class="hint">No new trade on these days · alerts only, no orders are placed</span>
+      </div>
+    </section>
+    <div class="notice err" id="nr7Err" hidden></div>
+    <section class="card" style="margin-bottom: 14px">
+      <div class="list-head"><span class="lbl">Setups and trades</span><span class="hint">Nifty 50 · Bank Nifty · Sensex · daily candles, 1-minute bars to follow a trade</span></div>
+      <div class="tablewrap"><table><thead><tr><th>Index</th><th>NR7 day</th><th class="num">Buy above</th><th class="num">Sell below</th>
+        <th class="num">Risk (pts)</th><th class="num">Lots</th><th>Status</th><th>Trade</th><th>Exit</th><th class="num">R</th></tr></thead>
+        <tbody id="nr7Rows"></tbody></table></div>
+      <div class="empty" id="nr7Empty" hidden></div>
+    </section>
+    <section class="card">
+      <div class="list-head"><span class="lbl">Backtest · daily candles, after costs</span><span class="hint" id="nr7BtHint"></span></div>
+      <div class="tablewrap"><table><thead><tr><th>Index</th><th>Period</th><th class="num">Trades</th><th class="num">Win rate</th>
+        <th class="num">Break-even</th><th class="num">Avg R</th><th class="num">Total R</th><th class="num">Max drawdown</th><th>Exits</th></tr></thead>
+        <tbody id="nr7Bt"></tbody></table></div>
+      <div class="empty" id="nr7BtEmpty" hidden></div>
+    </section>
+  </div>
+
   <div id="optView" class="perf" hidden>
     <section class="card scan"><div class="scan-row">
       <div class="ctl"><span class="lbl">Underlying</span>
@@ -1053,8 +1088,8 @@ let view = "signals";  // "signals" or "performance"
   const [m, t] = location.hash.slice(1).split("/");
   if (m === "IN" || m === "US") market = m;
   if (TABS.some(x => x[0] === t)) tab = t;
-  if (["performance", "portfolio", "options", "watchlist"].includes(t)) view = t;
-  else if (!t && ["performance", "portfolio", "options", "watchlist"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
+  if (["performance", "portfolio", "options", "watchlist", "nr7"].includes(t)) view = t;
+  else if (!t && ["performance", "portfolio", "options", "watchlist", "nr7"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
 }
 const setHash = () => history.replaceState(null, "", `#${market}/${view === "signals" ? tab : view}`);
 let cfg = { currency: "₹", locale: "en-IN", tv_prefix: "NSE:" };
@@ -1590,6 +1625,72 @@ document.getElementById("send").onchange = e => { opts.send = e.target.checked; 
 
 const FILTER_LABEL = { trend: "Market trend", rs: "Relative strength" };
 
+// ---- NR7 view: the index breakout, run on its own apart from the scan strategies (/api/nr7) ----
+let nr7 = null;
+const NR7_STATUS = { WAIT: ["Waiting", "PENDING"], OPEN: ["Open", "ACTIVE"], TARGET: ["Target", "T2_HIT"],
+  STOP: ["Stopped", "SL_HIT"], TIME: ["Day-5 close", "BREAKEVEN"], EXPIRED: ["Expired", "CANCELLED"], SKIPPED: ["Skipped", "CANCELLED"] };
+const pts = v => v == null ? "–" : Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const rCell = r => r == null ? "–" : `<span class="${r > 0 ? "up" : r < 0 ? "down" : "flat"}">${r > 0 ? "+" : ""}${Number(r).toFixed(2)}R</span>`;
+
+async function loadNr7(url = "/api/nr7", body = null) {
+  const err = document.getElementById("nr7Err");
+  try {
+    const res = await fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+    const j = await res.json();
+    err.hidden = res.ok; err.textContent = res.ok ? "" : (j.error || "Failed");
+    if (res.ok) nr7 = j;
+  } catch (e) { err.hidden = false; err.textContent = "Could not reach the server: " + e.message; }
+  if (nr7) renderNr7();
+  return nr7;
+}
+
+function renderNr7() {
+  const n = nr7, R = n.rules;
+  document.getElementById("nr7On").checked = n.on;
+  document.getElementById("nr7Send").checked = n.send;
+  const skip = document.getElementById("nr7Skip");
+  if (document.activeElement !== skip) skip.value = n.skip_days.join(" ");
+  document.getElementById("nr7Hint").textContent = (n.on ? `Scans after ${R.scan_after} IST` : "Off") +
+    ` · narrowest of ${R.nr_days} days · ${R.target_r}R target · out by ${R.exit_at} on day ${R.hold_days}` +
+    (n.last_scan ? ` · last scan ${n.last_scan}` : "");
+  document.getElementById("nr7Rows").innerHTML = n.setups.map(t => {
+    const [label, cls] = NR7_STATUS[t.status] ?? [t.status, "ACTIVE"];
+    const trade = t.side ? `${t.side === "LONG" ? "Long" : "Short"} @ ${pts(t.entry)}<div class="sub">stop ${pts(t.stop)} · target ${pts(t.target)}` +
+      (t.day_no ? ` · day ${t.day_no}` : "") + `</div>` : "–";
+    const exit = t.exit != null ? `${pts(t.exit)}<div class="sub">${esc((t.exit_at ?? "").replace("T", " ").slice(0, 16))}</div>` : "–";
+    return `<tr><td><b>${esc(n.indices[t.idx] ?? t.idx)}</b></td><td>${esc(t.nr7_date)}</td>` +
+      `<td class="num">${pts(t.high)}</td><td class="num">${pts(t.low)}</td><td class="num">${pts(t.risk)}</td>` +
+      `<td class="num" title="lot size ${t.lot ?? "–"}">${t.lots ?? "–"}</td>` +
+      `<td><span class="pill s-${cls}" title="${esc(t.note ?? "")}">${label}</span></td><td>${trade}</td><td>${exit}</td>` +
+      `<td class="num">${rCell(t.r)}</td></tr>`;
+  }).join("");
+  const e = document.getElementById("nr7Empty");
+  e.hidden = n.setups.length > 0;
+  e.innerHTML = `<b>No NR7 setups yet</b>The evening scan adds one when an index has its narrowest day of the last ${R.nr_days}.`;
+  document.getElementById("nr7Rows").closest(".tablewrap").hidden = !n.setups.length;
+  const bt = n.backtest, rows = bt ? Object.entries(bt.indices).filter(([, s]) => s.trades) : [];
+  document.getElementById("nr7Bt").innerHTML = rows.map(([k, s]) =>
+    `<tr><td><b>${esc(n.indices[k] ?? k)}</b></td><td>${esc(s.from.slice(0, 4))}–${esc(s.to.slice(0, 4))}</td>` +
+    `<td class="num">${s.trades}</td><td class="num">${s.win_pct}%</td><td class="num">${s.breakeven_win_pct ?? "–"}%</td>` +
+    `<td class="num">${rCell(s.avg_r)}</td><td class="num">${rCell(s.total_r)}</td><td class="num">${s.max_dd_r}R</td>` +
+    `<td>${Object.entries(s.exits).map(([x, c]) => `${esc((NR7_STATUS[x] ?? [x])[0])} ${c}`).join(" · ")}</td></tr>`).join("");
+  document.getElementById("nr7BtHint").textContent = bt ? `run ${bt.run_at.replace("T", " ").slice(0, 16)}` : "";
+  const be = document.getElementById("nr7BtEmpty");
+  be.hidden = rows.length > 0;
+  be.innerHTML = `<b>No backtest yet</b>Run <code>run.bat --nr7-backtest</code> on the PC.`;
+  document.getElementById("nr7Bt").closest(".tablewrap").hidden = !rows.length;
+}
+setInterval(() => { if (view === "nr7" && !document.hidden) loadNr7(); }, 30000);
+const nr7Save = body => loadNr7("/api/nr7/settings", body);
+document.getElementById("nr7On").onchange = e => nr7Save({ on: e.target.checked });
+document.getElementById("nr7Send").onchange = e => nr7Save({ send: e.target.checked });
+document.getElementById("nr7Skip").onchange = e => nr7Save({ skip_days: e.target.value });
+document.getElementById("nr7Scan").onclick = async e => {
+  const b = e.currentTarget; b.disabled = true;
+  try { const j = await loadNr7("/api/nr7/scan", {}); if (j && j.made === 0) document.getElementById("nr7Hint").textContent += " · no new NR7"; }
+  finally { b.disabled = false; }
+};
+
 // ---- Performance view: closed trades before / after costs (/api/performance) ----
 let perf = null, perfDays = [0, 30, 90].includes(store.get("perfDays")) ? store.get("perfDays") : 0, bdTab = "Strategy";
 let eqFocus = null;  // trade index under the crosshair / keyboard focus
@@ -1603,11 +1704,13 @@ function setView(v) {
   document.getElementById("portView").hidden = view !== "portfolio";
   document.getElementById("optView").hidden = view !== "options";
   document.getElementById("watchView").hidden = view !== "watchlist";
+  document.getElementById("nr7View").hidden = view !== "nr7";
   setHash();
   if (view === "watchlist") { loadWl(); loadMarket(); }
   if (view === "performance") { loadPerf(); loadScorecard(); loadBacktest(); loadTax(); }
   if (view === "portfolio") { loadPort(); loadRisk(); }
   if (view === "options") optOpen();
+  if (view === "nr7") loadNr7();
 }
 document.getElementById("views").onclick = e => {
   const b = e.target.closest("[data-view]"); if (!b) return;

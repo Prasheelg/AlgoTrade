@@ -744,12 +744,18 @@ def _monitor() -> None:
     order book for the history (every SNAPSHOT_SEC in market hours, once more after the close)."""
     from . import backup, health, orderbook, settings, summary, watchlist
     from . import livefeed
+    from . import nr7
     n, snap_at, snapped_after_close = 0, 0.0, None
     while True:
         try:
             watchlist.check()
         except Exception:
             log.exception("Price alert check failed")
+        for job in (nr7.check, nr7.scan):   # check first: it expires the day's setups before the evening scan
+            try:
+                job()
+            except Exception:
+                log.exception("NR7 %s failed", job.__name__)
         # with the stream live, alerts are checked every LIVE_ALERT_SEC until the next full round
         loop_end = time.monotonic() + MONITOR_SEC
         if n % HEALTH_EVERY == 0:
@@ -890,6 +896,34 @@ def api_health():
         _health.update(problems=health.problems(_last_refresh["at"]), at=time.strftime("%Y-%m-%d %H:%M:%S"))
     from . import livefeed
     return jsonify({**_health, "feed": livefeed.status()})
+
+
+@app.get("/api/nr7")
+def api_nr7():
+    """The NR7 index breakout: settings, setups and trades, the last backtest."""
+    from . import nr7
+    return jsonify(nr7.view())
+
+
+@app.post("/api/nr7/settings")
+def api_nr7_settings():
+    """{on, send, skip_days}: any of them. Same access as the scan settings."""
+    from . import nr7
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    s = nr7.save_settings(request.get_json(silent=True) or {})
+    log.info("NR7 settings changed from %s: %s", access.who(), s)
+    return jsonify(nr7.view())
+
+
+@app.post("/api/nr7/scan")
+def api_nr7_scan():
+    """Look for an NR7 on the latest completed session now, instead of waiting for the evening scan."""
+    from . import nr7
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    made = nr7.scan(force=True)
+    return jsonify({**nr7.view(), "made": len(made)})
 
 
 @app.get("/api/watchlist")

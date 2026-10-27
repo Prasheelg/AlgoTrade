@@ -20,6 +20,7 @@ Credentials and settings go in `.env` (see `.env.example`).
 | `run.bat --ui` | Signals dashboard at http://127.0.0.1:8050 (tracks SL/target hits, refreshes every 5 min); the **Scan India** / **Scan US** switch in each market's scan panel turns that market's scanning on or off (starting the continuous scanner if needed, stopping it when both are off), output in `logs/scanner.log` |
 | `run.bat --backtest --market IN --symbols NIFTY100` | Backtest the strategy, before and after costs (trades saved to `data/backtest_trades.csv`, US to `backtest_trades_US.csv`) |
 | `run.bat --ml-test --market IN` | Walk-forward test of the AI signal filter (see Meta-labeling test); 10 years of daily bars, about 20 min per 100 symbols |
+| `run.bat --nr7-backtest` | Backtest the NR7 index breakout on Nifty 50, Bank Nifty and Sensex (see NR7 index breakout); shown on the dashboard's NR7 view |
 
 Add `--market IN` or `--market US` to any command to limit it to one market; by default both are scanned.
 `--symbols` needs `--market`.
@@ -72,6 +73,25 @@ FILTERS_IN=trend,rs
 The order is valid for `ENTRY_VALID_BARS` (3) bars; intraday orders also lapse at that day's close.
 Stop loss = 1.5 × ATR from the entry (or a zone / level stop); targets at 1.5R and 3R; quantity sized so one loss costs `RISK_PER_TRADE_PCT` of `CAPITAL`.
 Filters: price ≥ ₹50 and 20-day average turnover ≥ ₹5 Cr. Alerts are de-duplicated per symbol, side and day (`data/signals.db`).
+
+## NR7 index breakout
+Toby Crabel's NR7 on **Nifty 50, Bank Nifty and Sensex**, run on its own (`algotrade/nr7.py`), apart from the
+strategies above: it doesn't vote, and the scan panel's settings don't apply to it. **Alerts only**: it places no orders.
+- **Evening scan**, after 16:00 IST: if an index's daily range (high − low) is the narrowest of the last 7 days, it
+  gets a setup for the **next session only**: buy above that day's high, sell below its low.
+- **Next session**: the first level traded is the trade, the other is cancelled. Stop at the NR7 day's other end
+  (1R = its range), target 3R from the entry, closed at 15:15 on the 5th session (entry day = 1). Neither level
+  traded: the setup expires. One trade per index at a time; a stopped trade is not reversed.
+- It is followed on Yahoo's 1-minute index bars (checked every 30 s in market hours) by the dashboard
+  (`run.bat --ui`), so the dashboard must be running; the continuous scanner isn't needed.
+- **Lots**: futures lots that risk at most `RISK_PER_TRADE_PCT` of `CAPITAL` at the NR7 range (lot sizes from
+  Kotak's contract list, else 65 / 30 / 20). 0 means one lot risks more than that.
+- The dashboard's **NR7** view has its own **Watch** and **Send to Telegram** switches (Telegram off by default),
+  **Skip days** for events (Budget day and the day before, election results), a **Scan now** button and the setups
+  and trades with their R.
+- `run.bat --nr7-backtest` runs the same rules on daily candles, conservatively: a day that trades both levels is a
+  stop-out, no target on the entry day, a gap past a level or the stop fills at the open; costs 0.017% / 0.022% /
+  0.015% of the index per round trip. Weekend special sessions (Muhurat) are left out.
 
 ## Dashboard scans
 From the dashboard you can run a scan with your own settings for that run: timeframe (5 min, 15 min, 30 min,

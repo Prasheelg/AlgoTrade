@@ -295,6 +295,22 @@ def run_ml_test(code: str, symbols: str | None, period: str = "10y") -> None:
     print(metalabel.report(metalabel.walk_forward(broad, score_on=current)) if len(current) else "No trades.")
 
 
+def run_nr7_backtest() -> None:
+    from algotrade import nr7
+    res = nr7.backtest()
+    print(f"NR7 breakout, daily candles, after costs · {nr7.TARGET_R:g}R target, {nr7.HOLD_DAYS}-day exit")
+    for idx, s in res["indices"].items():
+        if not s["trades"]:
+            print(f"{idx}: no trades")
+            continue
+        print(f"\n{nr7.INDICES[idx][0]}: {s['trades']} trades {s['from']} to {s['to']}")
+        print(f"  wins {s['win_pct']}% (break-even {s['breakeven_win_pct']}%) · avg {s['avg_r']:+.2f}R · "
+              f"total {s['total_r']:+.1f}R · max drawdown {s['max_dd_r']}R")
+        print(f"  avg win {s['avg_win_r']}R · avg loss {s['avg_loss_r']}R · exits {s['exits']}")
+        print("  by year: " + ", ".join(f"{y} {r:+.1f}" for y, r in s["years"].items()))
+    print(f"\nSaved to {nr7.BACKTEST_FILE}")
+
+
 def kotak_check() -> None:
     """Log in to Kotak (unattended) and show the account; saves the raw responses for inspection. No orders."""
     import json
@@ -326,6 +342,7 @@ def main() -> None:
     p.add_argument("--test-telegram", action="store_true", help="send a test message")
     p.add_argument("--backtest", action="store_true", help="backtest the strategy")
     p.add_argument("--ml-test", action="store_true", help="walk-forward test of the meta-labeling signal filter")
+    p.add_argument("--nr7-backtest", action="store_true", help="backtest the NR7 index breakout (Nifty, Bank Nifty, Sensex)")
     p.add_argument("--ui", action="store_true", help="run the signals dashboard")
     p.add_argument("--kotak-check", action="store_true", help="log in to Kotak and show the account (no orders)")
     p.add_argument("--port", type=int, default=8050, help="dashboard port")
@@ -355,6 +372,8 @@ def main() -> None:
     elif args.ui:
         from algotrade import web
         web.serve(host=args.host, port=args.port)
+    elif args.nr7_backtest:
+        run_nr7_backtest()
     elif args.ml_test:
         for code in codes:
             run_ml_test(code, args.symbols)
