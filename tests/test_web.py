@@ -96,7 +96,7 @@ def test_enrich_math():
 def test_meta_shape(client):
     m = client.get("/api/meta").get_json()
     assert set(m) == {"strategies", "filters", "timeframes", "markets", "defaults", "scan"}
-    assert len(m["strategies"]) == 14
+    assert len(m["strategies"]) == 13
     assert [f["name"] for f in m["filters"]] == ["trend", "rs", "events"]
     assert [t["value"] for t in m["timeframes"]] == ["5m", "15m", "30m", "1h", "1d", "all"]
     assert m["timeframes"][-1] == {"value": "all", "label": "All"}
@@ -178,8 +178,8 @@ def test_scan_all_timeframes_labels_symbols(client, monkeypatch):
 
 @pytest.mark.parametrize("body,msg", [
     ({"timeframe": "2h"}, "Unsupported timeframe: 2h"),
-    ({"min_score": 11}, "Minimum agreeing votes must be between 1 and 10"),          # 14 defaults = 10 families
-    ({"min_score": -1}, "Minimum agreeing votes must be between 1 and 10"),
+    ({"min_score": 10}, "Minimum agreeing votes must be between 1 and 9"),           # 13 defaults = 9 families
+    ({"min_score": -1}, "Minimum agreeing votes must be between 1 and 9"),
     ({"strategies": ["Demand-Supply", "Rally-Base-Rally"], "min_score": 2},
      "Minimum agreeing votes must be between 1 and 1"),
     ({"strategies": ["Bogus"], "min_score": 2}, "Minimum agreeing votes must be between 1 and 1"),

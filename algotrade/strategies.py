@@ -105,28 +105,6 @@ def squeeze_breakout(df: pd.DataFrame, i: int) -> Optional[str]:
     return None
 
 
-NR_BARS = 7  # Crabel's NR7: the bar with the narrowest high-low range of the last 7
-
-
-def nr7_breakout(df: pd.DataFrame, i: int) -> Vote:
-    """Crabel's NR7: the bar after the narrowest-range bar of the last 7 closes beyond its high (BUY) or low (SELL),
-    in the direction of EMA50; stop beyond the NR7 bar's other end."""
-    h, l, c = df["High"].to_numpy(), df["Low"].to_numpy(), df["Close"].to_numpy()
-    rng = h - l
-    # The breakout bar b is one of the last LOOKBACK bars and price is still beyond the NR7 bar now
-    for b in range(i, i - LOOKBACK, -1):
-        k = b - 1   # the NR7 bar
-        if k < NR_BARS - 1 or rng[k] <= 0 or rng[k] > rng[k - NR_BARS + 1:k + 1].min():
-            continue
-        a, ema = df["ATR"].iloc[i], df["EMA50"].iloc[i]
-        if c[b] > h[k] and c[i] > h[k] and c[i] > ema:
-            return "BUY", l[k] - STOP_BUFFER_ATR * a
-        if c[b] < l[k] and c[i] < l[k] and c[i] < ema:
-            return "SELL", h[k] + STOP_BUFFER_ATR * a
-        return None   # the most recent NR7 set-up decides
-    return None
-
-
 def rsi2_reversion(df: pd.DataFrame, i: int) -> Optional[str]:
     """Short-term dip in a long-term uptrend: RSI(2) below 10 while price > EMA200 (mirror for shorts)."""
     r = df.iloc[i]
@@ -205,7 +183,7 @@ def support_resistance(df: pd.DataFrame, i: int) -> Vote:
 
 
 def describe() -> list[dict]:
-    price_action = set(FAMILIES) | {"Support-Resistance", "NR7 Breakout"}
+    price_action = set(FAMILIES) | {"Support-Resistance"}
     return [{"name": n, "description": (f.__doc__ or "").strip(), "family": family_of(n),
              "group": "Price action" if n in price_action else "Indicators", "default": n in DEFAULT_STRATEGIES}
             for n, f in STRATEGIES.items()]
@@ -234,7 +212,6 @@ STRATEGIES: dict[str, Strategy] = {
     "Drop-Base-Drop": drop_base_drop,
     "Squeeze Breakout": squeeze_breakout,
     "RSI(2) Reversion": rsi2_reversion,
-    "NR7 Breakout": nr7_breakout,
 }
 # Opt-in strategies are off unless selected (dashboard) or listed in STRATEGIES in .env; none: all are on by default
 OPT_IN: set[str] = set()

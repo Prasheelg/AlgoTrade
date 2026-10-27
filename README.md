@@ -29,9 +29,7 @@ A signal is sent when at least `MIN_SCORE` of these agree on a direction:
 EMA 9/21 cross (EMA50 filter) · 20-bar breakout on 1.5x volume with ADX > 20 · Supertrend (10, 3) flip ·
 MACD cross aligned with EMA200 · RSI pullback in trend · support/resistance bounce · supply/demand zone retests
 (the five zone patterns share one vote) · **Squeeze Breakout** (Bollinger Bands inside Keltner Channels for 5+ bars,
-then a close outside the bands) · **RSI(2) Reversion** (RSI(2) < 10 while price > EMA200) · **NR7 Breakout** (Toby
-Crabel: the bar after the narrowest-range bar of the last 7 closes beyond its high or low, with EMA50; stop beyond
-the NR7 bar's other end).
+then a close outside the bands) · **RSI(2) Reversion** (RSI(2) < 10 while price > EMA200).
 All are on by default; untick them on the dashboard or list a subset in `STRATEGIES` in `.env`.
 
 Optional filters veto signals using the market index (NIFTY 50 / S&P 500), set on the dashboard or `FILTERS` in `.env`:
