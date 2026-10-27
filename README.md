@@ -86,6 +86,13 @@ strategies above: it doesn't vote, and the scan panel's settings don't apply to 
   (`run.bat --ui`), so the dashboard must be running; the continuous scanner isn't needed.
 - **Lots**: futures lots that risk at most `RISK_PER_TRADE_PCT` of `CAPITAL` at the NR7 range (lot sizes from
   Kotak's contract list, else 65 / 30 / 20). 0 means one lot risks more than that.
+- **What to trade** (`algotrade/nr7_instruments.py`, Kotak contracts and quotes), shown under each waiting setup or
+  open trade and added to its Telegram alerts:
+  - **Futures** (Nifty, Bank Nifty): the current month, the next once fewer than 5 trading days are left, with the
+    levels shifted by the future's premium over the index. Sensex futures barely trade, so Sensex is options only.
+  - **Options**: the monthly expiry (same roll), a call for the buy level and a put for the sell level, in the money
+    there with delta closest to 0.7 (0.6–0.8). Lots keep the premium paid within the risk per trade; the rough loss
+    per lot if the index goes back to the stop is shown too.
 - The dashboard's **NR7** view has its own **Watch** and **Send to Telegram** switches (Telegram off by default),
   **Skip days** for events (Budget day and the day before, election results), a **Scan now** button and the setups
   and trades with their R.

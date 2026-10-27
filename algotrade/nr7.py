@@ -212,9 +212,23 @@ def _pts(x) -> str:
     return f"{x:,.2f}"
 
 
-def _notify(text: str) -> None:
+def _plans_text(t: dict) -> str:
+    """The futures / option lines for a setup (or an open trade's side); empty when they can't be had."""
+    from . import nr7_instruments
+    try:
+        return nr7_instruments.text(nr7_instruments.plans(t), t["side"] if t["status"] == OPEN else None)
+    except Exception:
+        log.exception("NR7 plan text for %s failed", t["key"])
+        return ""
+
+
+def _notify(text: str, t: dict | None = None) -> None:
+    """Post to Telegram when Send is on; with a WAIT or OPEN setup t, its futures / option lines are added."""
     if not settings()["send"]:
         return
+    if t is not None and t["status"] in ACTIVE:
+        extra = _plans_text(t)
+        text += f"\n{extra}" if extra else ""
     try:
         telegram_bot.send_message(text)
     except Exception:
@@ -298,7 +312,7 @@ def scan(now: datetime | None = None, force: bool = False) -> list[dict]:
         _insert(t)
         made.append(t)
         log.info("NR7 %s on %s: %s", idx, t["nr7_date"], t["status"])
-        _notify(_setup_text(t))
+        _notify(_setup_text(t), t)
     if not force:
         state.set_setting(LAST_SCAN_KEY, str(today))
     return made
@@ -351,7 +365,7 @@ def check(now: datetime | None = None, bars_for=None) -> int:
                     _notify(_event_text({**u, "status": OPEN}))
                 text = _event_text(u)
                 if text:
-                    _notify(text)
+                    _notify(text, u)
     return changed
 
 
@@ -363,7 +377,13 @@ def view() -> dict:
             bt = json.loads(BACKTEST_FILE.read_text(encoding="utf-8"))
         except Exception:
             log.exception("NR7 backtest file unreadable")
-    return {**s, "setups": setups(), "indices": {k: v[0] for k, v in INDICES.items()},
+    from . import nr7_instruments
+    rows = setups()
+    for t in rows:   # what to trade: futures and options for setups waiting or trades open
+        if t["status"] in ACTIVE:
+            t["plans"] = nr7_instruments.plans(t)
+    return {**s, "setups": rows, "indices": {k: v[0] for k, v in INDICES.items()},
+            "budget": round(nr7_instruments.budget()),
             "last_scan": state.get_setting(LAST_SCAN_KEY, None)[0], "backtest": bt,
             "rules": {"nr_days": NR_DAYS, "target_r": TARGET_R, "hold_days": HOLD_DAYS,
                       "exit_at": EXIT_AT.strftime("%H:%M"), "scan_after": SCAN_AFTER.strftime("%H:%M")}}

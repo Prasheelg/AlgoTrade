@@ -48,26 +48,69 @@ def parse_master(csv_text: str) -> pd.DataFrame:
     return df.dropna(subset=["strike", "expiry"]).reset_index(drop=True)
 
 
+def _master_text(segment: str) -> str:
+    """A segment's scrip master CSV, downloaded once a day and cached on disk across restarts."""
+    today = date.today()
+    cache = config.DATA_DIR / f"kotak_{segment}_{today}.csv"
+    if cache.exists():
+        return cache.read_text(encoding="utf-8")
+    url = kotak._neo().scrip_master(exchange_segment=segment)
+    if not (isinstance(url, str) and url.startswith("http")):
+        raise RuntimeError(f"Unexpected F&O scrip master response: {str(url)[:200]}")
+    text = kotak._download_csv(url)
+    cache.write_text(text, encoding="utf-8")
+    for old in config.DATA_DIR.glob(f"kotak_{segment}_*.csv"):
+        if old != cache:
+            old.unlink(missing_ok=True)
+    return text
+
+
 def contracts() -> pd.DataFrame:
     """All option contracts, refreshed once a day (cached on disk across restarts)."""
     today = date.today()
     if _master["day"] != today:
-        cache = config.DATA_DIR / f"kotak_{SEGMENT}_{today}.csv"
-        if cache.exists():
-            text = cache.read_text(encoding="utf-8")
-        else:
-            url = kotak._neo().scrip_master(exchange_segment=SEGMENT)
-            if not (isinstance(url, str) and url.startswith("http")):
-                raise RuntimeError(f"Unexpected F&O scrip master response: {str(url)[:200]}")
-            text = kotak._download_csv(url)
-            cache.write_text(text, encoding="utf-8")
-            for old in config.DATA_DIR.glob(f"kotak_{SEGMENT}_*.csv"):
-                if old != cache:
-                    old.unlink(missing_ok=True)
-        df = parse_master(text)
+        df = parse_master(_master_text(SEGMENT))
         _master.update(day=today, df=df[df["expiry"] >= today].reset_index(drop=True))
         log.info("Kotak F&O scrip master: %d option contracts", len(_master["df"]))
     return _master["df"]
+
+
+# Index futures and options (the NR7 plans): NSE sends expiries in seconds since 1980, BSE in Unix seconds
+INDEX_SEGMENTS = {"nse_fo": ({"FUTIDX": "FUT", "OPTIDX": "OPT"}, EPOCH_1980), "bse_fo": ({"IF": "FUT", "IO": "OPT"}, 0)}
+_index_master: dict = {}
+
+
+def parse_index_master(csv_text: str, segment: str) -> pd.DataFrame:
+    """Index futures (opt "FUT", no strike) and options (CE / PE) from a segment's scrip master."""
+    kinds, epoch0 = INDEX_SEGMENTS[segment]
+    m = pd.read_csv(io.StringIO(csv_text), dtype=str, low_memory=False)
+    m.columns = [c.strip().rstrip(";") for c in m.columns]
+    inst = m["pInstType"].str.strip().map(kinds)
+    m, inst = m[inst.notna()], inst[inst.notna()]
+    exp = pd.to_numeric(m["pExpiryDate"], errors="coerce") + epoch0
+    strike = pd.to_numeric(m["dStrikePrice"], errors="coerce") / 100
+    df = pd.DataFrame({
+        "underlying": m["pSymbolName"].str.strip(),
+        "opt": m["pOptionType"].str.strip().where(inst == "OPT", "FUT"),
+        "expiry": pd.to_datetime(exp, unit="s", utc=True).dt.tz_convert("Asia/Kolkata").dt.date,
+        "strike": strike.where(inst == "OPT"),
+        "lot": pd.to_numeric(m["lLotSize"], errors="coerce").fillna(0).astype(int),
+        "token": m["pSymbol"].str.strip(),
+        "tsym": m["pTrdSymbol"].str.strip(),
+        "tick": pd.to_numeric(m["dTickSize"], errors="coerce").fillna(5) / 100,
+    })
+    return df.dropna(subset=["expiry"]).reset_index(drop=True)
+
+
+def index_contracts(underlying: str, segment: str = SEGMENT) -> pd.DataFrame:
+    """An index's live futures and options (e.g. NIFTY on nse_fo, SENSEX on bse_fo), refreshed once a day."""
+    today = date.today()
+    hit = _index_master.get(segment)
+    if not hit or hit[0] != today:
+        df = parse_index_master(_master_text(segment), segment)
+        hit = _index_master[segment] = (today, df[df["expiry"] >= today].reset_index(drop=True))
+    df = hit[1]
+    return df[df["underlying"] == underlying].reset_index(drop=True)
 
 
 def underlyings() -> list[dict]:

@@ -288,6 +288,10 @@
   .perf table { min-width: 640px; }
   .perf .chart-card table { min-width: 720px; }
   .perf .empty { padding: 40px 16px; }
+  .nr7-plan td { padding-top: 0; font-size: 12.5px; white-space: normal; }
+  .nr7-plan td > div { padding: 2px 0; }
+  .nr7-plan .lbl { display: inline-block; min-width: 118px; }
+  .nr7-plan .sub { display: inline; }
   .port-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
   .port-head .acct { font-weight: 600; }
   .port-head .hint { margin-left: 0; }
@@ -1644,6 +1648,31 @@ async function loadNr7(url = "/api/nr7", body = null) {
   return nr7;
 }
 
+// What to trade for a waiting setup or an open trade: the future and the in-the-money monthly call / put
+function nr7PlanRow(p, budget, idx) {
+  const rs = v => v == null ? "–" : "₹" + Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  const lots = (n, per) => `<b>${n} lot${n === 1 ? "" : "s"}</b>` +
+    (n ? "" : ` <span class="sub" title="Your risk per trade is ${rs(budget)}">(one lot ${rs(per)} &gt; ${rs(budget)})</span>`);
+  let items = [];
+  if (p.error) items = [`<span class="sub">${esc(p.error)}</span>`];
+  else {
+    const f = p.futures;
+    if (f) items.push(`<div><span class="lbl">Futures</span> ${esc(f.tsym)} @ ${pts(f.price)}` +
+      (f.basis != null ? ` · buy above <b>${pts(f.buy_above)}</b> · sell below <b>${pts(f.sell_below)}</b>` +
+        ` <span class="sub">(index levels + ${pts(f.basis)} premium)</span>` : "") + ` · ${lots(f.lots, f.risk_per_lot)}</div>`);
+    for (const [k, label] of [["call", "Call (buy level)"], ["put", "Put (sell level)"]]) {
+      const o = p[k];
+      if (o) items.push(`<div><span class="lbl">${label}</span> ${esc(o.tsym)} @ ${rs(o.premium)} · Δ${o.delta.toFixed(2)}` +
+        (o.iv != null ? ` · IV ${o.iv}%` : "") + ` · ${lots(o.lots, o.cost_per_lot)}` +
+        ` <span class="sub">· ≈${rs(o.loss_at_stop_per_lot)} per lot at the stop</span></div>`);
+      else if (k in p) items.push(`<div><span class="lbl">${label}</span> <span class="sub">no monthly contract found</span></div>`);
+    }
+    if (!f) items.unshift(`<div><span class="lbl">Futures</span> <span class="sub">${idx === "SENSEX"
+      ? "Sensex futures barely trade: options only" : "no contract found"}</span></div>`);
+  }
+  return `<tr class="nr7-plan"><td></td><td colspan="9">${items.join("")}</td></tr>`;
+}
+
 function renderNr7() {
   const n = nr7, R = n.rules;
   document.getElementById("nr7On").checked = n.on;
@@ -1662,7 +1691,7 @@ function renderNr7() {
       `<td class="num">${pts(t.high)}</td><td class="num">${pts(t.low)}</td><td class="num">${pts(t.risk)}</td>` +
       `<td class="num" title="lot size ${t.lot ?? "–"}">${t.lots ?? "–"}</td>` +
       `<td><span class="pill s-${cls}" title="${esc(t.note ?? "")}">${label}</span></td><td>${trade}</td><td>${exit}</td>` +
-      `<td class="num">${rCell(t.r)}</td></tr>`;
+      `<td class="num">${rCell(t.r)}</td></tr>` + (t.plans ? nr7PlanRow(t.plans, n.budget, t.idx) : "");
   }).join("");
   const e = document.getElementById("nr7Empty");
   e.hidden = n.setups.length > 0;
