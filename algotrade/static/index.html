@@ -1365,7 +1365,7 @@ function renderMarkets() {
 // Until the server's copy arrives: the strategies that are on by default
 function optsFor(mk) {
   return optsBy[mk] ?? { strategies: STRATS.filter(s => s.default).map(s => s.name),
-                         minScore: META?.defaults.min_score ?? 1, filters: [], send: true, saved: null };
+                         minScore: META?.defaults.min_score ?? 1, filters: [], send: false, saved: null };
 }
 
 async function loadScanSettings(mk) {

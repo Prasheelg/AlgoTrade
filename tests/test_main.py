@@ -198,7 +198,7 @@ def test_run_scan_modes(monkeypatch, capsys):
     assert out == telegram_bot.format_signal(make_signal()) + " \n" + "-" * 40 + "\n"
     assert main.scan.calls == [((), {"market": "IN", "timeframe": "1d", **DEFAULT_KW})]
     main.run_scan("US")
-    assert saa.calls == [((), {"market": "US", "timeframe": "1d", "send": True, **DEFAULT_KW})]
+    assert saa.calls == [((), {"market": "US", "timeframe": "1d", "send": False, **DEFAULT_KW})]
 
 
 def test_universe_of(monkeypatch):
@@ -239,7 +239,7 @@ def test_cli_once_uses_scan_and_alert(cli, monkeypatch):
     saa = Recorder({})
     monkeypatch.setattr(main, "scan_and_alert", saa)
     cli("--once", "--market", "IN")
-    assert saa.calls == [((), {"market": "IN", "timeframe": "1d", "send": True, **DEFAULT_KW})]
+    assert saa.calls == [((), {"market": "IN", "timeframe": "1d", "send": False, **DEFAULT_KW})]
 
 
 IN_SCAN = {"strategies": ["RSI Pullback", "RSI(2) Reversion"], "min_score": 1, "filters": ["trend", "rs"]}
@@ -250,8 +250,8 @@ def test_cli_once_uses_per_market_settings(cli, monkeypatch):
     saa = Recorder({})
     monkeypatch.setattr(main, "scan_and_alert", saa)
     cli("--once")
-    assert saa.calls == [((), {"market": "IN", "timeframe": "1d", "send": True, **IN_SCAN}),
-                         ((), {"market": "US", "timeframe": "1d", "send": True, **DEFAULT_KW})]
+    assert saa.calls == [((), {"market": "IN", "timeframe": "1d", "send": False, **IN_SCAN}),
+                         ((), {"market": "US", "timeframe": "1d", "send": False, **DEFAULT_KW})]
 
 
 def test_cli_dry_run_uses_per_market_settings(cli, monkeypatch):

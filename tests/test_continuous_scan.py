@@ -42,7 +42,7 @@ def test_us_scan_window_is_the_session():
 
 def test_scan_settings_fall_back_to_env(monkeypatch):
     assert settings.scan_settings("IN") == {"strategies": list(DEFAULT_STRATEGIES), "min_score": 2, "filters": [],
-                                            "send": True, "saved": None}
+                                            "send": False, "saved": None}
     monkeypatch.setattr(config, "MARKET_SCAN", {"IN": {"strategies": ["RSI Pullback"], "min_score": 3,
                                                        "filters": ["trend"]}, "US": {}})
     s = settings.scan_settings("IN")

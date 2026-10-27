@@ -121,7 +121,7 @@ def scan_defaults(code: str) -> dict:
     strategies = list(kw.get("strategies") or config.STRATEGIES or DEFAULT_STRATEGIES)
     votes = len({family_of(s) for s in strategies})
     return {"strategies": strategies, "min_score": max(1, min(kw.get("min_score") or config.MIN_SCORE, votes)),
-            "filters": list(kw.get("filters", config.FILTERS)), "send": True}
+            "filters": list(kw.get("filters", config.FILTERS)), "send": False}
 
 
 def scan_settings(code: str) -> dict:
