@@ -320,9 +320,7 @@ def run_nr7_stocks() -> None:
     print(f"NR7 breakout on {res['stocks']} F&O stocks, daily, {res['from']} to {res['to']}, "
           f"costs {res['cost_pct']}% per round trip (median {res['median_cost_r']}R a trade)")
     for key, label in (("all", "All trades"), ("costs_doubled", "Costs doubled"), ("until_2012", "Until 2012"),
-                       ("from_2013", "From 2013"), ("long", "Longs"), ("short", "Shorts"),
-                       ("since_2015_no_results", "2015+, no results day"),
-                       ("since_2015_with_results", "2015+, results day inside")):
+                       ("from_2013", "From 2013"), ("long", "Longs"), ("short", "Shorts")):
         s = res[key]
         if not s["trades"]:
             print(f"  {label:26} no trades")
@@ -334,6 +332,34 @@ def run_nr7_stocks() -> None:
     print("  By year: " + ", ".join(f"{y} {r:+.0f}" for y, r in res["years"].items()))
     print(f"  Best: {res['best_stocks']}\n  Worst: {res['worst_stocks']}")
     print(f"\nSaved to {nr7_stocks.OUT_FILE} (trades in data/nr7_stock_trades.csv)")
+
+
+def _print_stats(label: str, s: dict) -> None:
+    if not s["trades"]:
+        print(f"  {label:26} no trades")
+        return
+    print(f"  {label:26} {s['trades']:6} trades · wins {s['win_pct']}% (break-even {s['breakeven_win_pct']}%) · "
+          f"avg {s['avg_r']:+.3f}R · total {s['total_r']:+.0f}R · worst {s['worst_r']}R · p(no edge) {s['p_no_edge']}")
+
+
+def run_nr7_results() -> None:
+    from algotrade import nr7_stocks
+    res = nr7_stocks.run_results()
+    if not res.get("stocks"):
+        print("No trades")
+        return
+    print(f"NR7 on F&O stocks with results due within {res['window']} trading days · {res['stocks']} stocks · "
+          f"{res['from']} to {res['to']} · costs {res['cost_pct']}% per round trip")
+    for key, label in (("variant", "Variant"), ("costs_doubled", "Costs doubled"), ("2015_2020", "2015-2020"),
+                       ("2021_on", "2021 on"), ("long", "Longs"), ("short", "Shorts"),
+                       ("no_results_control", "Control: no results due"), ("window_3", "Window 3 days"),
+                       ("window_10", "Window 10 days")):
+        _print_stats(label, res[key])
+    print(f"  Coin-flip side: avg {res['coin_flip_avg_r']:+.3f}R; the breakout side beat {res['beats_coin_flip_pct']}% of flips")
+    print(f"  Trades worse than -3R: {res['worse_than_3r_pct']}% · stocks with a positive average: {res['stocks_positive_pct']}%")
+    print("  By year: " + ", ".join(f"{y} {v['avg_r']:+.2f} ({v['trades']})" for y, v in res["years"].items()))
+    print(f"  Exits: {res['exits']}")
+    print(f"\nSaved to {nr7_stocks.VARIANT_FILE}")
 
 
 def kotak_check() -> None:
@@ -369,6 +395,8 @@ def main() -> None:
     p.add_argument("--ml-test", action="store_true", help="walk-forward test of the meta-labeling signal filter")
     p.add_argument("--nr7-backtest", action="store_true", help="backtest the NR7 index breakout (Nifty, Bank Nifty, Sensex)")
     p.add_argument("--nr7-stocks", action="store_true", help="research: backtest the NR7 breakout on the F&O stocks")
+    p.add_argument("--nr7-results", action="store_true",
+                   help="research: NR7 on F&O stocks only when results are due within 5 trading days")
     p.add_argument("--ui", action="store_true", help="run the signals dashboard")
     p.add_argument("--kotak-check", action="store_true", help="log in to Kotak and show the account (no orders)")
     p.add_argument("--port", type=int, default=8050, help="dashboard port")
@@ -398,6 +426,8 @@ def main() -> None:
     elif args.ui:
         from algotrade import web
         web.serve(host=args.host, port=args.port)
+    elif args.nr7_results:
+        run_nr7_results()
     elif args.nr7_stocks:
         run_nr7_stocks()
     elif args.nr7_backtest:

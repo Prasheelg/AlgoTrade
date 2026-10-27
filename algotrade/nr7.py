@@ -110,9 +110,10 @@ def _close(t: dict, px: float, how: str, ts) -> None:
              r=round(sign * (px - t["entry"]) / t["risk"], 2))
 
 
-def advance(t: dict, bars: pd.DataFrame, daily: bool = False) -> dict:
+def advance(t: dict, bars: pd.DataFrame, daily: bool = False, force_side: str | None = None) -> dict:
     """Walk a WAIT or OPEN setup through bars (Open/High/Low/Close, naive IST index, in order) and return it
-    updated. Daily bars: the time exit is the close of day HOLD_DAYS; minute bars: the first bar from EXIT_AT."""
+    updated. Daily bars: the time exit is the close of day HOLD_DAYS; minute bars: the first bar from EXIT_AT.
+    force_side ("LONG" / "SHORT", research): only that level can trigger the trade."""
     t = dict(t)
     for ts, o, h, l, c in zip(bars.index, bars["Open"], bars["High"], bars["Low"], bars["Close"]):
         d = ts.date()
@@ -129,6 +130,8 @@ def advance(t: dict, bars: pd.DataFrame, daily: bool = False) -> dict:
                 t.update(status="EXPIRED", note="Neither level traded")
                 break
             up, down = h > t["high"], l < t["low"]
+            if force_side:
+                up, down = (up, False) if force_side == "LONG" else (False, down)
             if not (up or down):
                 continue
             if up and down and t["low"] <= o <= t["high"]:   # both in one bar: assume the nearer one came first
@@ -391,21 +394,23 @@ def view() -> dict:
 
 # ---- backtest ---------------------------------------------------------------------------------------
 
-def backtest_index(df: pd.DataFrame, idx: str, cost_pct: float | None = None) -> list[dict]:
+def backtest_index(df: pd.DataFrame, idx: str, cost_pct: float | None = None, only=None, side_for=None) -> list[dict]:
     """Every NR7 trade on daily candles, one at a time, after costs (cost_pct of the price per round trip,
-    COST_PCT[idx] by default)."""
+    COST_PCT[idx] by default). Research hooks: only(nr7 day) -> bool keeps just those setups; side_for() -> side
+    forces the side (see advance)."""
     cost_pct = COST_PCT[idx] if cost_pct is None else cost_pct
     rng = df["High"] - df["Low"]
     nr = (rng > 0) & (rng <= rng.rolling(NR_DAYS).min())
     trades, busy_until = [], None
     for i in range(NR_DAYS - 1, len(df) - 1):
         d = df.index[i]
-        if not nr.iloc[i] or (busy_until is not None and d < busy_until):
+        if not nr.iloc[i] or (busy_until is not None and d < busy_until) or (only and not only(d)):
             continue
         t = new_setup(idx, d.date(), df["High"].iloc[i], df["Low"].iloc[i])
         if t["risk"] <= 0:   # a range under a paisa (old split-adjusted prices) rounds to nothing
             continue
-        t = advance(t, df.iloc[i + 1:i + 2 + HOLD_DAYS + 1], daily=True)
+        t = advance(t, df.iloc[i + 1:i + 2 + HOLD_DAYS + 1], daily=True,
+                    force_side=side_for() if side_for else None)
         if t["status"] in CLOSED:
             t["r"] = round(t["r"] - cost_pct / 100 * t["entry"] / t["risk"], 3)
             trades.append(t)

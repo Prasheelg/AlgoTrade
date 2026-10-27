@@ -2,8 +2,8 @@
 
 The same rules and conservative fills as nr7.backtest_index() on each stock's daily history (Yahoo), costs
 COST_PCT of the price per round trip (stock futures: STT, charges and wider slippage than an index), also at
-double. Results days are looked at separately: Yahoo has each stock's results dates from about 2014, so trades
-from 2015 are split into those whose NR7 day to exit included a results date and the rest.
+double. run_results() tests the one variant: an NR7 taken only when results are due within a few trading days
+(Yahoo has each stock's results dates from about 2014, so from 2015).
 
 Caveat: the stocks are today's F&O list, so stocks that dropped out of F&O (often after falling) are missing."""
 import json
@@ -56,12 +56,6 @@ def results_dates(symbols: list[str]) -> dict[str, list[str]]:
     return {s: cached.get(s, []) for s in symbols}
 
 
-def _results_inside(t: dict, days: list[str]) -> bool:
-    """A results date from the NR7 day to the exit day (announced after the NR7 close, it moves the trigger day)."""
-    lo, hi = t["nr7_date"], t["exit_at"][:10]
-    return any(lo <= d <= hi for d in days)
-
-
 def _stats(r: pd.Series) -> dict:
     if not len(r):
         return {"trades": 0}
@@ -78,26 +72,35 @@ def _stats(r: pd.Series) -> dict:
             "worst_r": round(float(r.min()), 2), "p_no_edge": round(float((means <= 0).mean()), 3)}
 
 
-def run(period: str = "max") -> dict:
+def _stock_data(period: str = "max") -> dict[str, pd.DataFrame]:
+    """Daily history of every F&O stock, cleaned (weekdays, a real range, MIN_PRICE); cached on disk for the day."""
     from .data import fetch_ohlcv
+    cache = config.DATA_DIR / f"nr7_stock_daily_{pd.Timestamp.today().date()}_{period}.pkl"
+    if cache.exists():
+        return pd.read_pickle(cache)
     symbols = fno_stocks()
     log.info("NR7 stock backtest: %d F&O stocks", len(symbols))
-    data = fetch_ohlcv(symbols, "1d", period=period, market="IN")
-    res_days = results_dates(list(data))
+    data = {s: df[(df.index.dayofweek < 5) & (df["High"] > df["Low"]) & (df["Close"] >= MIN_PRICE)]
+            for s, df in fetch_ohlcv(symbols, "1d", period=period, market="IN").items()}
+    for old in config.DATA_DIR.glob("nr7_stock_daily_*.pkl"):
+        old.unlink(missing_ok=True)
+    pd.to_pickle(data, cache)
+    return data
+
+
+def run(period: str = "max") -> dict:
+    data = _stock_data(period)
     rows = []
     for sym, df in data.items():
-        df = df[(df.index.dayofweek < 5) & (df["High"] > df["Low"]) & (df["Close"] >= MIN_PRICE)]
         for t in nr7.backtest_index(df, sym, cost_pct=COST_PCT):
             extra = COST_PCT / 100 * t["entry"] / t["risk"]   # the same cost again: costs doubled
             rows.append({"sym": sym, "nr7_date": t["nr7_date"], "entry_at": t["entry_at"][:10],
                          "exit_at": t["exit_at"][:10], "side": t["side"], "status": t["status"], "r": t["r"],
-                         "r_cost2": round(t["r"] - extra, 3), "cost_r": round(extra, 3),
-                         "results": _results_inside(t, res_days.get(sym, []))})
+                         "r_cost2": round(t["r"] - extra, 3), "cost_r": round(extra, 3)})
     tr = pd.DataFrame(rows)
     if tr.empty:
         return {"trades": 0}
     tr["year"] = tr["entry_at"].str[:4]
-    recent = tr[tr["entry_at"] >= RESULTS_FROM]
     by_stock = tr.groupby("sym")["r"].agg(["count", "mean"])
     by_stock = by_stock[by_stock["count"] >= MIN_TRADES_PER_STOCK]
     years = tr.groupby("year")["r"].sum()
@@ -110,8 +113,6 @@ def run(period: str = "max") -> dict:
         "from_2013": _stats(tr.loc[tr["entry_at"] >= "2013-01-01", "r"]),
         "long": _stats(tr.loc[tr["side"] == "LONG", "r"]),
         "short": _stats(tr.loc[tr["side"] == "SHORT", "r"]),
-        "since_2015_no_results": _stats(recent.loc[~recent["results"], "r"]),
-        "since_2015_with_results": _stats(recent.loc[recent["results"], "r"]),
         "median_cost_r": round(float(tr["cost_r"].median()), 3),
         "stocks_positive_pct": round(float((by_stock["mean"] > 0).mean() * 100), 1) if len(by_stock) else None,
         "stocks_counted": int(len(by_stock)),
@@ -123,4 +124,77 @@ def run(period: str = "max") -> dict:
     }
     OUT_FILE.write_text(json.dumps(out, indent=1), encoding="utf-8")
     tr.to_csv(config.DATA_DIR / "nr7_stock_trades.csv", index=False)
+    return out
+
+
+# ---- the results variant: NR7 only when results are due within RESULTS_WINDOW trading days -----------------------
+# Fixed before it was run (the earlier "results inside the trade" slice used the exit day, i.e. the outcome).
+
+RESULTS_WINDOW = 5         # results on the NR7 day or the 4 trading days after it
+COIN_FLIPS = 100
+VARIANT_FILE = config.DATA_DIR / "nr7_backtest_results_variant.json"
+
+
+def results_soon(days: list[str], window: int = RESULTS_WINDOW):
+    """only() for backtest_index: results due from the NR7 day to window-1 trading days after it (from 2015)."""
+    stamps = sorted(pd.Timestamp(d) for d in days)
+
+    def only(d: pd.Timestamp) -> bool:
+        if d < pd.Timestamp(RESULTS_FROM):
+            return False
+        end = d + pd.offsets.BDay(window - 1)
+        return any(d <= s <= end for s in stamps)
+    return only
+
+
+def _trades(data, res_days, only_for, side_for=None) -> pd.DataFrame:
+    rows = []
+    for sym, df in data.items():
+        only = only_for(res_days.get(sym, []))
+        for t in nr7.backtest_index(df, sym, cost_pct=COST_PCT, only=only, side_for=side_for):
+            rows.append({"sym": sym, "nr7_date": t["nr7_date"], "entry_at": t["entry_at"][:10], "side": t["side"],
+                         "status": t["status"], "r": t["r"], "r_cost2": round(t["r"] - COST_PCT / 100 * t["entry"] / t["risk"], 3)})
+    return pd.DataFrame(rows)
+
+
+def run_results(period: str = "max") -> dict:
+    data = {s: df[df.index >= "2014-12-01"] for s, df in _stock_data(period).items()}   # all it needs: faster flips
+    res_days = results_dates(list(data))
+    main = _trades(data, res_days, results_soon)
+    if main.empty:
+        return {"trades": 0}
+
+    def control(days):   # the same period, NR7 days without results due
+        soon = results_soon(days)
+        return lambda d: d >= pd.Timestamp(RESULTS_FROM) and not soon(d)
+    other = _trades(data, res_days, control)
+    rng = np.random.default_rng(11)
+    flips = []
+    for _ in range(COIN_FLIPS):
+        f = _trades(data, res_days, results_soon, side_for=lambda: "LONG" if rng.random() < 0.5 else "SHORT")
+        flips.append(float(f["r"].mean()) if len(f) else 0.0)
+    flips = np.array(flips)
+    by_year = main.assign(year=main["entry_at"].str[:4]).groupby("year")["r"].agg(["count", "mean"])
+    by_stock = main.groupby("sym")["r"].mean()
+    out = {
+        "run_at": pd.Timestamp.now().isoformat(timespec="seconds"), "window": RESULTS_WINDOW, "cost_pct": COST_PCT,
+        "stocks": int(main["sym"].nunique()), "from": main["entry_at"].min(), "to": main["entry_at"].max(),
+        "variant": _stats(main["r"]),
+        "costs_doubled": _stats(main["r_cost2"]),
+        "2015_2020": _stats(main.loc[main["entry_at"] < "2021-01-01", "r"]),
+        "2021_on": _stats(main.loc[main["entry_at"] >= "2021-01-01", "r"]),
+        "long": _stats(main.loc[main["side"] == "LONG", "r"]),
+        "short": _stats(main.loc[main["side"] == "SHORT", "r"]),
+        "no_results_control": _stats(other["r"]),
+        "window_3": _stats(_trades(data, res_days, lambda days: results_soon(days, 3))["r"]),
+        "window_10": _stats(_trades(data, res_days, lambda days: results_soon(days, 10))["r"]),
+        "coin_flip_avg_r": round(float(flips.mean()), 3),
+        "beats_coin_flip_pct": round(float((flips < main["r"].mean()).mean() * 100), 1),
+        "worse_than_3r_pct": round(float((main["r"] < -3).mean() * 100), 2),
+        "stocks_positive_pct": round(float((by_stock > 0).mean() * 100), 1),
+        "years": {y: {"trades": int(v["count"]), "avg_r": round(float(v["mean"]), 2)} for y, v in by_year.iterrows()},
+        "exits": {k: int(v) for k, v in main["status"].value_counts().items()},
+    }
+    VARIANT_FILE.write_text(json.dumps(out, indent=1), encoding="utf-8")
+    main.to_csv(config.DATA_DIR / "nr7_results_variant_trades.csv", index=False)
     return out

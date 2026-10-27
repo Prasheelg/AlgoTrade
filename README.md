@@ -100,6 +100,13 @@ strategies above: it doesn't vote, and the scan panel's settings don't apply to 
   stop-out, no target on the entry day, a gap past a level or the stop fills at the open; costs 0.017% / 0.022% /
   0.015% of the index per round trip. Weekend special sessions (Muhurat) are left out.
 
+**F&O stocks: not added, the research says no.** `run.bat --nr7-stocks` runs the same rules on today's F&O stocks
+(daily, 0.10% cost a round trip): 212 stocks, about 98,000 trades since 1991, −0.06R a trade, no better from 2013
+or on either side. `run.bat --nr7-results` tests the one variant worth a look, an NR7 taken only when results are due
+within 5 trading days (fixed before it was run; Yahoo's results dates, so 2015 on): 3,482 trades, +0.004R a trade
+(p ≈ 0.45), −0.06R with costs doubled, no consistent years. Results land in `data/nr7_backtest_stocks.json` and
+`data/nr7_backtest_results_variant.json`.
+
 ## Dashboard scans
 From the dashboard you can run a scan with your own settings for that run: timeframe (5 min, 15 min, 30 min,
 1 hour, daily), which strategies to use, and how many must agree. Your last choices are remembered in the browser.
