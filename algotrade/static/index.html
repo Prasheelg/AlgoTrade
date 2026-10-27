@@ -1513,13 +1513,13 @@ document.getElementById("scanSw").onclick = async e => {
 // Scan strategies as compact pill groups: [title, colour class, hint, strategy names]
 const SIG_CARDS = [
   ["Trend", "g-neutral", "follow the trend", ["EMA 9/21 Cross", "MACD Trend Cross", "Supertrend Flip"]],
-  ["Breakout", "g-vol", "momentum on volume", ["20-bar Breakout", "Squeeze Breakout"]],
+  ["Breakout", "g-vol", "momentum on volume", ["20-bar Breakout", "Squeeze Breakout", "NR7 Breakout"]],
   ["Pullback", "g-bull", "buy the dip in an uptrend", ["RSI Pullback", "RSI(2) Reversion"]],
   ["Price action", "g-pa", "swing levels", ["Support-Resistance"]],
 ];
 const ZONE_FAMILY = "Supply/Demand zone";
 const SIG_SHORT = { "EMA 9/21 Cross": "EMA 9/21", "MACD Trend Cross": "MACD", "Supertrend Flip": "Supertrend",
-  "20-bar Breakout": "20-bar", "Squeeze Breakout": "Squeeze", "RSI Pullback": "RSI pullback", "RSI(2) Reversion": "RSI(2)",
+  "20-bar Breakout": "20-bar", "Squeeze Breakout": "Squeeze", "NR7 Breakout": "NR7","RSI Pullback": "RSI pullback", "RSI(2) Reversion": "RSI(2)",
   "Support-Resistance": "S/R", "Demand-Supply": "D/S", "Rally-Base-Rally": "RBR", "Drop-Base-Rally": "DBR",
   "Rally-Base-Drop": "RBD", "Drop-Base-Drop": "DBD", trend: "Trend", rs: "Rel. strength" };
 

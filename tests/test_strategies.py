@@ -116,6 +116,38 @@ def test_squeeze_breakout(sq, close, expected):
     assert st.squeeze_breakout(df, n - 1) == expected
 
 
+# ---- NR7 breakout ------------------------------------------------------------------------------
+
+def nr7_df(after, ema50=90.0):
+    """Six bars of range 10 (95-105), an NR7 bar of range 2 (99-101), then `after`: closes of the bars after it."""
+    n = 7 + len(after)
+    highs = [105.0] * 6 + [101.0] + [max(c, 101.0) + 1 for c in after]
+    lows = [95.0] * 6 + [99.0] + [min(c, 99.0) - 1 for c in after]
+    return frame(n, High=highs, Low=lows, Close=[100.0] * 7 + [float(c) for c in after], ATR=5.0, EMA50=ema50)
+
+
+@pytest.mark.parametrize("after,ema50,expected", [
+    ([102], 90, ("BUY", 99 - 0.2 * 5)),        # the next bar closes above the NR7 high; stop below its low
+    ([98], 110, ("SELL", 101 + 0.2 * 5)),
+    ([102, 103, 104], 90, ("BUY", 99 - 1)),    # broke out 2 bars ago, still above
+    ([102, 103, 104, 105], 90, None),          # broke out 3 bars ago: too old
+    ([102, 100], 90, None),                    # back inside the NR7 range
+    ([100, 102], 90, None),                    # the bar after the NR7 stayed inside: no breakout
+    ([102], 110, None),                        # against EMA50
+    ([98], 90, None),
+])
+def test_nr7_breakout(after, ema50, expected):
+    df = nr7_df(after, ema50)
+    assert st.nr7_breakout(df, len(df) - 1) == expected
+
+
+def test_nr7_needs_the_narrowest_of_seven_bars():
+    df = nr7_df([102])
+    df.iloc[2, df.columns.get_loc("High")], df.iloc[2, df.columns.get_loc("Low")] = 100.5, 99.5   # narrower, 4 bars before
+    assert st.nr7_breakout(df, len(df) - 1) is None
+    assert st.nr7_breakout(nr7_df([102]).iloc[2:], 5) is None   # fewer than 7 bars up to the NR7 bar
+
+
 # ---- RSI(2) ------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize("rsi2,close,expected", [
@@ -213,7 +245,7 @@ def test_registry():
     assert list(st.STRATEGIES) == [
         "EMA 9/21 Cross", "20-bar Breakout", "Supertrend Flip", "MACD Trend Cross", "RSI Pullback",
         "Support-Resistance", "Demand-Supply", "Rally-Base-Rally", "Drop-Base-Rally", "Rally-Base-Drop",
-        "Drop-Base-Drop", "Squeeze Breakout", "RSI(2) Reversion"]
+        "Drop-Base-Drop", "Squeeze Breakout", "RSI(2) Reversion", "NR7 Breakout"]
     assert st.OPT_IN == set()
     assert st.DEFAULT_STRATEGIES == list(st.STRATEGIES)   # every strategy is on by default
     assert set(st.FAMILIES) == {"Demand-Supply", "Rally-Base-Rally", "Drop-Base-Rally", "Rally-Base-Drop",
@@ -222,8 +254,8 @@ def test_registry():
     assert st.family_of("Rally-Base-Drop") == "Supply/Demand zone"
     assert st.family_of("EMA 9/21 Cross") == "EMA 9/21 Cross"
     assert st.family_of("anything") == "anything"
-    assert len({st.family_of(n) for n in st.STRATEGIES}) == 9
-    assert (st.LOOKBACK, st.STOP_BUFFER_ATR, st.SQUEEZE_MIN_BARS) == (3, 0.2, 5)
+    assert len({st.family_of(n) for n in st.STRATEGIES}) == 10
+    assert (st.LOOKBACK, st.STOP_BUFFER_ATR, st.SQUEEZE_MIN_BARS, st.NR_BARS) == (3, 0.2, 5, 7)
 
 
 def test_describe_shape():
