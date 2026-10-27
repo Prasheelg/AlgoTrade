@@ -580,20 +580,27 @@ def api_scan_status():
     from .scanner import get_status
     return jsonify({"alive": health.scanner_running(), "last_seen_min": health.scanner_age_min(),
                     "runner": runner.status(),
-                    "markets": {code: {**get_status(code), "in_window": m.in_scan_window()}
-                                for code, m in markets.MARKETS.items()}})
+                    "markets": {code: {**get_status(code), "in_window": m.in_scan_window(), "on": on[code]}
+                                for code, m in markets.MARKETS.items() for on in [runner.markets_on()]}})
 
 
 @app.post("/api/scanner")
 def api_scanner():
-    """The Scanner switch: {"on": true} starts the continuous scanner (main.py), {"on": false} stops it, also one
-    started with run.bat. It places and watches Auto-trade orders, so it needs the same access as an order."""
+    """The Scanner switch. With a market (?market= or "market" in the body), {"on": true / false} turns that
+    market's scanning on or off, starting the continuous scanner (main.py) if needed and stopping it when no market
+    is left on. Without one, it starts or stops the whole scanner, also one started with run.bat. It places and
+    watches Auto-trade orders, so it needs the same access as an order."""
     from . import runner
     if not access.can_trade():
         return jsonify({"error": access.TRADE_REFUSED}), 403
-    on = (request.get_json(silent=True) or {}).get("on")
+    body = request.get_json(silent=True) or {}
+    on = body.get("on")
     if not isinstance(on, bool):
         raise ValueError('Send {"on": true} or {"on": false}')
+    if request.args.get("market") or body.get("market"):
+        mkt = _market()
+        log.info("%s scanning switched %s from %s", mkt.name, "on" if on else "off", access.who())
+        return jsonify({**runner.switch_market(mkt.code, on), "markets": runner.markets_on()})
     log.info("Scanner switched %s from %s", "on" if on else "off", access.who())
     return jsonify(runner.start() if on else runner.stop())
 

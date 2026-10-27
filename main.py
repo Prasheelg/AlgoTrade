@@ -75,9 +75,9 @@ def run_scan(code: str, dry_run: bool = False) -> None:
         set_status(code, timeframe=tf)
         try:
             r = scan_and_alert(market=code, timeframe=tf, send=chosen["send"], **kw) or {}
-        except ScanStopped:   # switched off: keep what was found, skip Auto-trade
+        except ScanStopped:   # scanner or market switched off: keep what was found, skip Auto-trade
             set_status(code, running=False, finished_at=_stamp(), timeframe=None, result=total, error=None)
-            log.info("%s scan stopped: the scanner is switching off", code)
+            log.info("%s scan stopped: switched off from the dashboard", code)
             return
         except Exception as exc:
             log.exception("%s %s scan failed", code, tf)
@@ -127,7 +127,8 @@ def housekeeping() -> None:
 
 
 def _watch_stop(done: threading.Event) -> None:
-    """Poll the dashboard's off switch; on it, stop the scan in progress and end the loop."""
+    """Poll the dashboard's off switches: the scanner's ends the scan in progress and the loop; a market's stops
+    that market's scan in progress."""
     from algotrade import runner
     while not done.wait(runner.STOP_POLL_SEC):
         try:
@@ -136,6 +137,9 @@ def _watch_stop(done: threading.Event) -> None:
                     request_stop(code)
                 _quit.set()
                 return
+            for code, on in runner.markets_on().items():
+                if not on:
+                    request_stop(code)
         except Exception:
             log.exception("Checking the scanner's off switch failed")
 
@@ -161,6 +165,8 @@ def _pause(seconds: float) -> None:
 def run_loop(codes: list[str]) -> None:
     from algotrade import health, runner
     runner.clear_stop()   # an off request left from before this start doesn't count
+    if not any(on for code, on in runner.markets_on().items() if code in codes):
+        runner.set_markets({code: True for code in codes})   # started with every market off: scan them all
     _quit.clear()
     done = threading.Event()
     threading.Thread(target=_watch_stop, args=(done,), name="stop-watch", daemon=True).start()
@@ -180,10 +186,15 @@ def run_loop(codes: list[str]) -> None:
 
 
 def _loop(codes: list[str]) -> None:
+    from algotrade import runner
+    from algotrade.scanner import clear_stop
     lines = []
     for code in codes:
         m = markets.get(code)
         start, end = (t.strftime("%H:%M") for t in m.scan_window)
+        if not runner.market_on(code):
+            lines.append(f"{m.flag} {m.name}: off (switched off on the dashboard)")
+            continue
         lines.append(f"{m.flag} {m.name}: {universe_of(code)} · {start}–{end} {TZ_LABEL[code]}\n   {scan_settings(code)}")
     telegram_bot.send_message(
         "🤖 <b>Scanner started</b>\n" + "\n".join(lines) +
@@ -199,6 +210,13 @@ def _loop(codes: list[str]) -> None:
             m = markets.get(code)
             now = m.now()  # exchange time
             try:
+                if not runner.market_on(code):
+                    log.info("%s scanning is off (dashboard)", m.name)
+                    set_status(code, running=False, timeframe=None, next_at=None)
+                    if code == "IN":
+                        trade([])  # Auto-trade's open orders are still kept in line
+                    continue
+                clear_stop(code)   # a stop left from when it was last switched off
                 if m.in_scan_window(now):
                     tracker.update_all(market=code)
                     run_scan(code)
@@ -219,6 +237,8 @@ def _loop(codes: list[str]) -> None:
         # The interval runs from the start of a loop, so scans stay SCAN_INTERVAL_MIN apart however long they take
         wait = max(30, round(config.SCAN_INTERVAL_MIN * 60 - (monotonic() - began)))
         for code in codes:
+            if not runner.market_on(code):
+                continue
             try:
                 set_status(code, next_at=(datetime.now() + timedelta(seconds=wait)).isoformat(timespec="seconds"))
             except Exception:

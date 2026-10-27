@@ -105,6 +105,52 @@ def test_api_needs_trade_access_and_a_bool(client, popen):
     assert client.post("/api/scanner", json={"on": "yes"}).status_code == 400
 
 
+# ---- per-market switches --------------------------------------------------------------------------
+
+def test_markets_are_on_until_switched_off(popen):
+    assert runner.markets_on() == {code: True for code in markets.MARKETS}
+    health.beat()                                          # a scanner is running
+    st = runner.switch_market("US", False)
+    assert runner.markets_on()["US"] is False and runner.market_on("IN") is True
+    assert st["stopping"] is False                         # India is still on: the scanner keeps going
+    assert runner.switch_market("IN", False)["stopping"] is True   # the last one off stops it
+    runner.switch_market("IN", True)                       # back on before it noticed: the stop is withdrawn
+    assert runner.stop_requested() is False and runner.markets_on() == {"IN": True, "US": False}
+
+
+def test_api_switches_one_market(client, popen):
+    j = client.post("/api/scanner", json={"on": False, "market": "US"}).get_json()
+    assert j["markets"] == {"IN": True, "US": False} and popen == []   # nothing running, nothing to start
+    j = client.post("/api/scanner?market=US", json={"on": True}).get_json()
+    assert j["markets"]["US"] is True and j["starting"] is True and len(popen) == 1
+    status = client.get("/api/scan/status").get_json()["markets"]
+    assert status["IN"]["on"] is True and status["US"]["on"] is True
+    assert client.post("/api/scanner", json={"on": True, "market": "XX"}).status_code == 400
+
+
+def test_loop_skips_a_market_that_is_off(monkeypatch):
+    monkeypatch.setattr(telegram_bot, "send_message", lambda text: True)
+    monkeypatch.setattr(tracker, "update_all", lambda market=None, **k: None)
+    monkeypatch.setattr(main, "housekeeping", health.beat)
+    monkeypatch.setattr(main, "trade", lambda keys: None)
+    monkeypatch.setattr(markets.Market, "now", lambda self: datetime(2024, 1, 1, 10, 0, tzinfo=ZoneInfo(self.tz)))
+    monkeypatch.setattr(markets.Market, "in_scan_window", lambda self, now=None: True)
+    monkeypatch.setattr(runner, "STOP_POLL_SEC", 0.01)
+    scanned = []
+    monkeypatch.setattr(main, "run_scan", lambda code, dry_run=False: scanned.append(code) or runner.stop())
+    runner.set_markets({"IN": False})
+    main.run_loop(["IN", "US"])
+    assert scanned == ["US"] and get_status("IN")["next_at"] is None
+
+
+def test_a_start_with_every_market_off_turns_them_on(monkeypatch):
+    monkeypatch.setattr(telegram_bot, "send_message", lambda text: True)
+    monkeypatch.setattr(main, "_loop", lambda codes: None)
+    runner.set_markets({"IN": False, "US": False})
+    main.run_loop(["IN"])                                  # e.g. run.bat after both were switched off
+    assert runner.markets_on() == {"IN": True, "US": False}
+
+
 # ---- the scanner loop sees the off switch ---------------------------------------------------------
 
 def test_loop_exits_on_the_off_switch(monkeypatch):

@@ -206,5 +206,5 @@ def test_api_scan_status(client, monkeypatch):
     j = client.get("/api/scan/status").get_json()
     assert j == {"alive": True, "last_seen_min": 1.5,
                  "runner": {"running": True, "starting": False, "stopping": False, "error": None},
-                 "markets": {"IN": {"running": True, "timeframe": "30m", "in_window": True},
-                             "US": {"in_window": False}}}
+                 "markets": {"IN": {"running": True, "timeframe": "30m", "in_window": True, "on": True},
+                             "US": {"in_window": False, "on": True}}}

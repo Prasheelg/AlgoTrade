@@ -824,7 +824,7 @@
       <div class="ctl"><span class="lbl">Min votes</span><select id="minScore"></select></div>
       <div class="run">
         <label class="switch"><input type="checkbox" id="send"> Send to Telegram</label>
-        <label class="switch scan-power" id="scanSw"><input type="checkbox" id="scanOn"> Scanner</label>
+        <label class="switch scan-power" id="scanSw"><input type="checkbox" id="scanOn"> <span id="scanLbl">Scanner</span></label>
         <span class="scan-state" id="scanState" role="status"><i></i><span>Scanner…</span></span>
       </div>
     </div>
@@ -1427,11 +1427,15 @@ function renderScanState() {
   const win = m ? `${m.scan_window[0]}–${m.scan_window[1]} ${EXCHANGE[market]?.[1] ?? ""}, Mon–Fri` : "";
   const r = st.result, last = st.finished_at
     ? `Last scan ${hhmm(st.finished_at)}${r ? `: ${r.found} setup${r.found === 1 ? "" : "s"}, ${r.new} new` : ""}` : "No scan yet";
-  const rn = scanRunner ?? {}, box = document.getElementById("scanOn");
-  box.checked = !!(scanAlive || rn.starting) && !rn.stopping;
+  const rn = scanRunner ?? {}, box = document.getElementById("scanOn"), name = m?.name ?? market;
+  const mkOn = st.on !== false, others = Object.entries(scanStat).some(([k, s]) => k !== market && s.on !== false);
+  box.checked = !!(scanAlive || rn.starting) && !rn.stopping && mkOn;
+  document.getElementById("scanLbl").textContent = `Scan ${name}`;
   document.getElementById("scanSw").title = box.checked
-    ? "The scanner is on. Switch off to stop scanning (and Auto-trade's orders)"
-    : `Switch on to scan ${win} ${every}, all timeframes, with these settings`;
+    ? `${name} scanning is on. Switch off to stop scanning ${name}` +
+      (others ? "" : " (the scanner then stops, and with it Auto-trade's orders)") +
+      (market === "IN" ? "; open Auto-trade orders are still watched while the scanner runs" : "")
+    : `Switch on to scan ${name} ${win} ${every}, all timeframes, with these settings`;
   let cls = "", text = "Scanner…", tip = "";
   if (rn.stopping) {
     cls = "run"; text = "Stopping…"; tip = "The scanner ends the step it is on, then exits";
@@ -1440,6 +1444,8 @@ function renderScanState() {
   } else if (scanAlive === false) {
     cls = "off"; text = rn.error ? "Scanner stopped (error)" : "Scanner off";
     tip = rn.error ?? `Switch the scanner on (or start run.bat on the PC). It scans ${win} ${every}, all timeframes, with these settings.`;
+  } else if (!mkOn) {
+    text = `${name} off`; tip = `${name} isn't scanned; the switch turns it back on. ${last}`;
   } else if (st.running) {
     cls = "run"; text = `Scanning ${TF_SHORT[st.timeframe] ?? "…"}`;
     tip = `Started ${hhmm(st.started_at)} · ${last}`;
@@ -1471,21 +1477,28 @@ async function loadScanStatus() {
 }
 setInterval(() => { if (!document.hidden) loadScanStatus(); }, 10000);
 
-// The Scanner switch: the server starts or stops the scanner; the box only mirrors what it reports
+// The market's scan switch (India / US): the server turns that market's scanning on or off, starting the scanner
+// if needed and stopping it once no market is on; the box only mirrors what it reports
 document.getElementById("scanSw").onclick = async e => {
   e.preventDefault();
-  const box = document.getElementById("scanOn");
+  const box = document.getElementById("scanOn"), mk = market;
   if (box.disabled) return;
   // From the server's state, not box.checked: a click on the box itself has already flipped it by now
-  const rn = scanRunner ?? {}, on = !((scanAlive || rn.starting) && !rn.stopping);
-  if (!on && trading?.enabled && !confirm("Switch the scanner off?\n\nAuto-trade is ON. Without the scanner no new orders " +
-      "are placed, and open positions' stop-losses aren't re-placed next session or watched for exits.")) return;
+  const rn = scanRunner ?? {}, mkOn = scanStat[mk]?.on !== false;
+  const on = !((scanAlive || rn.starting) && !rn.stopping && mkOn);
+  const last = !Object.entries(scanStat).some(([k, s]) => k !== mk && s.on !== false);
+  if (!on && trading?.enabled && (last || mk === "IN") && !confirm(last
+      ? "Switch the scanner off?\n\nNo other market is on, so the scanner stops. Auto-trade is ON: without the scanner " +
+        "no new orders are placed, and open positions' stop-losses aren't re-placed next session or watched for exits."
+      : "Switch India scanning off?\n\nAuto-trade is ON: no new India signals, so no new orders. Open positions are " +
+        "still watched while the scanner runs for the other market.")) return;
   box.disabled = true;
   try {
     const res = await fetch("/api/scanner", { method: "POST", headers: { "Content-Type": "application/json" },
-                                              body: JSON.stringify({ on }) });
+                                              body: JSON.stringify({ on, market: mk }) });
     const j = await res.json();
     if (!res.ok) { alert(j.error || "Could not switch the scanner"); return; }
+    for (const [k, v] of Object.entries(j.markets ?? {})) (scanStat[k] ??= {}).on = v;
     scanRunner = j; renderScanState();
     for (let i = 0; i < 40; i++) {   // follow it until it is up or gone (a stop waits for the current step)
       await new Promise(r => setTimeout(r, 1500));
