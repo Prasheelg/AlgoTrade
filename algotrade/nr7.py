@@ -391,8 +391,10 @@ def view() -> dict:
 
 # ---- backtest ---------------------------------------------------------------------------------------
 
-def backtest_index(df: pd.DataFrame, idx: str) -> list[dict]:
-    """Every NR7 trade on daily candles, one at a time, after costs (COST_PCT of the index per round trip)."""
+def backtest_index(df: pd.DataFrame, idx: str, cost_pct: float | None = None) -> list[dict]:
+    """Every NR7 trade on daily candles, one at a time, after costs (cost_pct of the price per round trip,
+    COST_PCT[idx] by default)."""
+    cost_pct = COST_PCT[idx] if cost_pct is None else cost_pct
     rng = df["High"] - df["Low"]
     nr = (rng > 0) & (rng <= rng.rolling(NR_DAYS).min())
     trades, busy_until = [], None
@@ -400,10 +402,12 @@ def backtest_index(df: pd.DataFrame, idx: str) -> list[dict]:
         d = df.index[i]
         if not nr.iloc[i] or (busy_until is not None and d < busy_until):
             continue
-        t = advance(new_setup(idx, d.date(), df["High"].iloc[i], df["Low"].iloc[i]),
-                    df.iloc[i + 1:i + 2 + HOLD_DAYS + 1], daily=True)
+        t = new_setup(idx, d.date(), df["High"].iloc[i], df["Low"].iloc[i])
+        if t["risk"] <= 0:   # a range under a paisa (old split-adjusted prices) rounds to nothing
+            continue
+        t = advance(t, df.iloc[i + 1:i + 2 + HOLD_DAYS + 1], daily=True)
         if t["status"] in CLOSED:
-            t["r"] = round(t["r"] - COST_PCT[idx] / 100 * t["entry"] / t["risk"], 3)
+            t["r"] = round(t["r"] - cost_pct / 100 * t["entry"] / t["risk"], 3)
             trades.append(t)
             busy_until = pd.Timestamp(t["exit_at"])
         elif t["status"] == OPEN:   # still open at the end of the data

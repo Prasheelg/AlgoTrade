@@ -311,6 +311,31 @@ def run_nr7_backtest() -> None:
     print(f"\nSaved to {nr7.BACKTEST_FILE}")
 
 
+def run_nr7_stocks() -> None:
+    from algotrade import nr7_stocks
+    res = nr7_stocks.run()
+    if not res.get("stocks"):
+        print("No trades")
+        return
+    print(f"NR7 breakout on {res['stocks']} F&O stocks, daily, {res['from']} to {res['to']}, "
+          f"costs {res['cost_pct']}% per round trip (median {res['median_cost_r']}R a trade)")
+    for key, label in (("all", "All trades"), ("costs_doubled", "Costs doubled"), ("until_2012", "Until 2012"),
+                       ("from_2013", "From 2013"), ("long", "Longs"), ("short", "Shorts"),
+                       ("since_2015_no_results", "2015+, no results day"),
+                       ("since_2015_with_results", "2015+, results day inside")):
+        s = res[key]
+        if not s["trades"]:
+            print(f"  {label:26} no trades")
+            continue
+        print(f"  {label:26} {s['trades']:6} trades · wins {s['win_pct']}% (break-even {s['breakeven_win_pct']}%) · "
+              f"avg {s['avg_r']:+.3f}R · total {s['total_r']:+.0f}R · worst {s['worst_r']}R · p(no edge) {s['p_no_edge']}")
+    print(f"  Stocks with a positive average ({res['stocks_counted']} with 10+ trades): {res['stocks_positive_pct']}%")
+    print(f"  Years positive: {res['years_positive_pct']}% · exits {res['exits']}")
+    print("  By year: " + ", ".join(f"{y} {r:+.0f}" for y, r in res["years"].items()))
+    print(f"  Best: {res['best_stocks']}\n  Worst: {res['worst_stocks']}")
+    print(f"\nSaved to {nr7_stocks.OUT_FILE} (trades in data/nr7_stock_trades.csv)")
+
+
 def kotak_check() -> None:
     """Log in to Kotak (unattended) and show the account; saves the raw responses for inspection. No orders."""
     import json
@@ -343,6 +368,7 @@ def main() -> None:
     p.add_argument("--backtest", action="store_true", help="backtest the strategy")
     p.add_argument("--ml-test", action="store_true", help="walk-forward test of the meta-labeling signal filter")
     p.add_argument("--nr7-backtest", action="store_true", help="backtest the NR7 index breakout (Nifty, Bank Nifty, Sensex)")
+    p.add_argument("--nr7-stocks", action="store_true", help="research: backtest the NR7 breakout on the F&O stocks")
     p.add_argument("--ui", action="store_true", help="run the signals dashboard")
     p.add_argument("--kotak-check", action="store_true", help="log in to Kotak and show the account (no orders)")
     p.add_argument("--port", type=int, default=8050, help="dashboard port")
@@ -372,6 +398,8 @@ def main() -> None:
     elif args.ui:
         from algotrade import web
         web.serve(host=args.host, port=args.port)
+    elif args.nr7_stocks:
+        run_nr7_stocks()
     elif args.nr7_backtest:
         run_nr7_backtest()
     elif args.ml_test:
