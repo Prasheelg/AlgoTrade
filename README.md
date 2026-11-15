@@ -21,6 +21,8 @@ Credentials and settings go in `.env` (see `.env.example`).
 | `run.bat --backtest --market IN --symbols NIFTY100` | Backtest the strategy, before and after costs (trades saved to `data/backtest_trades.csv`, US to `backtest_trades_US.csv`) |
 | `run.bat --ml-test --market IN` | Walk-forward test of the AI signal filter (see Meta-labeling test); 10 years of daily bars, about 20 min per 100 symbols |
 | `run.bat --nr7-backtest` | Backtest the NR7 index breakout on Nifty 50, Bank Nifty and Sensex (see NR7 index breakout); shown on the dashboard's NR7 view |
+| `run.bat --nr7-check` | NR7 auto-trade pre-flight: Kotak login, funds, the switches, the dashboard, and the exact option the bot would buy for each waiting setup at today's prices (places no orders) |
+| `run.bat --nr7-history --months 3` | Every NR7 index setup of the last 3 months (1–24) replayed with the live rules: wins, losses, R and ₹ for one lot; the same as **Past trades** on the dashboard's NR7 view |
 
 Add `--market IN` or `--market US` to any command to limit it to one market; by default both are scanned.
 `--symbols` needs `--market`.
@@ -79,9 +81,14 @@ Toby Crabel's NR7 on **Nifty 50, Bank Nifty and Sensex**, run on its own (`algot
 strategies above: it doesn't vote, and the scan panel's settings don't apply to it. **Alerts only**: it places no orders.
 - **Evening scan**, after 16:00 IST: if an index's daily range (high − low) is the narrowest of the last 7 days, it
   gets a setup for the **next session only**: buy above that day's high, sell below its low.
-- **Next session**: the first level traded is the trade, the other is cancelled. Stop at the NR7 day's other end
-  (1R = its range), target 3R from the entry, closed at 15:15 on the 5th session (entry day = 1). Neither level
-  traded: the setup expires. One trade per index at a time; a stopped trade is not reversed.
+- **Next session**: the first level traded is the trade, the other is cancelled. Stop at the NR7 day's other end;
+  1R is entry to stop (the NR7 range, or more when the session opens past the level and the entry is the open),
+  target 3R from the entry, closed at 15:15 on the 5th session (entry day = 1). Neither level traded: the setup
+  expires. One trade per index at a time, and an NR7 on the day a trade closed is skipped; a stopped trade is not
+  reversed. Diwali Muhurat and short weekend sessions don't count as days (full Budget weekend sessions do).
+- The rules follow `NR7_Breakout_Playbook.html`. Its backtest's trades are matched trade for trade (same entry day,
+  same R within 0.05) where the data agree; the few differences come from Yahoo missing sessions the playbook's
+  Upstox data has, such as the Budget Sunday of 1 Feb 2026.
 - It is followed on Yahoo's 1-minute index bars (checked every 30 s in market hours) by the dashboard
   (`run.bat --ui`), so the dashboard must be running; the continuous scanner isn't needed.
 - **Lots**: futures lots that risk at most `RISK_PER_TRADE_PCT` of `CAPITAL` at the NR7 range (lot sizes from
@@ -98,7 +105,22 @@ strategies above: it doesn't vote, and the scan panel's settings don't apply to 
   and trades with their R.
 - `run.bat --nr7-backtest` runs the same rules on daily candles, conservatively: a day that trades both levels is a
   stop-out, no target on the entry day, a gap past a level or the stop fills at the open; costs 0.017% / 0.022% /
-  0.015% of the index per round trip. Weekend special sessions (Muhurat) are left out.
+  0.015% of the index per round trip. Muhurat and short weekend sessions are left out.
+- **Auto-trade (real orders)**, `algotrade/nr7_auto.py`: with the NR7 view's **Trade** switch and the top bar's
+  **Auto-trade** switch on, each NR7 trigger on `NR7_AUTO_INDICES` (Nifty, Bank Nifty) buys `NR7_AUTO_LOTS` (1) lot
+  of an in-the-money option, a call above the high or a put below the low: the monthly expiry at least
+  `NR7_OPTION_MIN_DAYS` (14) days out, delta nearest 0.7. Triggers come from Kotak's live index quote (the day's
+  high / low, so a spike between two looks counts); a gap open past a level enters with the open as the entry. The
+  option is sold when the index reaches the stop or the target, at 15:15 on day 5, or when you press **Sell now**.
+  Orders are limits just past the ask / bid, NRML, re-priced after a minute if unfilled. Kotak's positions are
+  checked before a sell, so a lot you closed in the Kotak app isn't sold again. Nothing rests at Kotak: the
+  dashboard must run all through market hours while a trade is open. The **Auto-trade orders** table shows each
+  one, and every step goes to Telegram. The Auto-trade switch also lets the stock scanner (`run.bat`, or the scan
+  panel's Scan switches) trade its signals, so leave the scanner off if you only want NR7 orders.
+- The evening scan catches up on a trading day whose previous session was never scanned, and skips a setup on an
+  index that, by the price history, is still in a trade the app didn't see (the PC was off).
+- **Past trades** on the NR7 view (and `run.bat --nr7-history --months N`): every setup of the last 1–12 months
+  replayed the same way, with wins, losses, R, ₹ for one lot and the capital one lot needs at your risk per trade.
 
 **F&O stocks: not added, the research says no.** `run.bat --nr7-stocks` runs the same rules on today's F&O stocks
 (daily, 0.10% cost a round trip): 212 stocks, about 98,000 trades since 1991, −0.06R a trade, no better from 2013

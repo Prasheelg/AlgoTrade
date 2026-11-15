@@ -3,7 +3,7 @@
 - Futures (Nifty, Bank Nifty): the current month, or the next once fewer than ROLL_DAYS trading days are left. The
   setup's levels are on the spot index, so they are shown shifted by the future's premium (basis) too. Sensex
   futures barely trade, so Sensex gets options only.
-- Options: the monthly expiry (same roll), a call for the buy level and a put for the sell level, in the money at
+- Options: the monthly expiry at least config.NR7_OPTION_MIN_DAYS calendar days away, a call for the buy level and a put for the sell level, in the money at
   that level, with the delta there closest to DELTA_AIM (within DELTA_RANGE when one is). Lots are sized so the
   premium paid is at most the risk per trade (a bought option can lose no more than that)."""
 import logging
@@ -40,14 +40,17 @@ def trading_days_left(expiry: date, today: date) -> int:
     return int(np.busday_count(today, expiry))
 
 
-def pick_expiry(expiries, today: date, monthly: bool = True) -> date | None:
-    """The nearest expiry (the last one of its month when monthly) at least ROLL_DAYS trading days away."""
+def pick_expiry(expiries, today: date, monthly: bool = True, min_days: int | None = None) -> date | None:
+    """The nearest expiry (the last one of its month when monthly) at least ROLL_DAYS trading days away, or at
+    least min_days calendar days away when given."""
     exps = sorted(set(expiries))
     if monthly:
         last = {}
         for e in exps:
             last[(e.year, e.month)] = e
         exps = sorted(last.values())
+    if min_days is not None:
+        return next((e for e in exps if (e - today).days >= min_days), None)
     return next((e for e in exps if trading_days_left(e, today) >= ROLL_DAYS), None)
 
 
@@ -90,12 +93,13 @@ def futures_plan(t: dict, spot_px: float | None, today: date) -> dict | None:
 
 
 def option_plan(t: dict, opt: str, spot_px: float | None, now: datetime) -> dict | None:
-    """The in-the-money monthly call (opt "CE", for the buy level) or put ("PE", the sell level)."""
+    """The in-the-money monthly call (opt "CE", for the buy level) or put ("PE", the sell level), expiring at least
+    config.NR7_OPTION_MIN_DAYS days away."""
     level = t["high"] if opt == "CE" else t["low"]
     seg = QUOTE[t["idx"]][0]
     df = fno.index_contracts(t["idx"], seg)
     df = df[df["opt"] == opt]
-    exp = pick_expiry(df["expiry"], now.date())
+    exp = pick_expiry(df["expiry"], now.date(), min_days=config.NR7_OPTION_MIN_DAYS)
     if exp is None:
         return None
     rows = df[df["expiry"] == exp]
@@ -122,6 +126,7 @@ def option_plan(t: dict, opt: str, spot_px: float | None, now: datetime) -> dict
     _, c, px, iv, delta = best
     lot = int(c["lot"])
     return {"tsym": c["tsym"], "strike": float(c["strike"]), "expiry": str(exp), "premium": px, "lot": lot,
+            "token": str(c["token"]), "segment": seg, "tick": float(c["tick"]),
             "delta": round(delta, 2), "iv": round(iv * 100, 1) if iv else None, "cost_per_lot": round(px * lot),
             "lots": math.floor(budget() / (px * lot)),
             "loss_at_stop_per_lot": round(delta * t["risk"] * lot)}   # the option's rough move back to the stop

@@ -93,7 +93,7 @@ def run(period: str = "max") -> dict:
     rows = []
     for sym, df in data.items():
         for t in nr7.backtest_index(df, sym, cost_pct=COST_PCT):
-            extra = COST_PCT / 100 * t["entry"] / t["risk"]   # the same cost again: costs doubled
+            extra = COST_PCT / 100 * t["entry"] / nr7.trade_risk(t)   # the same cost again: costs doubled
             rows.append({"sym": sym, "nr7_date": t["nr7_date"], "entry_at": t["entry_at"][:10],
                          "exit_at": t["exit_at"][:10], "side": t["side"], "status": t["status"], "r": t["r"],
                          "r_cost2": round(t["r"] - extra, 3), "cost_r": round(extra, 3)})
@@ -153,7 +153,7 @@ def _trades(data, res_days, only_for, side_for=None) -> pd.DataFrame:
         only = only_for(res_days.get(sym, []))
         for t in nr7.backtest_index(df, sym, cost_pct=COST_PCT, only=only, side_for=side_for):
             rows.append({"sym": sym, "nr7_date": t["nr7_date"], "entry_at": t["entry_at"][:10], "side": t["side"],
-                         "status": t["status"], "r": t["r"], "r_cost2": round(t["r"] - COST_PCT / 100 * t["entry"] / t["risk"], 3)})
+                         "status": t["status"], "r": t["r"], "r_cost2": round(t["r"] - COST_PCT / 100 * t["entry"] / nr7.trade_risk(t), 3)})
     return pd.DataFrame(rows)
 
 

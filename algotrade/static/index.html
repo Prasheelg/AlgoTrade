@@ -959,6 +959,7 @@
         <div class="run">
           <label class="switch" title="Scan Nifty 50, Bank Nifty and Sensex each evening and watch the setups next day"><input type="checkbox" id="nr7On"> Watch</label>
           <label class="switch"><input type="checkbox" id="nr7Send"> Send to Telegram</label>
+          <label class="switch" title="Real Kotak orders: an in-the-money option for each NR7 trigger on the indices set in .env (NR7_AUTO_INDICES). Needs the Auto-trade switch on too"><input type="checkbox" id="nr7Trade"> Trade (real orders)</label>
           <button class="btn" id="nr7Scan" type="button" title="Look for an NR7 on the latest completed session now">Scan now</button>
         </div>
       </div>
@@ -966,16 +967,44 @@
         <div class="ctl"><span class="lbl">Skip days</span>
           <input id="nr7Skip" class="opt-input" placeholder="e.g. 2027-01-31 2027-02-01" autocomplete="off" spellcheck="false"
                  title="Event days with no new trade: Budget day and the day before, election results. Dates as YYYY-MM-DD"></div>
-        <span class="hint">No new trade on these days · alerts only, no orders are placed</span>
+        <span class="hint">No new trade on these days · orders only with Trade and the Auto-trade switch on</span>
       </div>
     </section>
     <div class="notice err" id="nr7Err" hidden></div>
+    <section class="card" style="margin-bottom: 14px" id="nr7AutoCard" hidden>
+      <div class="list-head"><span class="lbl">Auto-trade orders</span><span class="hint" id="nr7AutoHint"></span></div>
+      <div class="notice" id="nr7AutoWarn" style="margin: 10px 12px" hidden></div>
+      <div class="tablewrap"><table><thead><tr><th>Index</th><th>NR7 day</th><th>Status</th><th>Option</th>
+        <th class="num">Qty</th><th class="num">Bought</th><th class="num">Sold</th><th class="num">P&amp;L</th>
+        <th>Index levels</th><th>Note</th><th></th></tr></thead>
+        <tbody id="nr7AutoRows"></tbody></table></div>
+      <div class="empty" id="nr7AutoEmpty" hidden></div>
+    </section>
     <section class="card" style="margin-bottom: 14px">
       <div class="list-head"><span class="lbl">Setups and trades</span><span class="hint">Nifty 50 · Bank Nifty · Sensex · daily candles, 1-minute bars to follow a trade</span></div>
       <div class="tablewrap"><table><thead><tr><th>Index</th><th>NR7 day</th><th class="num">Buy above</th><th class="num">Sell below</th>
         <th class="num">Risk (pts)</th><th class="num">Lots</th><th>Status</th><th>Trade</th><th>Exit</th><th class="num">R</th></tr></thead>
         <tbody id="nr7Rows"></tbody></table></div>
       <div class="empty" id="nr7Empty" hidden></div>
+    </section>
+    <section class="card" style="margin-bottom: 14px">
+      <div class="bt-ctl">
+        <span class="lbl">Past trades</span>
+        <div class="ctl"><select id="nr7Months" title="NR7 days in the last …">
+          <option value="1">Last month</option><option value="3" selected>Last 3 months</option>
+          <option value="6">Last 6 months</option><option value="12">Last 12 months</option></select></div>
+        <span class="hint" id="nr7HistHint"></span>
+      </div>
+      <div id="nr7HistTiles" class="bt-res"></div>
+      <div class="tablewrap"><table><thead><tr><th>Index</th><th class="num">Trades</th><th class="num">Wins</th><th class="num">Losses</th>
+        <th class="num">Win rate</th><th class="num">Total R</th><th class="num">Avg R</th><th class="num">Profit factor</th>
+        <th class="num">₹ / 1 lot</th><th class="num">Max drawdown</th><th class="num">Losing run</th>
+        <th class="num" title="Capital at which your risk per trade covers one lot on the widest setup of the period">Capital for 1 lot</th></tr></thead>
+        <tbody id="nr7HistIdx"></tbody></table></div>
+      <div class="tablewrap" style="border-top: 1px solid var(--line-2)"><table><thead><tr><th>NR7 day</th><th>Index</th><th>Status</th><th>Trade</th>
+        <th>Exit</th><th class="num">Days</th><th class="num">Risk / lot</th><th class="num">R</th><th class="num">₹ / 1 lot</th></tr></thead>
+        <tbody id="nr7HistRows"></tbody></table></div>
+      <div class="empty" id="nr7HistEmpty" hidden></div>
     </section>
     <section class="card">
       <div class="list-head"><span class="lbl">Backtest · daily candles, after costs</span><span class="hint" id="nr7BtHint"></span></div>
@@ -1677,6 +1706,8 @@ function renderNr7() {
   const n = nr7, R = n.rules;
   document.getElementById("nr7On").checked = n.on;
   document.getElementById("nr7Send").checked = n.send;
+  document.getElementById("nr7Trade").checked = n.trade;
+  renderNr7Auto(n.auto);
   const skip = document.getElementById("nr7Skip");
   if (document.activeElement !== skip) skip.value = n.skip_days.join(" ");
   document.getElementById("nr7Hint").textContent = (n.on ? `Scans after ${R.scan_after} IST` : "Off") +
@@ -1709,10 +1740,115 @@ function renderNr7() {
   be.innerHTML = `<b>No backtest yet</b>Run <code>run.bat --nr7-backtest</code> on the PC.`;
   document.getElementById("nr7Bt").closest(".tablewrap").hidden = !rows.length;
 }
+// Past trades: every NR7 of the last months replayed on daily candles (/api/nr7/history, cached 10 min on the PC)
+let nr7Hist = null, nr7HistBusy = false;
+const nr7Rs = v => v == null ? "–" : `<span class="${v > 0 ? "up" : v < 0 ? "down" : "flat"}">${v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>`;
+const nr7Day = s => esc((s ?? "").slice(0, 10));
+async function loadNr7History() {
+  const months = document.getElementById("nr7Months").value;
+  if (nr7HistBusy) return;
+  nr7HistBusy = true;
+  const hint = document.getElementById("nr7HistHint");
+  if (!nr7Hist || String(nr7Hist.months) !== months) hint.textContent = "Loading…";
+  try {
+    const res = await fetch(`/api/nr7/history?months=${months}`), j = await res.json();
+    if (!res.ok) throw new Error(j.error || res.statusText);
+    nr7Hist = j;
+    renderNr7History();
+  } catch (e) { hint.textContent = `Couldn't load past trades: ${e.message}`; }
+  finally { nr7HistBusy = false; }
+}
+function renderNr7History() {
+  const h = nr7Hist, T = h.total, names = nr7?.indices ?? {};
+  document.getElementById("nr7HistHint").textContent = `NR7 days ${h.from} to ${h.to} · replayed on daily candles with the live ` +
+    `rules, after costs · ₹ for one futures lot at today's lot sizes · your risk a trade ₹${h.risk_budget.toLocaleString("en-IN")} ` +
+    `(${h.risk_pct}% of ₹${h.capital.toLocaleString("en-IN")})`;
+  const stat = (s, k, f = v => v) => s.trades ? f(s[k]) : "–";
+  document.getElementById("nr7HistTiles").innerHTML = `<div class="krow" style="padding:0 0 12px">` + [
+    kpi("Trades", T.trades ?? 0, T.trades ? `${T.wins} won · ${T.losses} lost` : `${T.setups} setups, none closed`),
+    kpi("Win rate", stat(T, "win_pct", v => `${v}%`), T.trades ? `break-even ${T.breakeven_win_pct ?? "–"}% at these R` : ""),
+    kpi("Total R", stat(T, "total_r", rCell), T.trades ? `avg ${T.avg_r > 0 ? "+" : ""}${T.avg_r.toFixed(2)}R · max drawdown ${T.max_dd_r}R` : ""),
+    kpi("₹ for 1 lot of each", T.trades ? nr7Rs(T.rs_per_lot) : "–",
+      [T.open && `${T.open} open`, T.waiting && `${T.waiting} waiting`, T.expired && `${T.expired} expired`, T.skipped && `${T.skipped} skipped`].filter(Boolean).join(" · ")),
+  ].join("") + `</div>`;
+  const idxRows = Object.entries(h.indices).map(([k, s]) => [esc(names[k] ?? k), s, s.capital_for_1_lot]).concat([["<b>All</b>", T, null]]);
+  document.getElementById("nr7HistIdx").innerHTML = idxRows.map(([name, s, cap]) =>
+    `<tr><td><b>${name}</b></td><td class="num">${s.trades}</td><td class="num">${stat(s, "wins")}</td><td class="num">${stat(s, "losses")}</td>` +
+    `<td class="num">${stat(s, "win_pct", v => `${v}%`)}</td><td class="num">${stat(s, "total_r", rCell)}</td><td class="num">${stat(s, "avg_r", rCell)}</td>` +
+    `<td class="num">${stat(s, "profit_factor", v => v ?? "∞")}</td><td class="num">${s.trades ? nr7Rs(s.rs_per_lot) : "–"}</td>` +
+    `<td class="num">${stat(s, "max_dd_r", v => `${v}R`)}</td><td class="num">${stat(s, "max_losing_streak")}</td>` +
+    `<td class="num">${cap ? "₹" + cap.toLocaleString("en-IN") : "–"}</td></tr>`).join("");
+  document.getElementById("nr7HistRows").innerHTML = h.trades.map(t => {
+    const [label, cls] = NR7_STATUS[t.status] ?? [t.status, "ACTIVE"];
+    const trade = t.side ? `${t.side === "LONG" ? "Long" : "Short"} @ ${pts(t.entry)}<div class="sub">${nr7Day(t.entry_at)} · stop ${pts(t.stop)} · target ${pts(t.target)}</div>`
+      : `<span class="sub">above ${pts(t.high)} · below ${pts(t.low)}</span>`;
+    const exit = t.exit != null ? `${pts(t.exit)}<div class="sub">${nr7Day(t.exit_at)}</div>`
+      : t.status === "OPEN" ? `now ${pts(t.mark)}<div class="sub">last close</div>` : `<span class="sub">${esc(t.note ?? "")}</span>`;
+    const r = t.r ?? t.open_r, money = t.rs_per_lot ?? t.rs_open_per_lot;
+    return `<tr><td>${esc(t.nr7_date)}</td><td><b>${esc(names[t.idx] ?? t.idx)}</b></td>` +
+      `<td><span class="pill s-${cls}" title="${esc(t.note ?? "")}">${label}</span></td><td>${trade}</td><td>${exit}</td>` +
+      `<td class="num">${t.days ?? (t.day_no ?? "–")}</td>` +
+      `<td class="num" title="${t.risk} pts × lot ${t.lot}">₹${t.risk_per_lot.toLocaleString("en-IN")}</td>` +
+      `<td class="num">${rCell(r)}</td><td class="num">${nr7Rs(money)}</td></tr>`;
+  }).join("");
+  const e = document.getElementById("nr7HistEmpty");
+  e.hidden = h.trades.length > 0;
+  e.innerHTML = `<b>No NR7 setups in this period</b>Pick a longer one.`;
+  document.getElementById("nr7HistRows").closest(".tablewrap").hidden = !h.trades.length;
+}
+document.getElementById("nr7Months").onchange = loadNr7History;
 setInterval(() => { if (view === "nr7" && !document.hidden) loadNr7(); }, 30000);
+setInterval(() => { if (view === "nr7" && !document.hidden) loadNr7History(); }, 600000);
 const nr7Save = body => loadNr7("/api/nr7/settings", body);
 document.getElementById("nr7On").onchange = e => nr7Save({ on: e.target.checked });
 document.getElementById("nr7Send").onchange = e => nr7Save({ send: e.target.checked });
+document.getElementById("nr7Trade").onchange = async e => {
+  const on = e.target.checked;
+  if (on && !confirm("Place REAL Kotak orders for NR7 triggers? Each trigger buys an in-the-money option " +
+      "(1 lot) and the app sells it at the stop, the target or day 5. Keep the dashboard running.")) {
+    e.target.checked = false; return;
+  }
+  await nr7Save({ trade: on });
+};
+const NR7_AUTO_STATE = { WAIT: ["Watching", "PENDING"], BUYING: ["Buying", "PENDING"], OPEN: ["Open", "ACTIVE"],
+  SELLING: ["Selling", "PENDING"], CLOSED: ["Closed", "CANCELLED"], CANCELLED: ["Cancelled", "CANCELLED"],
+  REJECTED: ["Rejected", "SL_HIT"], SKIPPED: ["Skipped", "CANCELLED"] };
+function renderNr7Auto(a) {
+  const card = document.getElementById("nr7AutoCard");
+  card.hidden = !a || (!a.trade && !a.trades.length);
+  if (card.hidden) return;
+  document.getElementById("nr7AutoHint").textContent = `${a.indices.join(", ")} · ${a.lots} lot a trade · in-the-money ` +
+    `monthly options, expiry ${a.min_days}+ days out · ${a.active ? "placing real orders" : "not placing orders"}`;
+  const warn = document.getElementById("nr7AutoWarn"), why = [];
+  if (a.trade && !a.credentials) why.push("Kotak login details are missing in .env");
+  if (a.trade && !a.auto_trade) why.push("the Auto-trade switch (top bar) is off");
+  warn.hidden = !why.length;
+  warn.textContent = why.length ? `No orders will be placed: ${why.join("; ")}.` : "";
+  const rs = v => v == null ? "–" : "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById("nr7AutoRows").innerHTML = a.trades.map(t => {
+    const [label, cls] = NR7_AUTO_STATE[t.state] ?? [t.state, "ACTIVE"];
+    const pnl = t.exit_price != null && t.fill_price != null ? (t.exit_price - t.fill_price) * t.qty : null;
+    const lv = t.side ? `${t.side === "LONG" ? "Long" : "Short"} from ${pts(t.u_entry)}<div class="sub">stop ${pts(t.u_stop)} · target ${pts(t.u_target)}</div>`
+      : `<span class="sub">above ${pts(t.high)} · below ${pts(t.low)}</span>`;
+    const live = ["WAIT", "BUYING", "OPEN"].includes(t.state);
+    return `<tr><td><b>${esc(nr7?.indices?.[t.idx] ?? t.idx)}</b></td><td>${esc(t.nr7_date)}</td>` +
+      `<td><span class="pill s-${cls}">${label}</span></td><td>${esc(t.tsym ?? "–")}${t.expiry ? `<div class="sub">exp ${esc(t.expiry)}</div>` : ""}</td>` +
+      `<td class="num">${t.qty ?? "–"}</td><td class="num">${rs(t.fill_price ?? t.buy_price)}</td><td class="num">${rs(t.exit_price)}</td>` +
+      `<td class="num">${pnl == null ? "–" : `<span class="${pnl >= 0 ? "up" : "down"}">${pnl < 0 ? "−" : ""}₹${Math.abs(pnl).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>`}</td>` +
+      `<td>${lv}</td><td class="note">${esc(t.exit_why ? `${t.exit_why}${t.note ? " · " + t.note : ""}` : (t.note ?? ""))}</td>` +
+      `<td>${live ? `<button class="btn close-trade" data-nr7close="${esc(t.key)}">${t.state === "OPEN" ? "Sell now" : "Cancel"}</button>` : ""}</td></tr>`;
+  }).join("");
+  const e = document.getElementById("nr7AutoEmpty");
+  e.hidden = a.trades.length > 0;
+  e.innerHTML = `<b>No NR7 orders yet</b>A setup on ${esc(a.indices.join(" or "))} is watched from the next session's open.`;
+  document.getElementById("nr7AutoRows").closest(".tablewrap").hidden = !a.trades.length;
+}
+document.getElementById("nr7AutoRows").addEventListener("click", async e => {
+  const b = e.target.closest("[data-nr7close]");
+  if (!b || !confirm(b.textContent === "Sell now" ? "Sell this option now at the live price?" : "Cancel this NR7 trade?")) return;
+  b.disabled = true;
+  await loadNr7("/api/nr7/auto/close", { key: b.dataset.nr7close });
+});
 document.getElementById("nr7Skip").onchange = e => nr7Save({ skip_days: e.target.value });
 document.getElementById("nr7Scan").onclick = async e => {
   const b = e.currentTarget; b.disabled = true;
@@ -1739,7 +1875,7 @@ function setView(v) {
   if (view === "performance") { loadPerf(); loadScorecard(); loadBacktest(); loadTax(); }
   if (view === "portfolio") { loadPort(); loadRisk(); }
   if (view === "options") optOpen();
-  if (view === "nr7") loadNr7();
+  if (view === "nr7") loadNr7().then(() => { if (!nr7Hist) loadNr7History(); });
 }
 document.getElementById("views").onclick = e => {
   const b = e.target.closest("[data-view]"); if (!b) return;

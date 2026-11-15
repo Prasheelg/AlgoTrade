@@ -48,6 +48,11 @@ STOCK_MAX_ORDER_VALUE = float(_get("STOCK_MAX_ORDER_VALUE", "100000"))
 # live price (buy above, sell below), so it fills like a market order but can't run away. Stocks / options, in %.
 MARKET_PROTECTION_PCT = float(_get("MARKET_PROTECTION_PCT", "1.0"))
 OPTION_PROTECTION_PCT = float(_get("OPTION_PROTECTION_PCT", "5.0"))
+# NR7 auto-trade (nr7_auto.py; also needs the dashboard's Auto-trade switch and the NR7 view's Trade switch):
+# in-the-money monthly options on these indices, this many lots a trade, expiry at least this many days away
+NR7_AUTO_INDICES = [s.strip().upper() for s in _get("NR7_AUTO_INDICES", "NIFTY,BANKNIFTY").split(",") if s.strip()]
+NR7_AUTO_LOTS = int(_get("NR7_AUTO_LOTS", "1"))
+NR7_OPTION_MIN_DAYS = int(_get("NR7_OPTION_MIN_DAYS", "14"))
 # Portfolio risk: Auto-trade won't open a trade that takes the total risk at stops (all open app trades and
 # pending entries) above this % of CAPITAL; the dashboard's tickets warn about it too
 MAX_OPEN_RISK_PCT = float(_get("MAX_OPEN_RISK_PCT", "6.0"))
