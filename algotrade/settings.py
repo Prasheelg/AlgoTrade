@@ -24,6 +24,9 @@ EDITABLE = {
     "OPTIONS_AUTO_TRADE": (bool, None, None, "Auto-trade options",
                            "Signals on F&O stocks and indices buy an OTM call (BUY) or put (SELL), exited on the "
                            "underlying's stop / target; needs the Auto-trade switch"),
+    "OPTIONS_INSTEAD_OF_SHARES": (bool, None, None, "Options instead of shares",
+                                  "With Auto-trade options on, F&O stocks are traded only as options, not also as "
+                                  "shares; stocks without options still trade as shares"),
     "OPTIONS_OTM_STEPS": (int, 1, 10, "Options: strikes out of the money", "1 = first strike past the spot"),
     "OPTIONS_MIN_DAYS": (int, 0, 60, "Options: min days to expiry", "The nearest expiry at least this far away"),
     "OPTIONS_MAX_PREMIUM": (float, 0, 1e7, "Options: max ₹ premium per trade", "Lots are cut to fit"),

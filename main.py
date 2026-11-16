@@ -96,12 +96,11 @@ def run_scan(code: str, dry_run: bool = False) -> None:
 
 def trade(new_keys: list[str]) -> None:
     """Automatic Kotak orders (India): entries for new signals (only while Auto-trade is ON), then bring every
-    live trade up to date. Stocks take BUY signals (not indices); options both sides, on F&O underlyings. Order
+    live trade up to date. Stocks take BUY signals (not indices; not F&O stocks while options replace shares);
+    options both sides, on F&O underlyings. Order
     problems are logged and sent to Telegram; they never stop the scanner."""
     from algotrade import options_auto, orders
-    from algotrade.universe import is_index
-    sigs = {s["key"]: s for s in state.all_signals("IN")}
-    orders.trade_new([k for k in new_keys if k in sigs and sigs[k]["side"] == "BUY" and not is_index(sigs[k]["symbol"])])
+    orders.trade_new(options_auto.share_keys(new_keys))
     if options_auto.trade_new(new_keys) and not orders._watching.is_set():
         options_auto.step_all()   # --once: no watcher thread, so one pass now
 

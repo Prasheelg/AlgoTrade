@@ -624,16 +624,13 @@ def _auto_trade(new_keys: list[str]) -> dict | None:
     is running: it places the stop-loss after a fill and watches the exits, so without it a filled entry would
     sit unprotected. None when Auto-trade is off or there is nothing new."""
     from . import health, options_auto, orders
-    from .universe import is_index
     if not new_keys or not broker.trading_enabled():
         return None
     if not health.scanner_running():
         log.warning("Dashboard scan: %d new signals not traded, the scanner isn't running", len(new_keys))
         return {"placed": [], "skipped": [], "blocked": "the scanner (run.bat) isn't running, and it is what "
                 "places the stop-loss after a fill. Start run.bat, then scan again"}
-    sigs = {s["key"]: s for s in state.all_signals("IN")}
-    made = orders.trade_new([k for k in new_keys if k in sigs and sigs[k]["side"] == "BUY"
-                             and not is_index(sigs[k]["symbol"])], manage=False)   # the scanner's watchers take over
+    made = orders.trade_new(options_auto.share_keys(new_keys), manage=False)   # the scanner's watchers take over
     opts = options_auto.trade_new(new_keys)   # waits for the entry; the scanner's option watcher buys
     return {"placed": [f"{t['symbol']} × {t['qty']}" for t in made if t and t["entry_order"]]
                       + [f"{t['underlying']} {t['opt']} (waiting for entry)" for t in opts if t["state"] == "WAIT"],

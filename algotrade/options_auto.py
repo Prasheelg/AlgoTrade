@@ -113,6 +113,18 @@ def _has_options(symbol: str) -> bool:
         return False
 
 
+def share_keys(keys: list[str]) -> list[str]:
+    """The new India signals the stock trader takes: BUYs on stocks (indices are options only). With
+    OPTIONS_INSTEAD_OF_SHARES and options on, F&O stocks are left to the option trader, so the same signal is
+    never traded twice; stocks without options still trade as shares."""
+    from .universe import is_index
+    sigs = {s["key"]: s for s in state.all_signals("IN")}
+    out = [k for k in keys if k in sigs and sigs[k]["side"] == "BUY" and not is_index(sigs[k]["symbol"])]
+    if out and config.OPTIONS_AUTO_TRADE and config.OPTIONS_INSTEAD_OF_SHARES:
+        out = [k for k in out if not _has_options(sigs[k]["symbol"])]
+    return out
+
+
 def _eligible(sig: dict) -> str | None:
     """Why a signal on an F&O underlying can't become an option trade, or None."""
     if sig["status"] not in ("PENDING", "ACTIVE"):

@@ -39,7 +39,7 @@ def opt(monkeypatch):
     monkeypatch.setattr(orders, "_notify", lambda text: msgs.append(text))
     for k, v in dict(OPTIONS_AUTO_TRADE=True, OPTIONS_OTM_STEPS=2, OPTIONS_MIN_DAYS=5, OPTIONS_MAX_PREMIUM=10000.0,
                      OPTIONS_MAX_OPEN_PREMIUM=30000.0, OPTIONS_MAX_SPREAD_PCT=5.0, OPTION_PROTECTION_PCT=5.0,
-                     OPTIONS_MAX_LOTS=10, INTRADAY_AUTO_TRADE=False).items():
+                     OPTIONS_MAX_LOTS=10, INTRADAY_AUTO_TRADE=False, OPTIONS_INSTEAD_OF_SHARES=False).items():
         monkeypatch.setattr(config, k, v)
     state.set_setting(broker.TRADING_KEY, {"enabled": True})
     fake.spot = {"RELIANCE": 100.0, "NIFTY": 25000.0}
@@ -332,3 +332,16 @@ def test_trade_splits_stocks_and_options(opt, monkeypatch):
     main.trade([buy, sell, idx])
     assert got["stocks"] == [buy]                          # stocks: BUYs on shares only
     assert {t["key"] for t in oa.all_trades()} == {buy, idx}   # options: F&O underlyings, both sides (SBIN has none here)
+
+
+def test_options_instead_of_shares(opt, monkeypatch):
+    import main
+    got = {}
+    monkeypatch.setattr(orders, "trade_new", lambda keys, manage=True: got.setdefault("stocks", keys))
+    monkeypatch.setattr(config, "OPTIONS_INSTEAD_OF_SHARES", True)
+    fo, plain = signal(), signal("SBIN")                    # RELIANCE has options here, SBIN doesn't
+    main.trade([fo, plain])
+    assert got["stocks"] == [plain]                         # the F&O stock isn't also bought as shares
+    assert {t["key"] for t in oa.all_trades()} == {fo}      # ... it is traded as a call
+    monkeypatch.setattr(config, "OPTIONS_AUTO_TRADE", False)
+    assert oa.share_keys([fo, plain]) == [fo, plain]        # options off: shares as before

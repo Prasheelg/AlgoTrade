@@ -265,6 +265,10 @@ its premium.
   `ALLOW_SHORTS`) and scans the indices themselves (Yahoo ^NSEI / ^NSEBANK; they have no volume, so the turnover
   check and the Relative strength filter are skipped for them). The stock trader still takes only BUYs on shares;
   index signals are traded through options only.
+- **Options instead of shares** (Settings, or `OPTIONS_INSTEAD_OF_SHARES`, on by default): a signal on an F&O stock
+  is traded **only** as its option, not also as shares, so the same signal never opens two positions. Stocks
+  without options still trade as shares. A signal whose option is skipped (spread too wide, a lot dearer than the
+  premium cap, open-premium cap reached) isn't bought as shares instead. Turn it off to trade both.
 - **Entry** when the underlying reaches the signal's entry (the same pending order as for shares: at or below the
   limit for pullbacks, past the stop for breakouts; SELLs mirror this), or once the tracker fills the signal. Only
   then is the contract picked: the nearest expiry at least `OPTIONS_MIN_DAYS` (5) away and the
