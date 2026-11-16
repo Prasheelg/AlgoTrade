@@ -295,169 +295,6 @@ def run_ml_test(code: str, symbols: str | None, period: str = "10y") -> None:
     print(metalabel.report(metalabel.walk_forward(broad, score_on=current)) if len(current) else "No trades.")
 
 
-def run_nr7_backtest() -> None:
-    from algotrade import nr7
-    res = nr7.backtest()
-    print(f"NR7 breakout, daily candles, after costs · {nr7.TARGET_R:g}R target, {nr7.HOLD_DAYS}-day exit")
-    for idx, s in res["indices"].items():
-        if not s["trades"]:
-            print(f"{idx}: no trades")
-            continue
-        print(f"\n{nr7.INDICES[idx][0]}: {s['trades']} trades {s['from']} to {s['to']}")
-        print(f"  wins {s['win_pct']}% (break-even {s['breakeven_win_pct']}%) · avg {s['avg_r']:+.2f}R · "
-              f"total {s['total_r']:+.1f}R · max drawdown {s['max_dd_r']}R")
-        print(f"  avg win {s['avg_win_r']}R · avg loss {s['avg_loss_r']}R · exits {s['exits']}")
-        print("  by year: " + ", ".join(f"{y} {r:+.1f}" for y, r in s["years"].items()))
-    print(f"\nSaved to {nr7.BACKTEST_FILE}")
-
-
-def run_nr7_history(months: int) -> None:
-    from algotrade import nr7
-    h = nr7.history(months)
-    rs = lambda v: f"{'-' if v < 0 else ''}Rs {abs(v):,.0f}"
-    print(f"NR7 trades with an NR7 day from {h['from']} to {h['to']} ({h['months']} months), daily candles, after costs")
-    print(f"Capital Rs {h['capital']:,.0f} at {h['risk_pct']:g}% risk a trade = Rs {h['risk_budget']:,} a trade\n")
-    print(f"{'Index':<11}{'Trades':>7}{'Wins':>6}{'Losses':>8}{'Win %':>7}{'Total R':>9}{'Avg R':>8}"
-          f"{'Rs / 1 lot':>13}{'Max DD':>8}{'Lose run':>9}")
-    for name, s in [(nr7.INDICES[k][0], v) for k, v in h["indices"].items()] + [("All", h["total"])]:
-        if not s["trades"]:
-            print(f"{name:<11}{0:>7}")
-            continue
-        print(f"{name:<11}{s['trades']:>7}{s['wins']:>6}{s['losses']:>8}{s['win_pct']:>7}{s['total_r']:>+9.1f}"
-              f"{s['avg_r']:>+8.2f}{rs(s['rs_per_lot']):>13}{s['max_dd_r']:>7}R{s['max_losing_streak']:>9}")
-    print("\nNR7 day   Index       Status    Side   Entry                 Exit                  Days      R   Rs / 1 lot")
-    for t in h["trades"]:
-        entry = f"{t['entry']:,.2f} {(t['entry_at'] or '')[:10]}" if t["entry"] else ""
-        exit_ = f"{t['exit']:,.2f} {(t['exit_at'] or '')[:10]}" if t["exit"] else (
-            f"now {t['mark']:,.2f}" if t["status"] == nr7.OPEN else (t["note"] or ""))
-        r = t["r"] if t["r"] is not None else t.get("open_r")
-        money = t.get("rs_per_lot", t.get("rs_open_per_lot"))
-        print(f"{t['nr7_date']} {nr7.INDICES[t['idx']][0]:<11} {t['status']:<9} {t['side'] or '':<6} {entry:<21} "
-              f"{exit_[:21]:<21} {t.get('days') or '':>4} {'' if r is None else f'{r:+.2f}':>6} "
-              f"{'' if money is None else rs(money):>12}")
-    print("\nRupees are for one futures lot at today's lot sizes; open trades are marked at the last close.")
-
-
-def run_nr7_check() -> None:
-    """Pre-flight for NR7 auto-trading: everything it needs, checked, and the contracts it would buy right now for
-    the setups it will watch. Read-only: places no orders."""
-    from datetime import datetime
-    from algotrade import broker, nr7, nr7_auto, nr7_instruments, portfolio, state
-    problems = []
-
-    def line(ok: bool, text: str, fix: str = "") -> None:
-        print(f"  [{'OK' if ok else '!!'}] {text}")
-        if not ok:
-            problems.append(fix or text)
-
-    print("NR7 auto-trade pre-flight (no orders are placed)\n")
-    line(bool(config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID), "Telegram configured",
-         "set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env to get every order step on your phone")
-    missing = broker.missing_credentials()
-    line(not missing, "Kotak login details in .env" + (f" (missing {', '.join(missing)})" if missing else ""),
-         f"fill {', '.join(missing)} in .env")
-    available = None
-    if not missing:
-        try:
-            broker.login(force=True)
-            available = portfolio.funds(broker.call("limits"))["available"]
-            line(True, f"Kotak login as {broker._session.get('name') or config.KOTAK_UCC}")
-            line(available is not None, f"Funds available: Rs {available:,.0f}" if available is not None
-                 else "Funds: couldn't read the amount (check the Kotak app)")
-        except broker.BrokerError as exc:
-            line(False, f"Kotak login failed: {exc}", "fix the Kotak login (run.bat --kotak-check)")
-        ip = broker.public_ip()
-        print(f"  [--] This PC's internet IP: {ip or 'unknown'} (must be registered with Kotak for API orders)")
-    s = nr7.settings()
-    line(broker.trading_enabled(), "Auto-trade switch (dashboard top bar) is ON", "switch Auto-trade ON in the top bar")
-    line(s["on"] and s["trade"], "NR7 view: Watch and Trade (real orders) are ON",
-         "switch Watch and Trade (real orders) ON in the NR7 view")
-    owner = state.get_setting(nr7_auto.OWNER_KEY, None)[0] or {}
-    line(nr7_auto._age(owner.get("at")) < nr7_auto.OWNER_STALE_SEC, "Dashboard running with the NR7 bot",
-         "start the dashboard (run.bat --ui) and keep it running through market hours")
-    print(f"  [--] Skip days: {', '.join(s['skip_days']) or 'none'}")
-    print(f"  [--] Trades: {', '.join(config.NR7_AUTO_INDICES)}, {config.NR7_AUTO_LOTS} lot, in-the-money options, "
-          f"monthly expiry {config.NR7_OPTION_MIN_DAYS}+ days out, delta nearest {nr7_instruments.DELTA_AIM}")
-
-    waiting = [t for t in nr7.setups() if t["status"] == nr7.WAIT and t["idx"] in config.NR7_AUTO_INDICES]
-    print(f"\nSetups the bot will watch: {len(waiting) or 'none'}")
-    costs = []
-    for t in waiting:
-        print(f"  {nr7.INDICES[t['idx']][0]} (NR7 {t['nr7_date']}): buy above {t['high']:,.2f} / "
-              f"sell below {t['low']:,.2f}")
-        if missing:
-            continue
-        try:
-            sp = nr7_instruments.spot(t["idx"])
-            for opt, label in (("CE", "call if it breaks up"), ("PE", "put if it breaks down")):
-                p = nr7_instruments.option_plan(t, opt, sp, datetime.now(nr7_instruments.IST))
-                if p is None:
-                    line(False, f"    no {opt} contract found", f"no {opt} contract for {t['idx']}")
-                    continue
-                cost = p["premium"] * p["lot"] * config.NR7_AUTO_LOTS
-                costs.append(cost)
-                print(f"    {label}: {p['tsym']} (strike {p['strike']:,.0f}, expiry {p['expiry']}, delta "
-                      f"{p['delta']}), premium Rs {p['premium']:,.2f} x {p['lot']} = Rs {cost:,.0f}")
-        except Exception as exc:
-            line(False, f"    contracts / quotes unavailable: {exc}", "Kotak contracts or quotes unavailable")
-    if costs and available is not None:
-        line(available >= max(costs), f"Funds cover the dearest option (Rs {max(costs):,.0f})",
-             f"add funds: one lot can cost up to Rs {max(costs):,.0f}")
-    print("\n" + ("READY: the bot will trade the next trigger." if not problems else
-                  "NOT READY:\n" + "\n".join(f"  - {p}" for p in problems)))
-
-
-def run_nr7_stocks() -> None:
-    from algotrade import nr7_stocks
-    res = nr7_stocks.run()
-    if not res.get("stocks"):
-        print("No trades")
-        return
-    print(f"NR7 breakout on {res['stocks']} F&O stocks, daily, {res['from']} to {res['to']}, "
-          f"costs {res['cost_pct']}% per round trip (median {res['median_cost_r']}R a trade)")
-    for key, label in (("all", "All trades"), ("costs_doubled", "Costs doubled"), ("until_2012", "Until 2012"),
-                       ("from_2013", "From 2013"), ("long", "Longs"), ("short", "Shorts")):
-        s = res[key]
-        if not s["trades"]:
-            print(f"  {label:26} no trades")
-            continue
-        print(f"  {label:26} {s['trades']:6} trades · wins {s['win_pct']}% (break-even {s['breakeven_win_pct']}%) · "
-              f"avg {s['avg_r']:+.3f}R · total {s['total_r']:+.0f}R · worst {s['worst_r']}R · p(no edge) {s['p_no_edge']}")
-    print(f"  Stocks with a positive average ({res['stocks_counted']} with 10+ trades): {res['stocks_positive_pct']}%")
-    print(f"  Years positive: {res['years_positive_pct']}% · exits {res['exits']}")
-    print("  By year: " + ", ".join(f"{y} {r:+.0f}" for y, r in res["years"].items()))
-    print(f"  Best: {res['best_stocks']}\n  Worst: {res['worst_stocks']}")
-    print(f"\nSaved to {nr7_stocks.OUT_FILE} (trades in data/nr7_stock_trades.csv)")
-
-
-def _print_stats(label: str, s: dict) -> None:
-    if not s["trades"]:
-        print(f"  {label:26} no trades")
-        return
-    print(f"  {label:26} {s['trades']:6} trades · wins {s['win_pct']}% (break-even {s['breakeven_win_pct']}%) · "
-          f"avg {s['avg_r']:+.3f}R · total {s['total_r']:+.0f}R · worst {s['worst_r']}R · p(no edge) {s['p_no_edge']}")
-
-
-def run_nr7_results() -> None:
-    from algotrade import nr7_stocks
-    res = nr7_stocks.run_results()
-    if not res.get("stocks"):
-        print("No trades")
-        return
-    print(f"NR7 on F&O stocks with results due within {res['window']} trading days · {res['stocks']} stocks · "
-          f"{res['from']} to {res['to']} · costs {res['cost_pct']}% per round trip")
-    for key, label in (("variant", "Variant"), ("costs_doubled", "Costs doubled"), ("2015_2020", "2015-2020"),
-                       ("2021_on", "2021 on"), ("long", "Longs"), ("short", "Shorts"),
-                       ("no_results_control", "Control: no results due"), ("window_3", "Window 3 days"),
-                       ("window_10", "Window 10 days")):
-        _print_stats(label, res[key])
-    print(f"  Coin-flip side: avg {res['coin_flip_avg_r']:+.3f}R; the breakout side beat {res['beats_coin_flip_pct']}% of flips")
-    print(f"  Trades worse than -3R: {res['worse_than_3r_pct']}% · stocks with a positive average: {res['stocks_positive_pct']}%")
-    print("  By year: " + ", ".join(f"{y} {v['avg_r']:+.2f} ({v['trades']})" for y, v in res["years"].items()))
-    print(f"  Exits: {res['exits']}")
-    print(f"\nSaved to {nr7_stocks.VARIANT_FILE}")
-
-
 def kotak_check() -> None:
     """Log in to Kotak (unattended) and show the account; saves the raw responses for inspection. No orders."""
     import json
@@ -489,15 +326,6 @@ def main() -> None:
     p.add_argument("--test-telegram", action="store_true", help="send a test message")
     p.add_argument("--backtest", action="store_true", help="backtest the strategy")
     p.add_argument("--ml-test", action="store_true", help="walk-forward test of the meta-labeling signal filter")
-    p.add_argument("--nr7-backtest", action="store_true", help="backtest the NR7 index breakout (Nifty, Bank Nifty, Sensex)")
-    p.add_argument("--nr7-history", action="store_true",
-                   help="NR7 index trades of the last --months months (default 3): wins, losses, R and rupees")
-    p.add_argument("--nr7-check", action="store_true",
-                   help="NR7 auto-trade pre-flight: Kotak login, funds, switches, the contracts it would buy (no orders)")
-    p.add_argument("--months", type=int, default=3, help="months of history for --nr7-history (1-24)")
-    p.add_argument("--nr7-stocks", action="store_true", help="research: backtest the NR7 breakout on the F&O stocks")
-    p.add_argument("--nr7-results", action="store_true",
-                   help="research: NR7 on F&O stocks only when results are due within 5 trading days")
     p.add_argument("--ui", action="store_true", help="run the signals dashboard")
     p.add_argument("--kotak-check", action="store_true", help="log in to Kotak and show the account (no orders)")
     p.add_argument("--port", type=int, default=8050, help="dashboard port")
@@ -527,16 +355,6 @@ def main() -> None:
     elif args.ui:
         from algotrade import web
         web.serve(host=args.host, port=args.port)
-    elif args.nr7_results:
-        run_nr7_results()
-    elif args.nr7_stocks:
-        run_nr7_stocks()
-    elif args.nr7_backtest:
-        run_nr7_backtest()
-    elif args.nr7_history:
-        run_nr7_history(args.months)
-    elif args.nr7_check:
-        run_nr7_check()
     elif args.ml_test:
         for code in codes:
             run_ml_test(code, args.symbols)

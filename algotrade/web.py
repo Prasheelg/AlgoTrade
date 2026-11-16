@@ -744,18 +744,12 @@ def _monitor() -> None:
     order book for the history (every SNAPSHOT_SEC in market hours, once more after the close)."""
     from . import backup, health, orderbook, settings, summary, watchlist
     from . import livefeed
-    from . import nr7
     n, snap_at, snapped_after_close = 0, 0.0, None
     while True:
         try:
             watchlist.check()
         except Exception:
             log.exception("Price alert check failed")
-        for job in (nr7.check, nr7.scan):   # check first: it expires the day's setups before the evening scan
-            try:
-                job()
-            except Exception:
-                log.exception("NR7 %s failed", job.__name__)
         # with the stream live, alerts are checked every LIVE_ALERT_SEC until the next full round
         loop_end = time.monotonic() + MONITOR_SEC
         if n % HEALTH_EVERY == 0:
@@ -896,74 +890,6 @@ def api_health():
         _health.update(problems=health.problems(_last_refresh["at"]), at=time.strftime("%Y-%m-%d %H:%M:%S"))
     from . import livefeed
     return jsonify({**_health, "feed": livefeed.status()})
-
-
-def _nr7_view() -> dict:
-    from . import nr7, nr7_auto
-    return {**nr7.view(), "auto": nr7_auto.view()}
-
-
-@app.get("/api/nr7")
-def api_nr7():
-    """The NR7 index breakout: settings, setups and trades, the last backtest, the auto-trade's orders."""
-    return jsonify(_nr7_view())
-
-
-@app.post("/api/nr7/auto/close")
-def api_nr7_auto_close():
-    """{"key"}: close an NR7 auto-trade now (cancel a waiting one, sell an open one)."""
-    from . import nr7_auto
-    if not access.can_trade():
-        return jsonify({"error": access.TRADE_REFUSED}), 403
-    key = (request.get_json(silent=True) or {}).get("key", "")
-    try:
-        nr7_auto.close_trade(key)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except broker.BrokerError as exc:
-        return jsonify({"error": str(exc)}), 502
-    log.warning("NR7 trade %s closed from %s", key, access.who())
-    return jsonify(_nr7_view())
-
-
-@app.get("/api/nr7/history")
-def api_nr7_history():
-    """?months=3: every NR7 setup of the last months, replayed on daily candles, with wins, losses, R and rupees."""
-    from . import nr7
-    try:
-        months = int(request.args.get("months", 3))
-    except ValueError:
-        return jsonify({"error": "months must be a whole number"}), 400
-    try:
-        return jsonify(nr7.history(months))
-    except Exception as exc:
-        log.exception("NR7 history failed")
-        return jsonify({"error": f"NR7 history unavailable: {exc}"}), 502
-
-
-@app.post("/api/nr7/settings")
-def api_nr7_settings():
-    """{on, send, skip_days}: any of them. Same access as the scan settings."""
-    from . import nr7
-    if not access.can_trade():
-        return jsonify({"error": access.TRADE_REFUSED}), 403
-    body = request.get_json(silent=True) or {}
-    if body.get("trade") is True and broker.missing_credentials():
-        return jsonify({"error": "Kotak login details are missing in .env (" + ", ".join(broker.missing_credentials())
-                        + "), so no orders can be placed"}), 400
-    s = nr7.save_settings(body)
-    log.warning("NR7 settings changed from %s: %s", access.who(), s)
-    return jsonify(_nr7_view())
-
-
-@app.post("/api/nr7/scan")
-def api_nr7_scan():
-    """Look for an NR7 on the latest completed session now, instead of waiting for the evening scan."""
-    from . import nr7
-    if not access.can_trade():
-        return jsonify({"error": access.TRADE_REFUSED}), 403
-    made = nr7.scan(force=True)
-    return jsonify({**_nr7_view(), "made": len(made)})
 
 
 @app.get("/api/watchlist")
@@ -1234,8 +1160,6 @@ def serve(host: str = "127.0.0.1", port: int = 8050) -> None:
     livefeed.start()
     from . import orderbook
     orderbook.start_watch()
-    from . import nr7_auto
-    threading.Thread(target=nr7_auto.watch, args=(threading.Event(),), name="nr7-auto", daemon=True).start()
     log.info("Dashboard running at http://%s:%d", host, port)
     # Flask logs every request; the page polls constantly, so keep only warnings and errors
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
