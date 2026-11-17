@@ -1064,8 +1064,7 @@ const realTrade = t => !t ? "" : `<div class="sub" title="${esc(t.note ?? "")}">
   (t.exit_price != null ? ` → ${inr(t.exit_price)}` : "") +
   (t.pnl != null ? ` <span class="${cls(t.pnl)}">${t.pnl > 0 ? "+" : ""}${inr(t.pnl)}</span>` : "") + `</div>`;
 // The Options Auto-trade trade for a signal: the contract bought, or (waiting for the entry) the one planned
-const OPT_STATE = { WAIT: "Waiting for entry", BUYING: "Buying", OPEN: "Open", SELLING: "Selling", CLOSED: "Closed",
-                    CANCELLED: "Cancelled", REJECTED: "Rejected", SKIPPED: "Skipped" };
+// (OPT_STATE is defined with the Options Auto-trade panel below)
 const optTrade = (o, s) => {
   if (!o) return "";
   const name = o.tsym ?? `${s.symbol} ${o.opt}`;
