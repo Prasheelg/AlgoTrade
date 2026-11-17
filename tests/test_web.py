@@ -484,3 +484,13 @@ def test_scan_no_auto_trade_when_off_or_us(client, monkeypatch):
     monkeypatch.setattr(broker, "trading_enabled", lambda: True)
     monkeypatch.setattr(web, "scan_and_alert", _scan_recording(make_signal(symbol="AAPL", market="US")))
     assert "auto_trade" not in client.post("/api/scan?market=US", json={"min_score": 1}).get_json()["scan"]
+
+
+def test_dashboard_script_declares_each_top_level_name_once():
+    """A name declared twice (const / let / function) is a syntax error that stops the whole dashboard."""
+    import re
+    from collections import Counter
+    from pathlib import Path
+    html = (Path(__file__).parent.parent / "algotrade" / "static" / "index.html").read_text(encoding="utf-8")
+    names = re.findall(r"^(?:const|let|var|function|async function|class)\s+([A-Za-z_$][\w$]*)", html, re.M)
+    assert [n for n, c in Counter(names).items() if c > 1] == []
