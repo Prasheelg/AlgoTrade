@@ -1063,6 +1063,30 @@ const realTrade = t => !t ? "" : `<div class="sub" title="${esc(t.note ?? "")}">
   (t.fill_price != null ? ` × ${t.qty} @ ${inr(t.fill_price)}` : "") +
   (t.exit_price != null ? ` → ${inr(t.exit_price)}` : "") +
   (t.pnl != null ? ` <span class="${cls(t.pnl)}">${t.pnl > 0 ? "+" : ""}${inr(t.pnl)}</span>` : "") + `</div>`;
+// The Options Auto-trade trade for a signal: the contract bought, or (waiting for the entry) the one planned
+const OPT_STATE = { WAIT: "Waiting for entry", BUYING: "Buying", OPEN: "Open", SELLING: "Selling", CLOSED: "Closed",
+                    CANCELLED: "Cancelled", REJECTED: "Rejected", SKIPPED: "Skipped" };
+const optTrade = (o, s) => {
+  if (!o) return "";
+  const name = o.tsym ?? `${s.symbol} ${o.opt}`;
+  const exp = o.expiry ? new Date(o.expiry + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
+  const contract = o.strike != null ? `${o.strike.toLocaleString(cfg.locale)} ${o.opt}${exp ? ` · exp ${exp}` : ""}` : "";
+  let line;
+  if (o.state === "WAIT") {
+    const when = `${s.symbol} ${s.side === "BUY" ? (o.u_entry_type === "stop" ? "≥" : "≤") : (o.u_entry_type === "stop" ? "≤" : "≥")} ${inr(o.u_entry)}`;
+    line = `Option planned: <b>${esc(name)}</b>` +
+      (o.lots ? ` · ~${o.lots} lot${o.lots > 1 ? "s" : ""} (${o.qty}) @ ${inr(o.est_price)} ≈ ${inr(o.est_premium)}` : "") +
+      ` · buys when ${when}`;
+  } else {
+    line = `Option: <b>${esc(name)}</b> · ${esc(OPT_STATE[o.state] ?? o.state)}` +
+      (o.fill_price != null ? ` × ${o.qty} @ ${inr(o.fill_price)}` : o.qty ? ` × ${o.qty}` : "") +
+      (o.exit_price != null ? ` → ${inr(o.exit_price)}` : "") +
+      (o.pnl != null ? ` <span class="${cls(o.pnl)}">${o.pnl > 0 ? "+" : ""}${inr(o.pnl)}</span>` : "");
+  }
+  const tip = [contract, o.product, o.planned ? "Estimate from the live ask; the contract is picked when the entry is reached" : "",
+               o.plan_note, o.note].filter(Boolean).join(" · ");
+  return `<div class="sub" title="${esc(tip)}">${line}${o.plan_note || (o.note && o.state !== "WAIT") ? ` <span class="flat">(${esc(o.plan_note || o.note)})</span>` : ""}</div>`;
+};
 const inr = v => v == null ? "–" : cfg.currency + Number(v).toLocaleString(cfg.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sgn = (v, d = 2, suf = "") => (v > 0 ? "+" : "") + v.toFixed(d) + suf;
 const cls = v => v > 0 ? "up" : v < 0 ? "down" : "flat";
@@ -1171,7 +1195,7 @@ function renderTable() {
     <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Details and chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
       <span class="side ${s.side}">${s.side}</span></div></td>
     <td>${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
-    <td><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}</td>
+    <td><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}</td>
     <td class="num">${inr(s.entry)}${order ? `<div class="sub">${order}` +
       `${s.fill_price != null && s.fill_price !== s.entry ? ` · filled ${inr(s.fill_price)}` : ""}</div>` : ""}</td>
     <td class="num">${inr(s.current)}${s.status === "PENDING" && s.to_entry_pct != null

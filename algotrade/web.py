@@ -149,13 +149,27 @@ def _real_trades(code: str) -> dict[str, dict]:
     return out
 
 
+def _option_trades(code: str) -> dict:
+    """The Options Auto-trade trade of each India signal (options_auto.plan): the contract bought, or the one
+    planned while it waits for the entry."""
+    if code != "IN":
+        return {}
+    from . import options_auto
+    try:
+        return {t["key"]: options_auto.plan(t) for t in options_auto.all_trades()}
+    except Exception:
+        log.exception("Option trades unavailable")
+        return {}
+
+
 def _signals_payload(mkt: markets.Market) -> dict:
     sigs = state.all_signals(mkt.code)
     _live_ltp(mkt, sigs)
     real = _real_trades(mkt.code)
+    opts = _option_trades(mkt.code)
     return {
         "market": mkt.code,
-        "signals": [{**_enrich(s), "trade": real.get(s["key"])} for s in sigs],
+        "signals": [{**_enrich(s), "trade": real.get(s["key"]), "option": opts.get(s["key"])} for s in sigs],
         "last_refresh": _last_refresh["at"],
         "config": {"universe": mkt.universe, "timeframe": config.TIMEFRAME, "capital": mkt.capital,
                    "risk_pct": config.RISK_PER_TRADE_PCT, "currency": mkt.currency, "locale": mkt.locale,

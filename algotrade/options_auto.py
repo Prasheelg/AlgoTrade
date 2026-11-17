@@ -283,6 +283,11 @@ def _step_wait(t: dict, sig_status: str, enabled: bool) -> None:
     _buy(t, u)
 
 
+def _lots(px: float, lot: int) -> int:
+    """Lots bought at limit `px`: as many as fit OPTIONS_MAX_PREMIUM, at most OPTIONS_MAX_LOTS."""
+    return min(int(config.OPTIONS_MAX_PREMIUM // (px * lot)), config.OPTIONS_MAX_LOTS)
+
+
 def _buy(t: dict, u: float) -> None:
     """Pick the contract, size it and send the buy. Anything that rules the trade out skips it, with the reason."""
     key = t["key"]
@@ -302,7 +307,7 @@ def _buy(t: dict, u: float) -> None:
                f"(over OPTIONS_MAX_SPREAD_PCT {config.OPTIONS_MAX_SPREAD_PCT:g}%)")
     if why is None:
         px = protect(float(ask), "BUY", config.OPTION_PROTECTION_PCT, tick)
-        lots = min(int(config.OPTIONS_MAX_PREMIUM // (px * lot)), config.OPTIONS_MAX_LOTS)
+        lots = _lots(px, lot)
         used = open_premium()
         if lots < 1:
             why = (f"one lot of {tsym} ({lot} × ₹{px:,.2f} = ₹{px * lot:,.0f}) costs more than OPTIONS_MAX_PREMIUM "
@@ -323,6 +328,57 @@ def _buy(t: dict, u: float) -> None:
     _notify(f"🛒 <b>BUY {tsym}</b> × {lots} lot{'s' if lots > 1 else ''} ({qty}) · limit ₹{px:,.2f} · "
             f"{t['underlying']} {u:,.2f} reached the {t['side']} signal's entry ₹{t['u_entry']:,.2f} · "
             f"exit at {t['underlying']} stop {t['u_stop']:,.2f} / target {t['u_target']:,.2f} · order {oid}")
+
+
+PLAN_CACHE_SEC = 60            # how long a waiting trade's previewed contract and premium are reused
+_plans: dict[str, tuple[float, dict]] = {}
+
+
+def _preview(t: dict) -> dict:
+    """The contract a waiting trade would buy if the underlying reached the entry now: picked the way _buy picks
+    it (around the entry price), with its live ask and the lots that premium would buy. Estimates only; the real
+    pick happens at the entry. Cached PLAN_CACHE_SEC."""
+    import time
+    ck = f"{t['key']}|{t['u_entry']}"
+    hit = _plans.get(ck)
+    if hit and time.monotonic() - hit[0] < PLAN_CACHE_SEC:
+        return hit[1]
+    out: dict = {"planned": True}
+    try:
+        c = fno.otm_contract(t["underlying"], t["opt"], t["u_entry"], config.OPTIONS_OTM_STEPS,
+                             config.OPTIONS_MIN_DAYS)
+        if c is None:
+            out["plan_note"] = (f"no {t['opt']} {config.OPTIONS_OTM_STEPS} strikes out of the money with "
+                                f"{config.OPTIONS_MIN_DAYS}+ days to expiry")
+        else:
+            lot = int(c["lot"])
+            out.update(tsym=c["tsym"], expiry=str(c["expiry"]), strike=float(c["strike"]), lot=lot)
+            q = fno.option_quote(c["tsym"])
+            ask = q.get("ask") or q.get("ltp")
+            if ask:
+                px = protect(float(ask), "BUY", config.OPTION_PROTECTION_PCT, float(c.get("tick") or 0.05))
+                lots = _lots(px, lot)
+                out.update(est_price=px, lots=lots, qty=lots * lot, est_premium=round(px * lot * lots, 2))
+                if lots < 1:
+                    out["plan_note"] = (f"one lot ({lot} × ₹{px:,.2f}) costs more than OPTIONS_MAX_PREMIUM "
+                                        f"₹{config.OPTIONS_MAX_PREMIUM:,.0f}")
+    except Exception as exc:   # a preview must never break the dashboard
+        log.warning("Option preview for %s unavailable: %s", t["key"], exc)
+    _plans[ck] = (time.monotonic(), out)
+    return out
+
+
+def plan(t: dict) -> dict:
+    """An option trade as the dashboard shows it under its signal: the contract bought (or, while it waits for
+    the entry, the one it would buy: planned=True), lots, prices and P&L."""
+    out = {k: t[k] for k in ("state", "opt", "tsym", "expiry", "strike", "lot", "lots", "qty", "fill_price",
+                             "exit_price", "note", "u_entry", "u_entry_type", "product")}
+    out["planned"] = False
+    if t["state"] == WAIT:
+        out.update(_preview(t))
+    out["pnl"] = (round((t["exit_price"] - t["fill_price"]) * t["qty"], 2)
+                  if t["exit_price"] is not None and t["fill_price"] is not None and t["qty"] else None)
+    return out
 
 
 def _place(t: dict, tsym: str, side: str, qty: int, px: float) -> str:

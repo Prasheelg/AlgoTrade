@@ -345,3 +345,40 @@ def test_options_instead_of_shares(opt, monkeypatch):
     assert {t["key"] for t in oa.all_trades()} == {fo}      # ... it is traded as a call
     monkeypatch.setattr(config, "OPTIONS_AUTO_TRADE", False)
     assert oa.share_keys([fo, plain]) == [fo, plain]        # options off: shares as before
+
+
+# ---- dashboard: the contract planned / bought, under the signal ------------------------------------
+
+def test_waiting_trade_shows_the_planned_contract(opt, monkeypatch):
+    monkeypatch.setattr(oa, "_plans", {})
+    key = signal()
+    oa.trade_new([key])
+    p = oa.plan(oa._get(key))
+    # picked around the entry (99), ask 10 + 5% = 10.50; ₹10,000 / (10.50 × 250) = 3 lots
+    assert opt.picked[-1][:3] == ("RELIANCE", "CE", 99.0)
+    assert (p["planned"], p["tsym"], p["strike"], p["lots"], p["qty"], p["est_price"], p["est_premium"]) == \
+        (True, "RELIANCETESTCE", 110.0, 3, 750, 10.5, 7875.0)
+    assert opt.placed == []                                 # a preview never places an order
+
+
+def test_plan_of_a_bought_trade_and_preview_failures(opt, monkeypatch):
+    monkeypatch.setattr(oa, "_plans", {})
+    key = signal()
+    oa.trade_new([key])
+    oa._save(key, state="CLOSED", tsym="RELIANCETESTCE", qty=750, lots=3, fill_price=10.5, exit_price=12.0)
+    p = oa.plan(oa._get(key))
+    assert (p["planned"], p["tsym"], p["pnl"]) == (False, "RELIANCETESTCE", 1125.0)
+    k2 = signal("NIFTY")
+    oa.trade_new([k2])
+    monkeypatch.setattr(fno, "option_quote", lambda tsym: (_ for _ in ()).throw(RuntimeError("down")))
+    p = oa.plan(oa._get(k2))
+    assert (p["planned"], p["tsym"], p["lots"]) == (True, "NIFTYTESTCE", None)   # contract shown, no premium
+
+
+def test_signals_payload_carries_the_option(opt, monkeypatch):
+    from algotrade import web
+    monkeypatch.setattr(oa, "_plans", {})
+    key = signal()
+    oa.trade_new([key])
+    sig = next(s for s in web.app.test_client().get("/api/signals?market=IN").get_json()["signals"] if s["key"] == key)
+    assert sig["option"]["state"] == "WAIT" and sig["option"]["tsym"] == "RELIANCETESTCE"
