@@ -257,7 +257,7 @@ for that day. The order book holds only today's orders, so an order missing from
 market hours. Prices are rounded to ₹0.05.
 
 ### Options Auto-trade
-With **Auto-trade options** on (Settings, or `OPTIONS_AUTO_TRADE=true`) and the Auto-trade switch ON, India signals
+With **Auto-trade options** on (on by default; Settings, or `OPTIONS_AUTO_TRADE=false` to turn it off) and the Auto-trade switch ON, India signals
 on **F&O stocks** and on the **indices** in `OPTIONS_INDICES` (`NIFTY,BANKNIFTY`; also `FINNIFTY`, `MIDCPNIFTY`) are
 traded as options (`algotrade/options_auto.py`). Options are only ever **bought**, so the most a trade can lose is
 its premium.

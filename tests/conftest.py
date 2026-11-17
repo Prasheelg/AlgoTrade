@@ -18,6 +18,7 @@ for _k in ("UNIVERSE", "SCAN_INTERVAL_MIN", "SCAN_TIMEFRAMES", "TIMEFRAME", "MIN
            "BROKERAGE", "DP_CHARGE", "SLIPPAGE_BPS", "US_BROKERAGE", "US_SLIPPAGE_BPS",
            "MAX_ORDER_VALUE"):
     os.environ.pop(_k, None)
+os.environ["OPTIONS_AUTO_TRADE"] = "false"  # on by default in the app; tests that need it turn it on themselves
 os.environ["TELEGRAM_BOT_TOKEN"] = ""
 os.environ["TELEGRAM_CHAT_ID"] = ""
 os.environ["KOTAK_CONSUMER_KEY"] = ""  # real-time quotes off: tests never reach Kotak
