@@ -11,7 +11,8 @@ premium), never written. The option follows the signal on the underlying's live 
   spread over OPTIONS_MAX_SPREAD_PCT is skipped. Market hours only (no AMO: the price would be stale).
 - Exit: the option is sold (marketable limit off the best bid) when the underlying reaches the signal's stop or
   target 1, when the tracker closes the signal (time exit, or a stop / target it saw first), on the option's
-  expiry day from INTRADAY_SQUARE_OFF, and for intraday signals (MIS) at INTRADAY_SQUARE_OFF. No exit orders
+  expiry day from INTRADAY_SQUARE_OFF, and for intraday signals at INTRADAY_SQUARE_OFF (MIS on indices; stock options go in as NRML, as Kotak
+  blocks MIS on them, and one still held after its day is sold at the next open). No exit orders
   rest at Kotak, so the scanner must be running for exits to happen.
 - Needs OPTIONS_AUTO_TRADE and the dashboard's Auto-trade switch ON; intraday signals also need
   INTRADAY_AUTO_TRADE and enter only until INTRADAY_LAST_ENTRY. One option trade per underlying at a time.
@@ -113,6 +114,14 @@ def _has_options(symbol: str) -> bool:
         return False
 
 
+def product(underlying: str, is_intraday: bool) -> str:
+    """Kotak product for an option trade. Intraday index options go in as MIS; stock options are always NRML,
+    because Kotak's RMS blocks MIS on stock options ("MIS PRODUCT CURRENTLY NOT AVAILABLE FOR TRADING IN OPTION
+    STOCK"). An intraday NRML trade is still sold by the app at INTRADAY_SQUARE_OFF (see _day_over if it isn't)."""
+    from .universe import is_index
+    return "MIS" if is_intraday and is_index(underlying) else "NRML"
+
+
 def share_keys(keys: list[str]) -> list[str]:
     """The new India signals the stock trader takes: BUYs on stocks (indices are options only). With
     OPTIONS_INSTEAD_OF_SHARES and options on, F&O stocks are left to the option trader, so the same signal is
@@ -157,7 +166,7 @@ def trade_new(keys: list[str]) -> list[dict]:
                      "timeframe": sig["timeframe"] or "1d", "u_entry": sig["entry"],
                      "u_entry_type": sig["entry_type"] or "limit", "u_stop": sig["stop_loss"],
                      "u_target": sig["target1"], "created_day": _today()}
-                t["product"] = "MIS" if intraday(t) else "NRML"
+                t["product"] = product(sig["symbol"], intraday(t))
                 why = _eligible(sig)
                 _save(key, **t, state=SKIPPED if why else WAIT, note=why)
                 if why:
@@ -221,7 +230,7 @@ def _step(t: dict, book: dict, sig: dict | None, enabled: bool) -> None:
         _notify(f"⚠️ <b>{_name(t)}</b> expired while the app still held it. Check it in the Kotak app.")
         return
     if intraday(t) and (t["created_day"] < _today() or (not m.is_open() and m.is_after_close())):
-        _day_over(t)
+        _day_over(t, book)
         return
     if st == WAIT:
         _step_wait(t, sig_status, enabled)
@@ -233,12 +242,19 @@ def _step(t: dict, book: dict, sig: dict | None, enabled: bool) -> None:
         _step_selling(t, book)
 
 
-def _day_over(t: dict) -> None:
-    """An intraday option trade still live after its day: Kotak squared off any MIS position itself."""
+def _day_over(t: dict, book: dict | None = None) -> None:
+    """An intraday option trade still live after its day: Kotak squared off any MIS position itself; an NRML one
+    (stock options) is still held, so the app sells it at the next open."""
     if t["state"] in (WAIT, BUYING):
         if t["buy_order"]:
             orders._cancel(t["buy_order"])
         _save(t["key"], state=CANCELLED, note="intraday entry: the trading day is over")
+        return
+    if t["product"] != "MIS":
+        if t["state"] == SELLING:
+            _step_selling(t, book or {})
+        elif _mkt().is_open():
+            _sell(t, "intraday option held past its day: sold at the open")
         return
     _save(t["key"], state=CLOSED, closed_at=_now(),
           note="intraday option after the close: squared off by Kotak (see its P&L there)")

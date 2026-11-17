@@ -280,7 +280,9 @@ its premium.
 - **Exit** on the **underlying**, not the option's price: sold (limit `OPTION_PROTECTION_PCT` below the best bid)
   when the stock or index reaches the signal's stop or target 1, when the tracker closes the signal (time exit),
   and from `INTRADAY_SQUARE_OFF` (15:00) on the option's expiry day. Intraday signals (with *Auto-trade intraday
-  signals* on) are MIS, entered until `INTRADAY_LAST_ENTRY` and sold at `INTRADAY_SQUARE_OFF`; daily ones NRML.
+  signals* on) are entered until `INTRADAY_LAST_ENTRY` and sold by the app at `INTRADAY_SQUARE_OFF`: MIS on the
+  indices, but NRML on stock options, because Kotak blocks MIS on those ("MIS PRODUCT CURRENTLY NOT AVAILABLE FOR
+  TRADING IN OPTION STOCK"); one still held after its day is sold at the next open. Daily signals are NRML.
   An unfilled buy is cancelled after 60 s and bought again at a fresh price if the entry still holds; an unfilled
   sell is re-priced after 60 s.
 - **No stop order rests at Kotak** (exits follow the underlying, which an option order can't), so exits only happen

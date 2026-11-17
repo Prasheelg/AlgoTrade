@@ -382,3 +382,43 @@ def test_signals_payload_carries_the_option(opt, monkeypatch):
     oa.trade_new([key])
     sig = next(s for s in web.app.test_client().get("/api/signals?market=IN").get_json()["signals"] if s["key"] == key)
     assert sig["option"]["state"] == "WAIT" and sig["option"]["tsym"] == "RELIANCETESTCE"
+
+
+# ---- product: Kotak blocks MIS on stock options -----------------------------------------------------
+
+def test_intraday_stock_options_go_in_as_nrml(opt, monkeypatch):
+    monkeypatch.setattr(config, "INTRADAY_AUTO_TRADE", True)
+    stock = oa.trade_new([signal(timeframe="15m")])[0]
+    idx = oa.trade_new([signal("NIFTY", timeframe="15m", entry=25000.0, stop_loss=24900.0,
+                               targets=[25100.0, 25200.0])])[0]
+    daily = oa.product("RELIANCE", False), oa.product("NIFTY", False)
+    assert (stock["product"], idx["product"], daily) == ("NRML", "MIS", ("NRML", "NRML"))
+
+
+def _held_yesterday(key, product):
+    oa._save(key, state="OPEN", product=product, tsym="RELIANCETESTCE", expiry="2026-10-28", strike=110.0,
+             lot=250, lots=1, qty=250, fill_price=10.0, created_day="2026-10-20")
+
+
+def test_nrml_intraday_option_held_past_its_day_is_sold_at_the_open(opt, monkeypatch):
+    monkeypatch.setattr(config, "INTRADAY_AUTO_TRADE", True)
+    key = signal(timeframe="15m")
+    oa.trade_new([key])
+    _held_yesterday(key, "NRML")
+    opt.mkt.open = False
+    oa.step_all()
+    assert opt.placed == [] and oa._get(key)["state"] == "OPEN"     # market shut: still held, nothing sent
+    opt.mkt.open = True
+    oa.step_all()
+    p = opt.placed[0]
+    assert (p["transaction_type"], p["product"], p["quantity"]) == ("S", "NRML", "250")
+    assert oa._get(key)["state"] == "SELLING"
+
+
+def test_mis_intraday_option_after_its_day_is_left_to_kotak(opt, monkeypatch):
+    monkeypatch.setattr(config, "INTRADAY_AUTO_TRADE", True)
+    key = signal(timeframe="15m")
+    oa.trade_new([key])
+    _held_yesterday(key, "MIS")
+    oa.step_all()
+    assert opt.placed == [] and oa._get(key)["state"] == "CLOSED"   # Kotak squared off the MIS position
