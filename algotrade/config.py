@@ -32,7 +32,7 @@ INTRADAY_AUTO_TRADE = _get("INTRADAY_AUTO_TRADE", "false").lower() in ("1", "tru
 INTRADAY_LAST_ENTRY = _get("INTRADAY_LAST_ENTRY", "14:30")
 INTRADAY_SQUARE_OFF = _get("INTRADAY_SQUARE_OFF", "15:00")
 # Manual option orders (dashboard Strategy Builder tab): fat-finger cap on lots per order
-OPTIONS_MAX_LOTS = int(_get("OPTIONS_MAX_LOTS", "10"))
+OPTIONS_MAX_LOTS = int(_get("OPTIONS_MAX_LOTS", "1"))
 # Options Auto-trade (options_auto.py): India signals on F&O stocks and the indices below buy an OTM call (BUY) or
 # put (SELL), exited on the underlying's stop / target. On by default; also needs the dashboard's Auto-trade switch ON.
 OPTIONS_AUTO_TRADE = _get("OPTIONS_AUTO_TRADE", "true").lower() in ("1", "true", "yes")

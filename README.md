@@ -295,7 +295,7 @@ strikes shaded, ATM highlighted, OI bars, put-call ratio). Prices refresh every 
 
 Click a price to open an order ticket and place **your own** order: lots, limit or market, NRML (carry forward)
 or MIS (intraday). This is separate from Auto-trade, which trades equity only. Safeguards:
-- whole lots only, at most `OPTIONS_MAX_LOTS` (10) per order, and a confirmation showing the premium;
+- whole lots only, at most `OPTIONS_MAX_LOTS` (1) per order, and a confirmation showing the premium;
 - **Sell is only for closing options you hold** (checked against your Kotak positions), so you can't write
   (short) an option by mistake;
 - only from the PC running the dashboard; outside market hours orders go in as AMO;
