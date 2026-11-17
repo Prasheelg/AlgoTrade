@@ -42,7 +42,7 @@ OPTIONS_INSTEAD_OF_SHARES = _get("OPTIONS_INSTEAD_OF_SHARES", "true").lower() in
 OPTIONS_INDICES = [s.strip().upper() for s in _get("OPTIONS_INDICES", "NIFTY,BANKNIFTY").split(",") if s.strip()]
 OPTIONS_OTM_STEPS = int(_get("OPTIONS_OTM_STEPS", "2"))            # 2 = second strike out of the money
 OPTIONS_MIN_DAYS = int(_get("OPTIONS_MIN_DAYS", "5"))              # nearest expiry at least this many days away
-OPTIONS_MAX_PREMIUM = float(_get("OPTIONS_MAX_PREMIUM", "10000"))  # ₹ premium per trade (lots cut to fit)
+OPTIONS_MAX_PREMIUM = float(_get("OPTIONS_MAX_PREMIUM", "25000"))  # ₹ premium per trade (lots cut to fit)
 OPTIONS_MAX_OPEN_PREMIUM = float(_get("OPTIONS_MAX_OPEN_PREMIUM", "30000"))  # ₹ across all open option trades
 OPTIONS_MAX_SPREAD_PCT = float(_get("OPTIONS_MAX_SPREAD_PCT", "5"))  # skip contracts with a wider bid-ask spread
 # Manual stock buys (dashboard Portfolio): fat-finger cap on the value of one order, ₹

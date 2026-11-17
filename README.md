@@ -275,7 +275,7 @@ its premium.
   `OPTIONS_OTM_STEPS`-th (2nd) strike **out of the money**, skipping the one nearest the price. It is bought with a
   limit `OPTION_PROTECTION_PCT` above the best ask. A contract without a bid and ask, or with a spread wider than
   `OPTIONS_MAX_SPREAD_PCT` (5%), is skipped. Market hours only.
-- **Size:** as many lots as fit in `OPTIONS_MAX_PREMIUM` (₹10,000), at most `OPTIONS_MAX_LOTS`; the premium in all
+- **Size:** as many lots as fit in `OPTIONS_MAX_PREMIUM` (₹25,000), at most `OPTIONS_MAX_LOTS`; the premium in all
   open option trades stays under `OPTIONS_MAX_OPEN_PREMIUM` (₹30,000). A lot dearer than the cap is skipped.
 - **Exit** on the **underlying**, not the option's price: sold (limit `OPTION_PROTECTION_PCT` below the best bid)
   when the stock or index reaches the signal's stop or target 1, when the tracker closes the signal (time exit),
