@@ -60,13 +60,15 @@ def send_document(path, caption: str = "", chat_id: str | None = None) -> bool:
 
 
 ORDER_TEXT = {
-    ("limit", "BUY"): "Buy limit · on the pullback",
-    ("limit", "SELL"): "Sell limit · on the bounce",
-    ("stop", "BUY"): "Buy stop · on a break above",
-    ("stop", "SELL"): "Sell stop · on a break below",
+    ("limit", "BUY"): "Limit order, buy the pullback",
+    ("limit", "SELL"): "Limit order, sell the bounce",
+    ("stop", "BUY"): "Stop order, buy the breakout",
+    ("stop", "SELL"): "Stop order, sell the breakdown",
 }
 TF_TEXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hour", "1d": "Daily"}
-FOOTER = "<i>Not investment advice. Verify before trading.</i>"
+FOOTER = "<i>Not investment advice</i>"
+# Icon in front of each price line, so the lines read as a list without a monospaced block
+LEVEL_ICON = {"Entry": "▶️", "Filled": "▶️", "Stop": "🛑", "Target": "🎯", "Exit": "🏁", "Last": "💹"}
 
 
 def group_digits(v: float, decimals: int = 2, indian: bool = True) -> str:
@@ -87,11 +89,10 @@ def money(v: float, mkt, decimals: int = 2) -> str:
 
 
 def _levels(rows: list[tuple[str, str, str]]) -> str:
-    """Aligned label / price / note lines in a monospaced block (lines up on phones too)."""
-    lw = max(len(r[0]) for r in rows)
-    pw = max(len(r[1]) for r in rows)
-    lines = [f"{lab:<{lw}}  {px:>{pw}}" + (f"  {note}" if note else "") for lab, px, note in rows]
-    return "<pre>" + html.escape("\n".join(lines)) + "</pre>"
+    """Price lines in a quote bar: icon, label, bold price and an optional note."""
+    lines = [f"{LEVEL_ICON.get(lab, '•')} {lab}  <b>{html.escape(px)}</b>" + (f"  <i>{note}</i>" if note else "")
+             for lab, px, note in rows]
+    return "<blockquote>" + "\n".join(lines) + "</blockquote>"
 
 
 def _pct(a: float, b: float) -> str:
@@ -108,40 +109,40 @@ def format_signal(sig) -> str:
     sym = html.escape(sig.symbol)
     risk = abs(sig.entry - sig.stop_loss)
     tf = TF_TEXT.get(sig.timeframe, sig.timeframe)
-    order = ORDER_TEXT.get((sig.entry_type, sig.side), "At market")
-    lines = [f"{flag}{'🟢' if sig.side == 'BUY' else '🔴'} <b>{sig.side}  {sym}</b>   {'⭐' * sig.score}",
+    order = ORDER_TEXT.get((sig.entry_type, sig.side), "Market order")
+    stars = f"  {'⭐' * sig.score}" if sig.score else ""
+    lines = [f"{flag}{'🟢' if sig.side == 'BUY' else '🔴'} <b>{sig.side} · {sym}</b>{stars}",
              f"<i>{tf} · {order}</i>", ""]
     # One target: the trade (and Auto-trade's order) closes there
     lines.append(_levels([
         ("Entry", money(sig.entry, mkt), ""),
         ("Stop", money(sig.stop_loss, mkt), _pct(sig.stop_loss, sig.entry)),
-        ("Target", money(sig.targets[0], mkt),
-         f"{_pct(sig.targets[0], sig.entry)} · {config.TARGET_R_MULTIPLES[0]:g}R"),
+        ("Target", money(sig.targets[0], mkt), _pct(sig.targets[0], sig.entry)),
     ]))
-    lines.append(f"Qty <b>{sig.qty:,}</b> · risk {money(sig.qty * risk, mkt, 0)} "
-                 f"<i>({config.RISK_PER_TRADE_PCT:g}% of {money(mkt.capital, mkt, 0)})</i>")
+    lines += ["",
+              f"📦 Qty <b>{sig.qty:,}</b>  ·  Risk <b>{money(sig.qty * risk, mkt, 0)}</b>"
+              f"  ·  Reward <b>{config.TARGET_R_MULTIPLES[0]:g}R</b>"]
     if sig.entry_type != "market":
         bars = config.ENTRY_VALID_BARS
-        unit = "sessions" if sig.timeframe == "1d" else f"× {sig.timeframe} bars, today only"
-        lines.append(f"⏳ Now {money(sig.ref_price, mkt)} · order valid {bars} {unit}")
-    lines += ["",
-              f"🧭 <b>{sig.score} vote{'s' if sig.score != 1 else ''}</b> · "
-              + " · ".join(html.escape(r) for r in sig.reasons),
-              f"RSI {sig.rsi:g} · ADX {sig.adx:g} · Vol {sig.vol_ratio:g}× avg"]
+        unit = "sessions" if sig.timeframe == "1d" else "bars, today only"
+        lines.append(f"⏳ Valid {bars} {unit}  ·  Now {money(sig.ref_price, mkt)}")
     if sig.side == "SELL" and mkt.code == "IN":
-        lines.append("⚠️ <i>Short: intraday cash or F&amp;O only</i>")
-    lines += ["", chart_link(mkt, sig.symbol), FOOTER]
+        lines.append("⚠️ Short: intraday cash or F&amp;O only")
+    lines += ["",
+              "💡 <b>Why</b>  " + ", ".join(html.escape(r) for r in sig.reasons),
+              f"<i>RSI {sig.rsi:g}  ·  ADX {sig.adx:g}  ·  Volume {sig.vol_ratio:g}× avg</i>",
+              "", f"{chart_link(mkt, sig.symbol)}  ·  {FOOTER}"]
     return "\n".join(lines)
 
 
 UPDATE_HEAD = {
-    "ACTIVE": "✅ <b>Entry filled</b>",
-    "CANCELLED": "❌ <b>Entry not reached</b> · order cancelled",
-    "T1_HIT": "🎯 <b>Target hit</b> · trade closed",
-    "SL_HIT": "🛑 <b>Stop loss hit</b> · trade closed",
-    "EXPIRED": "⌛ <b>Time exit</b> · closed at market",
-    "T2_HIT": "🏆 <b>Target 2 hit</b> · trade closed",
-    "BREAKEVEN": "➖ <b>Back to entry</b> · closed at breakeven",
+    "ACTIVE": ("✅", "Entry filled", "trade is live"),
+    "CANCELLED": ("❌", "Entry not reached", "order cancelled"),
+    "T1_HIT": ("🎯", "Target hit", "trade closed"),
+    "SL_HIT": ("🛑", "Stop loss hit", "trade closed"),
+    "EXPIRED": ("⌛", "Time exit", "closed at market"),
+    "T2_HIT": ("🏆", "Target 2 hit", "trade closed"),
+    "BREAKEVEN": ("➖", "Back to entry", "closed at breakeven"),
 }
 
 
@@ -151,8 +152,9 @@ def format_update(sig: dict, res: dict, ltp: float) -> str:
     flag = "" if mkt.code == "IN" else f"{mkt.flag} "
     side, status = sig["side"], res["status"]
     tf = TF_TEXT.get(sig["timeframe"], sig["timeframe"])
-    lines = [UPDATE_HEAD.get(status, html.escape(status)),
-             f"{flag}{'🟢' if side == 'BUY' else '🔴'} {side}  <b>{html.escape(sig['symbol'])}</b> · {tf}", ""]
+    icon, what, note = UPDATE_HEAD.get(status, ("ℹ️", html.escape(status), ""))
+    lines = [f"{icon} <b>{what} · {html.escape(sig['symbol'])}</b>",
+             f"<i>{flag}{side} · {tf}" + (f" · {note}" if note else "") + "</i>", ""]
     if status == "CANCELLED":
         lines.append(_levels([("Entry", money(sig["entry"], mkt), ""), ("Last", money(ltp, mkt), "")]))
     elif status == "ACTIVE":
@@ -167,8 +169,8 @@ def format_update(sig: dict, res: dict, ltp: float) -> str:
         risk = abs(sig["entry"] - sig["stop_loss"])
         pct = sign * (px - fill) / fill * 100
         lines.append(_levels([("Entry", money(fill, mkt), ""), ("Exit", money(px, mkt), "")]))
-        lines.append(f"{'🟩' if pct > 0 else '🟥' if pct < 0 else '⬜'} <b>{pct:+.2f}%</b>"
-                     + (f" · {sign * (px - fill) / risk:+.2f}R" if risk else ""))
+        lines.append(f"{'🟩' if pct > 0 else '🟥' if pct < 0 else '⬜'} Result  <b>{pct:+.2f}%</b>"
+                     + (f"  ·  {sign * (px - fill) / risk:+.2f}R" if risk else ""))
     return "\n".join(lines)
 
 

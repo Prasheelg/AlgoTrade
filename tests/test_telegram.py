@@ -7,23 +7,24 @@ import requests
 from algotrade import config, telegram_bot
 from conftest import ORIGINAL_SEND, FakeResponse, Recorder, make_signal
 
-FOOTER = "\n\n<a href=\"https://www.tradingview.com/chart/?symbol={sym}\">📈 Chart</a>\n" \
-         "<i>Not investment advice. Verify before trading.</i>"
+FOOTER = "\n\n<a href=\"https://www.tradingview.com/chart/?symbol={sym}\">📈 Chart</a>  ·  " \
+         "<i>Not investment advice</i>"
 
 
 def test_format_in_buy_limit():
     assert telegram_bot.format_signal(make_signal()) == (
-        "🟢 <b>BUY  RELIANCE</b>   ⭐⭐\n"
-        "<i>Daily · Buy limit · on the pullback</i>\n"
+        "🟢 <b>BUY · RELIANCE</b>  ⭐⭐\n"
+        "<i>Daily · Limit order, buy the pullback</i>\n"
         "\n"
-        "<pre>Entry    ₹99.00\n"
-        "Stop     ₹96.00  -3.03%\n"
-        "Target  ₹103.50  +4.55% · 1.5R</pre>\n"
-        "Qty <b>333</b> · risk ₹999 <i>(1% of ₹1,00,000)</i>\n"
-        "⏳ Now ₹100.00 · order valid 3 sessions\n"
+        "<blockquote>▶️ Entry  <b>₹99.00</b>\n"
+        "🛑 Stop  <b>₹96.00</b>  <i>-3.03%</i>\n"
+        "🎯 Target  <b>₹103.50</b>  <i>+4.55%</i></blockquote>\n"
         "\n"
-        "🧭 <b>2 votes</b> · EMA 9/21 Cross · RSI Pullback\n"
-        "RSI 55 · ADX 25 · Vol 2× avg" + FOOTER.format(sym="NSE:RELIANCE"))
+        "📦 Qty <b>333</b>  ·  Risk <b>₹999</b>  ·  Reward <b>1.5R</b>\n"
+        "⏳ Valid 3 sessions  ·  Now ₹100.00\n"
+        "\n"
+        "💡 <b>Why</b>  EMA 9/21 Cross, RSI Pullback\n"
+        "<i>RSI 55  ·  ADX 25  ·  Volume 2× avg</i>" + FOOTER.format(sym="NSE:RELIANCE"))
 
 
 def test_format_us_stop_intraday():
@@ -31,46 +32,47 @@ def test_format_us_stop_intraday():
                     stop_loss=1200.0, targets=[1286.25, 1338.0], qty=2, score=3, ref_price=1230.0,
                     reasons=["EMA 9/21 Cross", "20-bar Breakout", "MACD Trend Cross"])
     assert telegram_bot.format_signal(s) == (
-        "🇺🇸 🟢 <b>BUY  BRK.B</b>   ⭐⭐⭐\n"
-        "<i>15 min · Buy stop · on a break above</i>\n"
+        "🇺🇸 🟢 <b>BUY · BRK.B</b>  ⭐⭐⭐\n"
+        "<i>15 min · Stop order, buy the breakout</i>\n"
         "\n"
-        "<pre>Entry   $1,234.50\n"
-        "Stop    $1,200.00  -2.79%\n"
-        "Target  $1,286.25  +4.19% · 1.5R</pre>\n"
-        "Qty <b>2</b> · risk $69 <i>(1% of $10,000)</i>\n"
-        "⏳ Now $1,230.00 · order valid 3 × 15m bars, today only\n"
+        "<blockquote>▶️ Entry  <b>$1,234.50</b>\n"
+        "🛑 Stop  <b>$1,200.00</b>  <i>-2.79%</i>\n"
+        "🎯 Target  <b>$1,286.25</b>  <i>+4.19%</i></blockquote>\n"
         "\n"
-        "🧭 <b>3 votes</b> · EMA 9/21 Cross · 20-bar Breakout · MACD Trend Cross\n"
-        "RSI 55 · ADX 25 · Vol 2× avg" + FOOTER.format(sym="BRK.B"))
+        "📦 Qty <b>2</b>  ·  Risk <b>$69</b>  ·  Reward <b>1.5R</b>\n"
+        "⏳ Valid 3 bars, today only  ·  Now $1,230.00\n"
+        "\n"
+        "💡 <b>Why</b>  EMA 9/21 Cross, 20-bar Breakout, MACD Trend Cross\n"
+        "<i>RSI 55  ·  ADX 25  ·  Volume 2× avg</i>" + FOOTER.format(sym="BRK.B"))
 
 
 def test_format_in_sell_has_short_note():
     s = make_signal(side="SELL", entry=101.0, stop_loss=104.0, targets=[96.5, 92.0])
     text = telegram_bot.format_signal(s)
-    assert text.startswith("🔴 <b>SELL  RELIANCE</b>")
-    assert "<i>Daily · Sell limit · on the bounce</i>" in text
-    assert "Vol 2× avg\n⚠️ <i>Short: intraday cash or F&amp;O only</i>\n\n<a " in text
+    assert text.startswith("🔴 <b>SELL · RELIANCE</b>")
+    assert "<i>Daily · Limit order, sell the bounce</i>" in text
+    assert "Now ₹100.00\n⚠️ Short: intraday cash or F&amp;O only\n\n💡" in text
     us = telegram_bot.format_signal(make_signal(side="SELL", market="US", entry_type="stop"))
-    assert "Short:" not in us and "Sell stop · on a break below" in us
+    assert "Short:" not in us and "Stop order, sell the breakdown" in us
 
 
 def test_format_market_entry_has_no_order_line():
     text = telegram_bot.format_signal(make_signal(entry_type="market"))
-    assert "⏳" not in text and "<i>Daily · At market</i>" in text
+    assert "⏳" not in text and "<i>Daily · Market order</i>" in text
 
 
 def test_format_escapes_html():
     text = telegram_bot.format_signal(make_signal(symbol="M&M", reasons=["A<B"], score=1))
-    assert "<b>BUY  M&amp;M</b>   ⭐\n" in text
+    assert "<b>BUY · M&amp;M</b>  ⭐\n" in text
     assert "symbol=NSE:M&amp;M\"" in text
-    assert "🧭 <b>1 vote</b> · A&lt;B" in text
+    assert "💡 <b>Why</b>  A&lt;B" in text
 
 
 def test_format_single_target_and_live_config(monkeypatch):
-    monkeypatch.setattr(config, "RISK_PER_TRADE_PCT", 0.5)
+    monkeypatch.setattr(config, "TARGET_R_MULTIPLES", [2.0, 3.0])
     monkeypatch.setattr(config, "ENTRY_VALID_BARS", 5)
     text = telegram_bot.format_signal(make_signal(targets=[103.5]))
-    assert "Target 2" not in text and "<i>(0.5% of ₹1,00,000)</i>" in text and "valid 5 sessions" in text
+    assert "Target 2" not in text and "Reward <b>2R</b>" in text and "Valid 5 sessions" in text
 
 
 @pytest.mark.parametrize("v,indian,out", [(100000, True, "1,00,000.00"), (12345678.9, True, "1,23,45,678.90"),
@@ -84,10 +86,11 @@ def test_format_update_filled_and_time_exit():
     sig = {"market": "IN", "side": "SELL", "symbol": "TCS", "timeframe": "15m", "entry": 3000.0,
            "stop_loss": 3030.0, "target1": 2955.0}
     filled = telegram_bot.format_update(sig, {"status": "ACTIVE", "fill_price": 3000.0, "exit_price": None}, 2999.0)
-    assert filled == ("✅ <b>Entry filled</b>\n🔴 SELL  <b>TCS</b> · 15 min\n\n"
-                      "<pre>Filled  ₹3,000.00\nStop    ₹3,030.00  +1.00%\nTarget  ₹2,955.00  -1.50%</pre>")
+    assert filled == ("✅ <b>Entry filled · TCS</b>\n<i>SELL · 15 min · trade is live</i>\n\n"
+                      "<blockquote>▶️ Filled  <b>₹3,000.00</b>\n🛑 Stop  <b>₹3,030.00</b>  <i>+1.00%</i>\n"
+                      "🎯 Target  <b>₹2,955.00</b>  <i>-1.50%</i></blockquote>")
     out = telegram_bot.format_update(sig, {"status": "EXPIRED", "fill_price": 3000.0, "exit_price": 2985.0}, 2985.0)
-    assert out.startswith("⌛ <b>Time exit</b>") and out.endswith("🟩 <b>+0.50%</b> · +0.50R")
+    assert out.startswith("⌛ <b>Time exit · TCS</b>") and out.endswith("🟩 Result  <b>+0.50%</b>  ·  +0.50R")
 
 
 # ---- send_message --------------------------------------------------------------------------------
