@@ -3860,7 +3860,7 @@ document.getElementById("logout").onclick = async () => {
 // ---- Chart view: candles for any stock, index or option contract (/api/candles; TradingView Lightweight Charts) ----
 const CH_LIB = "https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js";
 const CH_TFS = [["1m", "1m"], ["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1h"], ["1d", "1D"]];
-const CH_IND = [["ema9", "EMA 9", "#e0a100"], ["ema21", "EMA 21", "#2a78d6"], ["ema50", "EMA 50", "#a259d9"],
+const CH_IND = [["ema50", "EMA 50", "#a259d9"],
                 ["vwap", "VWAP", "#eb6834"], ["vol", "Volume", ""]];
 const CH_LIVE_SEC = 5;     // reload while the market is open and the bars are Kotak's (no live ticks)
 const CH_IDLE_SEC = 60;    // otherwise, and while live ticks keep the newest candle current
@@ -3870,7 +3870,7 @@ const chDefault = mk => mk === "US" ? "AAPL" : "NIFTY";
 const ch = {
   sym: store.get(`chSym_${market}`) || chDefault(market),
   tf: CH_TFS.some(t => t[0] === store.get("chTf")) ? store.get("chTf") : "15m",
-  ind: new Set(Array.isArray(store.get("chInd")) ? store.get("chInd") : ["ema9", "ema21", "vol"]),
+  ind: new Set(Array.isArray(store.get("chInd")) ? store.get("chInd").filter(k => CH_IND.some(i => i[0] === k)) : ["vol"]),
   data: null, err: "", at: null, key: "", req: 0, inflight: false, tick: 0, market,
 };
 let chLib = null, chApi = null, chBars = [], chByTime = new Map(), chHover = null;
@@ -3938,7 +3938,7 @@ function chApply(fresh) {
   const hasVol = chBars.some(b => b.v > 0);
   chSer.vol.setData(ch.ind.has("vol") && hasVol
     ? chBars.map(b => ({ time: b.time, value: b.v, color: (b.c >= b.o ? up : down) + "59" })) : []);
-  for (const [k, n] of [["ema9", 9], ["ema21", 21], ["ema50", 50]]) chSer[k].setData(ch.ind.has(k) ? chEma(chBars, n) : []);
+  for (const [k, n] of [["ema50", 50]]) chSer[k].setData(ch.ind.has(k) ? chEma(chBars, n) : []);
   chSer.vwap.setData(ch.ind.has("vwap") && hasVol && d.tf !== "1d" ? chVwap(chBars) : []);
   if (fresh) {
     const n = chBars.length;
@@ -4031,7 +4031,7 @@ function chUpdateLast() {
   chSer.c.update({ time: b.time, open: b.o, high: b.h, low: b.l, close: b.c });
   const hasVol = chBars.some(x => x.v > 0);
   if (ch.ind.has("vol") && hasVol) chSer.vol.update({ time: b.time, value: b.v, color: (b.c >= b.o ? up : down) + "59" });
-  for (const [k, n] of [["ema9", 9], ["ema21", 21], ["ema50", 50]])
+  for (const [k, n] of [["ema50", 50]])
     if (ch.ind.has(k)) chSer[k].update(chEma(chBars, n).at(-1));
   if (ch.ind.has("vwap") && hasVol && ch.tf !== "1d") chSer.vwap.update(chVwap(chBars).at(-1));
   if (chHover == null) chLegend(null);
