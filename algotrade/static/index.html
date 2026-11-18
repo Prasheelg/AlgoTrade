@@ -1324,7 +1324,15 @@ async function loadIndex(mk = market) {
 }
 setInterval(tickStatus, 1000);
 setInterval(renderStatus, 30000);
-setInterval(() => loadIndex(), 60000);  // India: Kotak live (server cache 30 s); US: Yahoo (cache 5 min)
+// The top-bar index: the push stream refreshes it the moment it moves; without one (pre-open, or a proxy that
+// holds the stream back) it is polled every INDEX_LIVE_SEC while Kotak's live feed is up, else once a minute.
+const INDEX_LIVE_SEC = 2;
+let indexTick = 0;
+setInterval(() => {
+  indexTick++;
+  const live = market === "IN" && feedLive && !pushOk && !document.hidden;
+  if (indexTick % (live ? INDEX_LIVE_SEC : 60) === 0) loadIndex();
+}, 1000);
 
 async function load(path = "/api/signals", opts) {
   const res = await fetch(`${path}?market=${market}`, opts);
