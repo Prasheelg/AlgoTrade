@@ -32,6 +32,8 @@ def fakes(monkeypatch):
     monkeypatch.setattr(fno, "contracts", lambda: CONTRACTS)
     monkeypatch.setattr(charts, "_cache", {})
     monkeypatch.setattr(charts, "KOTAK_GAP_SEC", 0)
+    monkeypatch.setattr(charts, "_known_index", {})
+    monkeypatch.setattr(kotak, "index_quote", lambda name: {"ltp": 1.0} if name == "Nifty IT" else None)
     return calls, candles
 
 
@@ -145,3 +147,12 @@ def test_api_candles_live_needs_the_stream(fakes, monkeypatch):
     assert c.get("/api/candles/live?s=RELIANCE").status_code == 503
     monkeypatch.setattr(livefeed, "connected", lambda: True)
     assert c.get("/api/candles/live?s=NOSUCH").status_code == 400
+
+
+def test_any_kotak_index_by_name_and_index_daily_from_kotak(fakes):
+    calls, _ = fakes
+    inst = charts.resolve("Nifty IT")
+    assert inst == {"kind": "index", "symbol": "Nifty IT", "label": "Nifty IT", "kotak": "nse_cm|Nifty IT"}
+    j = charts.candles("Nifty IT", "1d")
+    assert calls[-1][1]["interval"] == "D" and calls[-1][1]["neosymbol"] == "nse_cm|Nifty IT"
+    assert j["source"] == "Kotak Neo, live" and j["bars"][0]["t"] == "2026-11-18"

@@ -217,6 +217,8 @@
   td .sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
   .stock { display: flex; align-items: center; gap: 8px; }
   .sym { font-weight: 650; color: inherit; text-decoration: none; }
+  [data-chart] { cursor: pointer; }
+  [data-chart]:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
   .sym:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
   .side { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; }
   .side.BUY { background: var(--up-bg); color: var(--up); }
@@ -1233,7 +1235,7 @@ function renderTable() {
     const noPos = s.status === "PENDING" || s.status === "CANCELLED";
     const order = ORDER_TEXT[s.entry_type];
     return `<tr>
-    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Details and chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
+    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
       <span class="side ${s.side}">${s.side}</span></div></td>
     <td>${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
     <td><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}</td>
@@ -1251,6 +1253,7 @@ function renderTable() {
     <td><div class="tags">${String(s.reasons ?? "").split(", ").filter(Boolean).map(r => `<span>${esc(r)}</span>`).join("")}</div></td>
     <td><div class="row-acts v">${market === "IN" ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
       `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button>` : ""}` +
+      `<button type="button" class="btn" data-sdet="${esc(s.key)}" title="Details: strategies, journal, levels" aria-label="${esc(s.symbol)} details" style="padding:4px 10px">ⓘ</button>` +
       `<button type="button" class="btn sig-del" data-sdel="${esc(s.key)}" title="Delete this signal" aria-label="Delete ${esc(s.symbol)} signal">✕</button></div></td>
   </tr>`;
   }).join("");
@@ -1832,7 +1835,7 @@ function drawEquity() {
 
 function renderEqTable() {
   document.getElementById("eqRows").innerHTML = (perf?.equity ?? []).map((p, k) => `<tr><td>${k + 1}</td><td>${esc(p.date)}</td>
-    <td><span class="sym">${esc(p.symbol)}</span> <span class="side ${esc(p.side)}">${esc(p.side)}</span> <span class="tf">${esc(p.timeframe)}</span></td>
+    <td><span class="sym" data-chart="${esc(p.symbol)}" data-tf="${esc(p.timeframe)}">${esc(p.symbol)}</span> <span class="side ${esc(p.side)}">${esc(p.side)}</span> <span class="tf">${esc(p.timeframe)}</span></td>
     <td>${esc(p.exit)}</td><td class="num">${rFmt(p.r)}</td><td class="num">${rFmt(p.net_r)}</td><td class="num">${rFmt(p.net)}</td></tr>`).join("");
 }
 
@@ -1886,7 +1889,7 @@ const orderActs = o => o.state !== "PENDING" ? ""
 // [id, tab label, rows getter, columns: [header, cell(row), numeric], empty text]
 const PORT_TABS = [
   ["holdings", "Holdings", p => p.holdings, [
-    ["Stock", h => `<span class="sym">${esc(h.symbol)}</span>`],
+    ["Stock", h => `<span class="sym" data-chart="${esc(h.symbol)}">${esc(h.symbol)}</span>`],
     ["Qty", h => qtyFmt(h.qty), 1], ["Avg cost", h => rupee(h.avg), 1], ["LTP", h => rupee(h.ltp), 1],
     ["Invested", h => rupee(h.invested, 0), 1], ["Value", h => rupee(h.value, 0), 1],
     ["P&L", h => `${signedRupee(h.pnl)}<div class="sub">${signedPct(h.pnl_pct)}</div>`, 1],
@@ -1895,7 +1898,7 @@ const PORT_TABS = [
       (h.sellable > 0 ? `<button type="button" class="btn close-trade" data-sell="${esc(h.symbol)}">Sell</button>` : "") + `</div>`],
   ], ["No holdings", "Shares in the demat account appear here."]],
   ["positions", "Positions today", p => p.positions, [
-    ["Stock", x => `<span class="sym">${esc(x.symbol)}</span> <span class="tf">${esc(x.product)}</span>`],
+    ["Stock", x => `<span class="sym" data-chart="${esc(x.tsym || x.symbol)}">${esc(x.symbol)}</span> <span class="tf">${esc(x.product)}</span>`],
     ["Net qty", x => qtyFmt(x.net_qty), 1], ["Bought", x => `${qtyFmt(x.buy_qty)}<div class="sub">@ ${rupee(x.buy_avg)}</div>`, 1],
     ["Sold", x => `${qtyFmt(x.sell_qty)}<div class="sub">@ ${rupee(x.sell_avg)}</div>`, 1],
     ["LTP", x => rupee(x.ltp), 1], ["P&L", x => signedRupee(x.pnl), 1],
@@ -1906,7 +1909,7 @@ const PORT_TABS = [
         : `<button type="button" class="btn close-trade" data-pclose="${esc(x.tsym)}" data-prod="${esc(x.product)}">Close</button>`; }],
   ], ["No positions today", "Trades made today show here until they settle into holdings."]],
   ["orders", "Orders today", p => p.orders, [
-    ["Time", o => esc(o.time)], ["Stock", o => `<span class="sym">${esc(o.symbol)}</span> <span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span>`],
+    ["Time", o => esc(o.time)], ["Stock", o => `<span class="sym" data-chart="${esc(o.symbol)}">${esc(o.symbol)}</span> <span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span>`],
     ["Type", o => `${esc(o.type)} <span class="tf">${esc(o.product)}</span>`],
     ["Qty", o => `${qtyFmt(o.filled_qty)} / ${qtyFmt(o.qty)}`, 1],
     ["Price", o => `${o.price == null ? "market" : rupee(o.price)}${o.trigger ? `<div class="sub">trigger ${rupee(o.trigger)}</div>` : ""}`, 1],
@@ -1918,7 +1921,7 @@ const PORT_TABS = [
   ], ["No orders today", "Orders placed today, by you or the app, appear here."]],
   ["history", "Order history", () => portHistory ?? [], [
     ["Time", o => `${esc(o.time.slice(0, 10))}<div class="sub">${esc(o.time.slice(11, 16))}</div>`],
-    ["Stock", o => `<span class="sym">${esc(o.symbol)}</span> <span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span>`],
+    ["Stock", o => `<span class="sym" data-chart="${esc(o.symbol)}">${esc(o.symbol)}</span> <span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span>`],
     ["Type", o => `${esc(o.type)} <span class="tf">${esc(o.product)}</span>`],
     ["Qty", o => `${qtyFmt(o.filled_qty)} / ${qtyFmt(o.qty)}`, 1],
     ["Price", o => `${o.price == null ? "market" : rupee(o.price)}${o.trigger ? `<div class="sub">trigger ${rupee(o.trigger)}</div>` : ""}`, 1],
@@ -1930,7 +1933,7 @@ const PORT_TABS = [
     ["", o => { const live = port?.orders?.find(x => x.order_id === o.order_id); return live ? orderActs(live) : ""; }],
   ], ["No order history yet", "Orders are saved from Kotak's order book (which only holds today's) whenever the dashboard reads it, for 3 years."]],
   ["risk", "Risk", () => riskData?.positions ?? [], [
-    ["Stock", r => `<span class="sym">${esc(r.symbol)}</span>`],
+    ["Stock", r => `<span class="sym" data-chart="${esc(r.symbol)}">${esc(r.symbol)}</span>`],
     ["Kind", r => r.stop == null ? `<span class="warnline">${esc(r.kind)}</span>` : esc(r.kind)],
     ["Qty", r => qtyFmt(r.qty), 1], ["Price", r => rupee(r.price), 1], ["Stop", r => rupee(r.stop), 1],
     ["LTP", r => rupee(r.ltp), 1], ["Value", r => rupee(r.value, 0), 1],
@@ -1939,7 +1942,7 @@ const PORT_TABS = [
     ["Sector", r => esc(r.sector)],
   ], ["Nothing at risk", "Auto-trade positions and your holdings appear here with what each would lose at its stop."]],
   ["trades", "App trades", p => p.trades, [
-    ["Day", t => esc(t.created_day)], ["Stock", t => `<span class="sym">${esc(t.symbol)}</span>`],
+    ["Day", t => esc(t.created_day)], ["Stock", t => `<span class="sym" data-chart="${esc(t.symbol)}">${esc(t.symbol)}</span>`],
     ["State", t => `<span class="pstate ${esc(t.state)}">${esc(TRADE_STATE[t.state] ?? t.state)}</span>`],
     ["Qty", t => qtyFmt(t.qty), 1], ["Entry", t => `${rupee(t.entry)}<div class="sub">${esc(t.entry_type)}</div>`, 1],
     ["Filled", t => rupee(t.fill_price), 1], ["Stop", t => rupee(t.stop), 1], ["Exit", t => rupee(t.exit_price), 1],
@@ -1951,8 +1954,8 @@ const PORT_TABS = [
   ], ["No automatic trades yet", "Trades the app places on Kotak (Auto-trade) are tracked here."]],
   ["otrades", "Option trades", p => p.option_trades ?? [], [
     ["Day", t => esc(t.created_day)],
-    ["Signal", t => `<span class="sym">${esc(t.underlying)}</span><div class="sub">${esc(t.side)} · ${esc(t.timeframe)}</div>`],
-    ["Option", t => t.tsym ? `${esc(t.tsym)}<div class="sub">exp ${esc(t.expiry)}</div>` : `<span class="flat">${t.opt === "CE" ? "call" : "put"}, picked at entry</span>`],
+    ["Signal", t => `<span class="sym" data-chart="${esc(t.underlying)}" data-tf="${esc(t.timeframe)}">${esc(t.underlying)}</span><div class="sub">${esc(t.side)} · ${esc(t.timeframe)}</div>`],
+    ["Option", t => t.tsym ? `<span class="sym" data-chart="${esc(t.tsym)}">${esc(t.tsym)}</span><div class="sub">exp ${esc(t.expiry)}</div>` : `<span class="flat">${t.opt === "CE" ? "call" : "put"}, picked at entry</span>`],
     ["State", t => `<span class="pstate ${esc(t.state)}">${esc(OPT_STATE[t.state] ?? t.state)}</span>`],
     ["Lots", t => t.lots ? `${t.lots}<div class="sub">${qtyFmt(t.qty)}</div>` : "–", 1],
     ["Underlying entry", t => `${rupee(t.u_entry)}<div class="sub">${esc(t.u_entry_type)}</div>`, 1],
@@ -2286,13 +2289,8 @@ async function openSell(symbol) {
 
 // Signals table: Buy prefilled from the signal (entry as the limit, risk-based quantity), Sell from holdings
 document.getElementById("rows").addEventListener("click", e => {
-  const sym = e.target.closest("a.sym");
-  if (sym && !(e.ctrlKey || e.metaKey || e.shiftKey)) {   // the detail sheet; ctrl-click still opens TradingView
-    const key = sym.closest("tr")?.querySelector("[data-sbuy]")?.dataset.sbuy ?? sym.dataset.key;
-    const s = data.find(x => x.key === key);
-    if (s) { e.preventDefault(); openDetail(s); }
-    return;
-  }
+  const det = e.target.closest("[data-sdet]");
+  if (det) { const s = data.find(x => x.key === det.dataset.sdet); if (s) openDetail(s); return; }
   const sell = e.target.closest("[data-ssell]");
   if (sell) { openSell(sell.dataset.ssell); return; }
   const del = e.target.closest("[data-sdel]");
@@ -2564,7 +2562,7 @@ function renderChain() {
   const rec = c.recent ?? [];
   optEl("optRecentCard").hidden = !rec.length;
   optEl("optRecent").innerHTML = rec.map(o => `<tr><td>${esc(o.placed_at.replace("T", " ").slice(5, 16))}</td>
-    <td><span class="sym">${esc(o.tsym)}</span></td><td><span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span></td>
+    <td><span class="sym" data-chart="${esc(o.tsym)}">${esc(o.tsym)}</span></td><td><span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span></td>
     <td class="num">${o.lots}</td><td class="num">${o.qty}</td><td class="num">${o.price == null ? "market" : rupee(o.price)}</td>
     <td>${esc(o.product)}${o.amo === "YES" ? " · AMO" : ""}</td>
     <td>${o.error ? `<span class="down">${esc(o.error)}</span>` : esc(o.order_id)}</td></tr>`).join("");
@@ -3089,7 +3087,7 @@ async function ensureSymbols() {
 const WL_TABS = [
   ["market", "Market today", () => [], [], ["", ""]],
   ["stocks", "Stocks", () => wl?.items ?? [], [
-    ["Stock", i => `<span class="sym">${esc(i.symbol)}</span>`],
+    ["Stock", i => `<span class="sym" data-chart="${esc(i.symbol)}">${esc(i.symbol)}</span>`],
     ["LTP", i => `<b>${rupee(i.ltp)}</b>`, 1],
     ["Change", i => i.change == null ? "–" : `${signedRupee(i.change)}<div class="sub ${cls(i.change)}">${sgn(i.change_pct, 2, "%")}</div>`, 1],
     ["Day range", i => i.low == null || i.high == null ? "–" : `<span class="dayrange"><i><b style="left:${
@@ -3101,7 +3099,7 @@ const WL_TABS = [
       `<button type="button" class="btn" data-wdel="${esc(i.symbol)}" title="Remove from the watchlist" style="padding:4px 10px;font-size:12px">✕</button></div>`],
   ], ["Your watchlist is empty", "Add stocks above to follow their live prices and set price alerts."]],
   ["alerts", "Price alerts", () => wl?.alerts ?? [], [
-    ["Stock", a => `<span class="sym">${esc(a.symbol)}</span>`],
+    ["Stock", a => `<span class="sym" data-chart="${esc(a.symbol)}">${esc(a.symbol)}</span>`],
     ["Alert", a => `${a.op === "above" ? "Rises above" : "Falls below"} <b>${rupee(a.price)}</b>`],
     ["Now", a => rupee(a.ltp), 1],
     ["Note", a => `<div class="note">${esc(a.note)}</div>`],
@@ -3282,7 +3280,7 @@ function renderSd() {
   const desc = name => STRATS.find(x => x.name === name)?.description ?? "";
   const reasons = String(s.reasons ?? "").split(", ").filter(Boolean);
   const stat = (k, v) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`;
-  sdBox.innerHTML = `<div class="row"><h3>${esc(s.symbol)} <span class="side ${s.side}">${s.side}</span></h3>
+  sdBox.innerHTML = `<div class="row"><h3><span class="sym" data-chart="${esc(s.symbol)}" data-tf="${esc(s.timeframe)}">${esc(s.symbol)}</span> <span class="side ${s.side}">${s.side}</span></h3>
       <span class="pill s-${s.status}">${STATUS_TEXT[s.status] ?? s.status}</span>
       <span class="est">${esc(signalTime(s))} · ${esc(s.timeframe)} · <span class="stars">${"★".repeat(s.score)}</span> ${s.score} vote${s.score === 1 ? "" : "s"}</span>
       <button class="btn icon" type="button" data-sd="close" title="Close" style="margin-left:auto">✕</button></div>
@@ -3662,7 +3660,7 @@ function renderTax() {
       signedRupee(t[c].pnl), `${t[c].trades} sale${t[c].trades === 1 ? "" : "s"}`)).join("")}</div>` +
     (tax.unmatched.length ? `<div class="notice" style="margin:0 16px 12px">${tax.unmatched.length} sale(s) have no saved buy before them ` +
       `(bought before the app kept history), so their cost is unknown: ${tax.unmatched.map(u => esc(u.symbol)).join(", ")}</div>` : "");
-  document.getElementById("taxRows").innerHTML = tax.realised.map(r => `<tr><td>${esc(r.sell_date)}</td><td><span class="sym">${esc(r.symbol)}</span></td>
+  document.getElementById("taxRows").innerHTML = tax.realised.map(r => `<tr><td>${esc(r.sell_date)}</td><td><span class="sym" data-chart="${esc(r.symbol)}">${esc(r.symbol)}</span></td>
     <td>${esc(r.category)}</td><td class="num">${qtyFmt(r.qty)}</td><td class="num">${esc(r.buy_date)}</td><td class="num">${rupee(r.buy_price)}</td>
     <td class="num">${rupee(r.sell_price)}</td><td class="num">${signedRupee(r.pnl)}</td><td class="num">${r.days}</td></tr>`).join("");
   const e = document.getElementById("taxEmpty");
@@ -3689,10 +3687,10 @@ function renderMarket() {
   const maxAbs = Math.max(1, ...mk.sectors.map(s => Math.abs(s.change_pct ?? 0)));
   const bar = v => `<span class="bar"><i style="${v >= 0 ? "left:50%" : `right:50%`};width:${Math.abs(v) / maxAbs * 50}%;background:${v >= 0 ? "var(--up)" : "var(--down)"}"></i></span>`;
   const list = (rows, label) => `<div class="mk-box"><span class="lbl">${label}</span>${rows.map(r =>
-    `<div class="mk-row"><span><span class="sym">${esc(r.symbol)}</span> <span class="flat">${rupee(r.ltp)}</span></span>${ch(r.change_pct)}</div>`).join("")}</div>`;
+    `<div class="mk-row"><span><span class="sym" data-chart="${esc(r.symbol)}">${esc(r.symbol)}</span> <span class="flat">${rupee(r.ltp)}</span></span>${ch(r.change_pct)}</div>`).join("")}</div>`;
   const b = mk.breadth, f = mk.flows;
   const flow = x => x ? `<b class="${cls(x.net)}">${x.net > 0 ? "+" : ""}₹${Math.round(x.net).toLocaleString("en-IN")} cr</b> <span class="flat">buy ${Math.round(x.buy).toLocaleString("en-IN")} · sell ${Math.round(x.sell).toLocaleString("en-IN")}</span>` : "–";
-  box.innerHTML = `<div class="mk-idx">${mk.indices.map(i => `<div><div class="n">${esc(i.name)}</div><div class="v">${num(i.ltp)}</div>${ch(i.change_pct)}</div>`).join("")}</div>
+  box.innerHTML = `<div class="mk-idx">${mk.indices.map(i => `<div><div class="n" data-chart="${esc(i.name)}">${esc(i.name)}</div><div class="v">${num(i.ltp)}</div>${ch(i.change_pct)}</div>`).join("")}</div>
     <div class="mk-cols">
       <div class="mk-box"><span class="lbl">NIFTY 100 breadth</span>
         <div class="mk-row"><span class="up">${b.up} up</span><span class="down">${b.down} down</span></div>
@@ -3701,7 +3699,7 @@ function renderMarket() {
         ${f ? `<div class="mk-row"><span>FII</span><span>${flow(f.fii)}</span></div><div class="mk-row"><span>DII</span><span>${flow(f.dii)}</span></div>`
             : `<div class="hint" style="margin:0">Unavailable from NSE right now</div>`}
       </div>
-      <div class="mk-box"><span class="lbl">Sectors</span>${mk.sectors.map(s => `<div class="mk-row"><span style="min-width:74px">${esc(s.name)}</span>${bar(s.change_pct ?? 0)}${ch(s.change_pct)}</div>`).join("")}</div>
+      <div class="mk-box"><span class="lbl">Sectors</span>${mk.sectors.map(s => `<div class="mk-row"><span style="min-width:74px" data-chart="Nifty ${esc(s.name)}">${esc(s.name)}</span>${bar(s.change_pct ?? 0)}${ch(s.change_pct)}</div>`).join("")}</div>
       <div class="mk-box"><span class="lbl">Industries (NIFTY 100, average)</span>${mk.industries.slice(0, 12).map(s =>
         `<div class="mk-row"><span>${esc(s.name)} <span class="flat">${s.stocks}</span></span>${ch(s.change_pct)}</div>`).join("")}</div>
     </div>
@@ -4050,13 +4048,22 @@ function chOpen() {
   if (ch.key !== chKey() || !ch.data) chLoad(true);
 }
 function openChart(sym, tf) {
-  ch.sym = String(sym).toUpperCase();
+  ch.sym = String(sym).trim();   // the server matches stocks and contracts in any case, indices by Kotak's name
   if (tf && CH_TFS.some(t => t[0] === tf)) { ch.tf = tf; store.set("chTf", tf); }
   if (view !== "chart") setView("chart"); else chOpen();
   if (PHONE.matches) window.scrollTo({ top: 0, behavior: "instant" });
 }
+// Any name marked data-chart (stock, index or option contract) opens it on the Chart tab; Ctrl-click keeps a link's own target
+document.addEventListener("click", e => {
+  const c = e.target.closest("[data-chart]");
+  if (!c || !c.dataset.chart || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  e.preventDefault(); e.stopPropagation();
+  document.querySelectorAll("dialog[open]").forEach(d => d.close());
+  if (sd) { sd = null; renderSd(); }   // the signal detail sheet
+  openChart(c.dataset.chart, c.dataset.tf || undefined);
+}, true);
 function chShow() {
-  const v = document.getElementById("chSym").value.trim().toUpperCase();
+  const v = document.getElementById("chSym").value.trim();
   if (v) { ch.sym = v; chLoad(true); }
 }
 document.getElementById("chGo").onclick = chShow;

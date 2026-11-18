@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "1d"]
 # timeframe -> (Kotak interval, most days of history Kotak returns in one request)
 KOTAK_TF = {"1m": ("1min", 7), "5m": ("5min", 20), "15m": ("15min", 40), "30m": ("30min", 60), "1h": ("60min", 60)}
+KOTAK_INDEX_DAILY = ("D", 170)   # Kotak has daily bars for indices only (none for stocks)
 YAHOO_PERIOD = {"1m": "7d", "5m": "60d", "15m": "60d", "30m": "60d", "1h": "730d", "1d": "2y"}
 INDEX_YAHOO_ALL = {**INDEX_YAHOO, "NIFTYNXT50": "^NSMIDCP"}
 MAX_BARS = 1500
@@ -51,7 +52,21 @@ def resolve(name: str, market: str = "IN") -> dict:
         sym = c["tsym"]
         return {"kind": "option", "symbol": sym, "label": f"{c['underlying']} {c['strike']:g} {c['opt']} · exp {exp}",
                 "kotak": f"{fno.SEGMENT}|{c['token']}", "lot": int(c["lot"])}
+    name = name.strip()
+    if _kotak_index(name):   # any other index Kotak quotes, by its Kotak name ("Nifty IT", "INDIA VIX")
+        return {"kind": "index", "symbol": name, "label": name, "kotak": f"nse_cm|{name}"}
     raise ValueError(f"{sym} isn't an NSE stock, index or option contract")
+
+
+_known_index: dict[str, bool] = {}
+
+
+def _kotak_index(name: str) -> bool:
+    if name not in _known_index:
+        if not kotak.enabled():
+            return False
+        _known_index[name] = kotak.index_quote(name) is not None
+    return _known_index[name]
 
 
 def _nearest_contract(text: str) -> dict | None:
@@ -106,9 +121,10 @@ def _fetch(inst: dict, tf: str, market: str) -> tuple[pd.DataFrame, str]:
     mkt = markets.get(market)
     today = mkt.now().date()
     use_kotak = market == "IN" and kotak.enabled() and "kotak" in inst
-    if use_kotak and tf in KOTAK_TF:
+    kotak_tf = KOTAK_TF.get(tf) or (KOTAK_INDEX_DAILY if tf == "1d" and inst["kind"] == "index" else None)
+    if use_kotak and kotak_tf:
         try:
-            interval, days = KOTAK_TF[tf]
+            interval, days = kotak_tf
             df = _kotak_history(inst["kotak"], interval, days, today)
             if not df.empty:
                 return df, "Kotak Neo, live"
