@@ -233,9 +233,9 @@ def test_status_never_moves_back(neo, monkeypatch, tg):
     assert tg.calls == []
 
 
-@pytest.mark.parametrize("old,new,back", [("ACTIVE", "PENDING", True), ("T1_HIT", "ACTIVE", True),
-                                          ("PENDING", "ACTIVE", False), ("ACTIVE", "SL_HIT", False),
-                                          ("T1_HIT", "BREAKEVEN", False), ("PENDING", "CANCELLED", False)])
+@pytest.mark.parametrize("old,new,back", [("ACTIVE", "PENDING", True), ("PENDING", "ACTIVE", False),
+                                          ("ACTIVE", "SL_HIT", False), ("ACTIVE", "T1_HIT", False),
+                                          ("PENDING", "CANCELLED", False)])
 def test_regressed(old, new, back):
     assert tracker._regressed(old, new) is back
 

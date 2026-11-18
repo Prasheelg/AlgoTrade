@@ -5,9 +5,16 @@ from datetime import datetime
 
 from . import config
 
-# Status lifecycle: PENDING -> (ACTIVE | CANCELLED) ; ACTIVE -> T1_HIT -> (T2_HIT | BREAKEVEN) ;
-# ACTIVE -> SL_HIT ; any filled open -> EXPIRED. Signals from before pending entries start ACTIVE.
-OPEN_STATUSES = ("PENDING", "ACTIVE", "T1_HIT")
+# Status lifecycle: PENDING -> (ACTIVE | CANCELLED) ; ACTIVE -> (T1_HIT | SL_HIT | EXPIRED), all closed.
+# (Older signals may show T2_HIT / BREAKEVEN: T1 used to move the stop to entry and let the trade run to T2.) Signals from before pending entries start ACTIVE.
+OPEN_STATUSES = ("PENDING", "ACTIVE")
+# Before targets closed trades at T1, T1_HIT was open (the stop moved to entry); such a signal is still tracked
+# until the tracker closes it at target 1
+LEGACY_OPEN = "status = 'T1_HIT' AND exit_price IS NULL"
+
+
+def is_open(s: dict) -> bool:
+    return s["status"] in OPEN_STATUSES or (s["status"] == "T1_HIT" and s.get("exit_price") is None)
 
 _EXTRA_COLUMNS = {
     "bar_date": "TEXT", "status": "TEXT DEFAULT 'ACTIVE'", "ltp": "REAL",
@@ -92,7 +99,7 @@ def all_signals(market: str | None = None) -> list[dict]:
 
 def open_signals() -> list[dict]:
     with _conn() as con:
-        q = f"SELECT * FROM signals WHERE status IN ({','.join('?' * len(OPEN_STATUSES))})"
+        q = f"SELECT * FROM signals WHERE status IN ({','.join('?' * len(OPEN_STATUSES))}) OR ({LEGACY_OPEN})"
         return [dict(r) for r in con.execute(q, OPEN_STATUSES)]
 
 

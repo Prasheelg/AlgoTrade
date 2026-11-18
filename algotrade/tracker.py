@@ -6,9 +6,9 @@ Each signal is replayed on bars of its own timeframe after the signal bar:
 - Entry reached                           -> ACTIVE (filled at the entry, or at the open if price gapped
                                              through it); on the fill bar only the SL is checked
 - SL touched first                        -> SL_HIT (closed)
-- Target 1 touched                        -> T1_HIT (still open, stop moves to entry)
-- After T1, price back to entry           -> BREAKEVEN (closed)
-- Target 2 touched                        -> T2_HIT (closed)
+- Target 1 touched                        -> T1_HIT (closed at target 1, as Auto-trade sells the whole position
+                                             there and the backtest scores it; target 2 isn't traded)
+  (T2_HIT and BREAKEVEN are from before, when the stop moved to entry at T1 and the trade ran on to T2)
 - Time exit                               -> EXPIRED (closed at market)
     daily signals: MAX_HOLD_BARS sessions after the fill
     intraday signals: squared off at the last bar of the signal's trading day
@@ -29,7 +29,7 @@ TRACK_PERIOD = {"1d": "3mo", "1h": "1mo", "30m": "1mo", "15m": "5d", "5m": "5d"}
 STATUS_LABEL = {
     "ACTIVE": "✅ Entry filled — trade is live",
     "CANCELLED": "❌ Entry not reached in time — order cancelled",
-    "T1_HIT": "🎯 Target 1 hit — move stop to entry",
+    "T1_HIT": "🎯 Target hit — trade closed",
     "T2_HIT": "🏆 Target 2 hit — trade closed",
     "SL_HIT": "🛑 Stop loss hit — trade closed",
     "BREAKEVEN": "➖ Back to entry after T1 — closed at breakeven",
@@ -96,11 +96,9 @@ def _walk(sig: dict, bars: pd.DataFrame, intraday: bool = False) -> dict:
 
         held += 1
         if hit(stop, True):
-            return close("SL_HIT" if out["status"] == "ACTIVE" else "BREAKEVEN", stop, ts)
-        if hit(sig["target2"], False):
-            return close("T2_HIT", sig["target2"], ts)
-        if out["status"] == "ACTIVE" and hit(sig["target1"], False):
-            out["status"], stop = "T1_HIT", out["fill_price"]
+            return close("SL_HIT", stop, ts)
+        if hit(sig["target1"], False):
+            return close("T1_HIT", sig["target1"], ts)
         if not intraday and held >= MAX_HOLD_BARS:
             return close("EXPIRED", float(b["Close"]), ts)
         prev = (ts, b)
@@ -115,7 +113,7 @@ def _bars_after(sig: dict, df: pd.DataFrame) -> pd.DataFrame:
 
 # Lifecycle order of open statuses; a refresh never moves a signal back (e.g. a fill seen on a live
 # quote stays filled while the delayed Yahoo bars catch up)
-OPEN_RANK = {"PENDING": 0, "ACTIVE": 1, "T1_HIT": 2}
+OPEN_RANK = {"PENDING": 0, "ACTIVE": 1}
 
 
 def _regressed(old: str, new: str) -> bool:
@@ -147,7 +145,9 @@ def update_all(notify: bool = True, market: str | None = None) -> int:
             ltp = round(float(df["Close"].iloc[-1]), 2)
             res = _walk(sig, _bars_after(sig, df), intraday=tf != "1d")
             fields = {"ltp": ltp}
-            if res["status"] != sig["status"] and not _regressed(sig["status"], res["status"]):
+            # (a T1_HIT left open from before, when T1 moved the stop, closes now at target 1)
+            moved = res["status"] != sig["status"] or (sig["exit_price"] is None and res["exit_price"] is not None)
+            if moved and not _regressed(sig["status"], res["status"]):
                 fields.update(res)
                 changes += 1
                 if notify and sig["telegram"]:  # only signals that were posted to Telegram

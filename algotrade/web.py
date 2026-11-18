@@ -28,7 +28,7 @@ def _enrich(s: dict) -> dict:
     sign = 1 if s["side"] == "BUY" else -1
     px = s["exit_price"] if s["exit_price"] is not None else (s["ltp"] or s["entry"])
     s["current"] = px
-    s["open"] = s["status"] in state.OPEN_STATUSES
+    s["open"] = state.is_open(s)
     # How far price is from a pending entry, in % (positive = still has to move that much)
     s["to_entry_pct"] = round(abs(s["entry"] - px) / px * 100, 2) if px else None
     if s["status"] in ("PENDING", "CANCELLED"):  # no position, so no P&L
@@ -121,7 +121,7 @@ def _live_ltp(mkt: markets.Market, sigs: list[dict]) -> None:
     from . import livefeed
     if mkt.code != "IN" or not livefeed.connected():
         return
-    open_ = [s for s in sigs if s["status"] in state.OPEN_STATUSES and s["exit_price"] is None]
+    open_ = [s for s in sigs if state.is_open(s) and s["exit_price"] is None]
     try:
         q = kotak.quotes(sorted({s["symbol"] for s in open_}))
     except Exception:

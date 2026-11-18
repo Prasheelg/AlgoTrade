@@ -240,7 +240,7 @@
   .stars { color: var(--warn); letter-spacing: 1px; font-size: 13px; }
   .tags { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; min-width: 200px; max-width: 280px; }
   /* Signals table: fits the panel without a sideways scroll. Long status notes wrap (two lines, the rest on hover),
-     SL / T1 / T2 sit under the level bar and the vote stars lead the strategy tags */
+     SL / target sit under the level bar and the vote stars lead the strategy tags */
   table.sigt { min-width: 0; }
   table.sigt .stock { flex-wrap: wrap; gap: 2px 8px; }
   table.sigt td.when { white-space: normal; min-width: 96px; }
@@ -297,7 +297,7 @@
   }
   .tags span { font-size: 11px; color: var(--ink-2); background: var(--neutral-bg); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
 
-  /* SL -> entry -> T1 -> T2 range with current-price marker */
+  /* SL -> entry -> target range with current-price marker */
   .range { position: relative; width: 150px; height: 24px; }
   .range .bar { position: absolute; top: 10px; left: 0; right: 0; height: 4px; border-radius: 2px;
                 background: linear-gradient(to right, color-mix(in srgb, var(--down) 35%, transparent) var(--e),
@@ -1117,7 +1117,7 @@
 </div>
 
 <script>
-const STATUS_TEXT = { PENDING: "Pending", CANCELLED: "Cancelled", ACTIVE: "Active", T1_HIT: "T1 hit", T2_HIT: "T2 hit", SL_HIT: "SL hit",
+const STATUS_TEXT = { PENDING: "Pending", CANCELLED: "Cancelled", ACTIVE: "Active", T1_HIT: "Target hit", T2_HIT: "T2 hit", SL_HIT: "SL hit",
                       BREAKEVEN: "Breakeven", EXPIRED: "Expired" };
 const TABS = [
   ["pending", "Pending entry", s => s.status === "PENDING"],
@@ -1134,7 +1134,7 @@ const EMPTY = {
 // [sort key, header, numeric]
 const COLS = [
   ["symbol", "Stock"], ["bar_time", "Signal"], ["status", "Status"], ["entry", "Entry", 1],
-  ["current", "LTP / Exit", 1], ["pnl_pct", "P&L", 1], [null, "SL → Entry → T1 → T2"],
+  ["current", "LTP / Exit", 1], ["pnl_pct", "P&L", 1], [null, "SL → Entry → Target"],
   ["score", "Strategies"], [null, ""],
 ];
 const FLAGS = { IN: "₹", US: "$" };
@@ -1193,7 +1193,7 @@ const cls = v => v > 0 ? "up" : v < 0 ? "down" : "flat";
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function rangeBar(s) {
-  const lo = Math.min(s.stop_loss, s.target2), hi = Math.max(s.stop_loss, s.target2);
+  const lo = Math.min(s.stop_loss, s.target1), hi = Math.max(s.stop_loss, s.target1);   // the trade closes at T1
   const pos = v => {
     let p = (v - lo) / (hi - lo) * 100;
     if (s.side === "SELL") p = 100 - p;
@@ -1202,10 +1202,9 @@ function rangeBar(s) {
   const color = s.pnl_pct >= 0 ? "var(--up)" : "var(--down)";
   const ref = s.fill_price ?? s.entry;
   return `<div class="range ${s.status === "PENDING" ? "pending" : ""}" style="--e:${pos(ref)}%"
-    title="SL ${inr(s.stop_loss)} · Entry ${inr(ref)} · T1 ${inr(s.target1)} · T2 ${inr(s.target2)} · Now ${inr(s.current)}">
+    title="SL ${inr(s.stop_loss)} · Entry ${inr(ref)} · Target ${inr(s.target1)} · Now ${inr(s.current)}">
     <div class="bar"></div>
     <div class="tick entry" style="left:${pos(ref)}%"></div>
-    <div class="tick" style="left:${pos(s.target1)}%"></div>
     <div class="dot" style="left:${pos(s.current)}%;background:${color}"></div></div>`;
 }
 
@@ -1226,7 +1225,9 @@ function renderTiles() {
   const signed = (v, d, suf = "") => `<span class="${cls(v)}">${sgn(v, d, suf)}</span>`;
 
   // Open positions
-  const t1 = count(open, s => s.status === "T1_HIT");
+  // Halfway or more from the fill to the target (the trade closes at the target)
+  const toward = s => { const f = s.fill_price ?? s.entry, d = s.target1 - f; return d ? (s.current - f) / d : 0; };
+  const t1 = count(open, s => toward(s) >= 0.5);
   const avgOpen = open.length ? sum(open, "pnl_pct") / open.length : 0;
   const pnls = open.map(s => s.pnl_pct);
   const near = count(pending, s => s.to_entry_pct != null && s.to_entry_pct <= 0.5);
@@ -1234,7 +1235,7 @@ function renderTiles() {
     kpi("Pending entries", pending.length, pending.length ? `${near} within 0.5% of entry` : "No orders waiting"),
     kpi("Active trades", open.length, open.length
       ? `${count(open, s => s.pnl_pct > 0)} up · ${count(open, s => s.pnl_pct < 0)} down` : "No open positions"),
-    kpi("Target 1 reached", t1, open.length ? `${Math.round(t1 / open.length * 100)}% of active` : "–",
+    kpi("Halfway to target", t1, open.length ? `${Math.round(t1 / open.length * 100)}% of active` : "–",
       open.length ? meter(t1 / open.length) : ""),
     kpi("Avg open P&L", open.length ? signed(avgOpen, 2, "%") : "–",
       open.length ? `hi ${sgn(Math.max(...pnls), 1, "%")} · lo ${sgn(Math.min(...pnls), 1, "%")}` : ""),
@@ -1302,7 +1303,7 @@ function renderTable() {
       ? `<div class="sub">${s.to_entry_pct.toFixed(2)}% to entry</div>` : ""}</td>
     <td class="num">${noPos ? `<span class="flat">–</span>`
       : `<span class="pnl ${cls(s.pnl_pct)}">${sgn(s.pnl_pct, 2, "%")}</span><div class="sub ${cls(s.pnl_r)}">${sgn(s.pnl_r)}R</div>`}</td>
-    <td class="lv">${rangeBar(s)}<div class="lvls"><span>SL ${num(s.stop_loss)}</span><span>T1 ${num(s.target1)}</span><span>T2 ${num(s.target2)}</span></div></td>
+    <td class="lv">${rangeBar(s)}<div class="lvls"><span>SL ${num(s.stop_loss)}</span><span>Target ${num(s.target1)}</span></div></td>
     <td><div class="tags"><b class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</b>${String(s.reasons ?? "").split(", ").filter(Boolean).map(r => `<span>${esc(r)}</span>`).join("")}</div></td>
     <td><div class="row-acts v">${market === "IN" ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
       `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button>` : ""}` +
@@ -2438,7 +2439,7 @@ function signalBuy(s) {
   const qty = risk ? Math.max(1, Math.min(Math.floor(cfg.capital * cfg.risk_pct / 100 / risk), Math.floor(cfg.capital / s.entry))) : 1;
   openBuy(s.symbol, { price: s.entry, qty, stop: s.stop_loss,
     note: `From the ${esc(s.timeframe)} signal: ${esc(s.entry_type ?? "limit")} entry ${inr(s.entry)} · stop ${inr(s.stop_loss)} · ` +
-          `T1 ${inr(s.target1)} · T2 ${inr(s.target2)} · ${qty} shares = ${cfg.risk_pct}% risk of ${inr(cfg.capital)}. ` +
+          `target ${inr(s.target1)} · ${qty} shares = ${cfg.risk_pct}% risk of ${inr(cfg.capital)}. ` +
           `<b>Your own order: no automatic stop-loss.</b>` });
 }
 
@@ -3351,7 +3352,7 @@ function sdChart(s, bars) {
   const W = Math.max(300, Math.round(sdBox.clientWidth - 24)), H = W < 500 ? 230 : 260, padR = 64, padT = 16, padB = 18;
   const n = bars.length;
   const levels = [["SL", s.stop_loss, "var(--down)"], ["Entry", s.fill_price ?? s.entry, "var(--ink-2)"],
-                  ["T1", s.target1, "var(--up)"], ["T2", s.target2, "var(--up)"]];
+                  ["Target", s.target1, "var(--up)"]];
   let lo = Math.min(...bars.map(b => b.l), ...levels.map(l => l[1])), hi = Math.max(...bars.map(b => b.h), ...levels.map(l => l[1]));
   const pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
   const x = i => (i + 0.5) * (W - padR) / n, y = v => padT + (hi - v) / (hi - lo) * (H - padT - padB);
@@ -3388,7 +3389,7 @@ function renderSd() {
     <div class="sd-chart">${sd.bars?.length ? sdChart(s, sd.bars) : `<div class="empty">${sd.err ? esc(sd.err) : "Loading chart…"}</div>`}</div>
     <div class="sd-stats">${stat("Entry", inr(s.entry) + (s.entry_type ? ` <span class="tf">${esc(s.entry_type)}</span>` : ""))}${stat(s.open ? "LTP" : "Exit", inr(s.current))}
       ${stat("P&L", noPos ? "–" : `<span class="${cls(s.pnl_pct)}">${sgn(s.pnl_pct, 2, "%")}</span><div class="sub ${cls(s.pnl_r)}">${sgn(s.pnl_r)}R</div>`)}
-      ${stat("Stop", inr(s.stop_loss))}${stat("Target 1", inr(s.target1))}${stat("Target 2", inr(s.target2))}</div>
+      ${stat("Stop", inr(s.stop_loss))}${stat("Target", inr(s.target1))}</div>
     ${sd.ev ? `<div class="evline ${sd.ev.warning ? "warn" : ""}">${sd.ev.warning ? `⚠ ${esc(sd.ev.warning)}: prices can jump` :
       [sd.ev.results ? `Results ${esc(sd.ev.results)}` : "", sd.ev.ex_dividend ? `ex-dividend ${esc(sd.ev.ex_dividend)}` : ""].filter(Boolean).join(" · ") || "No upcoming results or dividend known"}</div>` : ""}
     <ul class="sd-strats">${reasons.map(r => `<li><b>${esc(r)}</b>${desc(r) ? ` · ${esc(desc(r))}` : ""}</li>`).join("")}</ul>
@@ -3821,7 +3822,7 @@ function renderMarket() {
 // card roles by column header: title, badge beside it, and full-width cells; the rest form a grid of figures
 const PRIMARY = new Set(["Stock", "Contract", "Group", "Strategy"]);
 const ASIDE = new Set(["Status", "State", "Verdict", "Category"]);
-const WIDE = new Set(["SL → Entry → T1 → T2", "Strategies", "Reason", "Note", "Order #", "Order # / error", ""]);
+const WIDE = new Set(["SL → Entry → Target", "Strategies", "Reason", "Note", "Order #", "Order # / error", ""]);
 function labelCells(table) {
   const heads = [...table.querySelectorAll("thead th")].map(th => th.textContent.replace(/[↑↓]/g, "").trim());
   table.querySelectorAll("tbody tr").forEach(tr => [...tr.children].forEach((td, i) => {

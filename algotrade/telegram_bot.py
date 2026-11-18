@@ -88,8 +88,8 @@ def format_signal(sig) -> str:
     lines += [
         f"<b>Stop Loss:</b> {c}{sig.stop_loss:,.2f}  (risk {c}{risk:,.2f}/sh)",
     ]
-    for n, (t, m) in enumerate(zip(sig.targets, config.TARGET_R_MULTIPLES), 1):
-        lines.append(f"<b>Target {n}:</b> {c}{t:,.2f}  ({m}R)")
+    # One target: the trade (and Auto-trade's order) closes there
+    lines.append(f"<b>Target:</b> {c}{sig.targets[0]:,.2f}  ({config.TARGET_R_MULTIPLES[0]}R)")
     lines += [
         f"<b>Qty:</b> {sig.qty} (risking {config.RISK_PER_TRADE_PCT}% of {c}{mkt.capital:,.0f})",
         "",

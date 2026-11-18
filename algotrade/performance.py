@@ -9,8 +9,9 @@ import pandas as pd
 
 from . import config, costs, markets, state
 
-CLOSED = ("T2_HIT", "SL_HIT", "BREAKEVEN", "EXPIRED")
-EXIT_TEXT = {"T2_HIT": "Target 2", "SL_HIT": "Stop loss", "BREAKEVEN": "Breakeven", "EXPIRED": "Time exit"}
+CLOSED = ("T1_HIT", "T2_HIT", "SL_HIT", "BREAKEVEN", "EXPIRED")   # T2_HIT / BREAKEVEN: from before T1 closed trades
+EXIT_TEXT = {"T1_HIT": "Target", "T2_HIT": "Target 2", "SL_HIT": "Stop loss", "BREAKEVEN": "Breakeven",
+             "EXPIRED": "Time exit"}
 TF_TEXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hour", "1d": "Daily"}
 MIN_TRADES = 30  # fewer closed trades than this are too few to judge an edge
 
@@ -39,7 +40,7 @@ def closed_trades(market: str, since: date | None = None) -> list[dict]:
         # Slippage as in the backtest: stop entries / gap fills, and every exit except a target
         slip_entry = s["entry_type"] != "limit" or fill != s["entry"]
         net = model.net_r(s["side"], fill, s["exit_price"], risk, _qty(mkt, s["entry"], risk),
-                          slip_entry, s["status"] != "T2_HIT")
+                          slip_entry, s["status"] not in ("T1_HIT", "T2_HIT"))
         opened = (s["filled_at"] or s["bar_date"] or s["closed_at"])[:10]
         out.append({"key": s["key"], "symbol": s["symbol"], "side": s["side"], "timeframe": s["timeframe"],
                     "entry_type": s["entry_type"], "status": s["status"], "closed_at": str(closed),
@@ -153,7 +154,7 @@ def report(market: str, days: int | None = None) -> dict:
         curve.append({"date": t["closed_at"], "symbol": t["symbol"], "side": t["side"], "timeframe": t["timeframe"],
                       "exit": EXIT_TEXT[t["status"]], "r": t["r"],
                       "net_r": t["net_r"], "gross": round(gross, 2), "net": round(net, 2)})
-    open_count = sum(s["status"] in state.OPEN_STATUSES for s in state.all_signals(market))
+    open_count = sum(state.is_open(s) for s in state.all_signals(market))
     from . import journal
     tags = {k: e["tags"] for k, e in journal.all_entries().items() if e["tags"]}
     mkt = markets.get(market)

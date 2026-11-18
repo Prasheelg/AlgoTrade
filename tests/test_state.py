@@ -141,11 +141,14 @@ def test_all_signals_market_filter_and_order(monkeypatch):
 
 
 def test_open_signals_only_open_statuses():
-    assert state.OPEN_STATUSES == ("PENDING", "ACTIVE", "T1_HIT")
-    syms = ["P", "A", "T1", "T2", "SL", "BE", "EX", "CA"]
+    assert state.OPEN_STATUSES == ("PENDING", "ACTIVE")
+    syms = ["P", "A", "T1", "T1C", "T2", "SL", "BE", "EX", "CA"]
     state.record([make_signal(symbol=s) for s in syms])
-    for s, st in zip(syms[1:], ["ACTIVE", "T1_HIT", "T2_HIT", "SL_HIT", "BREAKEVEN", "EXPIRED", "CANCELLED"]):
+    for s, st in zip(syms[1:], ["ACTIVE", "T1_HIT", "T1_HIT", "T2_HIT", "SL_HIT", "BREAKEVEN", "EXPIRED",
+                                "CANCELLED"]):
         state.update_signal(f"{s}|BUY|2024-01-01", status=st)
+    state.update_signal("T1C|BUY|2024-01-01", exit_price=103.5)   # closed at target 1
+    # T1_HIT without an exit is one left open from before T1 closed trades: tracked until it closes
     assert sorted(r["symbol"] for r in state.open_signals()) == ["A", "P", "T1"]
 
 

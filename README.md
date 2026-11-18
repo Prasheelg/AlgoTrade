@@ -72,7 +72,7 @@ FILTERS_IN=trend,rs
 - mixed votes go to whichever kind has more votes (ties → limit). SELL setups mirror this.
 
 The order is valid for `ENTRY_VALID_BARS` (3) bars; intraday orders also lapse at that day's close.
-Stop loss = 1.5 × ATR from the entry (or a zone / level stop); targets at 1.5R and 3R; quantity sized so one loss costs `RISK_PER_TRADE_PCT` of `CAPITAL`.
+Stop loss = 1.5 × ATR from the entry (or a zone / level stop); one target at 1.5R, where the whole position is sold; quantity sized so one loss costs `RISK_PER_TRADE_PCT` of `CAPITAL`.
 Filters: price ≥ ₹50 and 20-day average turnover ≥ ₹5 Cr. Alerts are de-duplicated per symbol, side and day (`data/signals.db`).
 
 ## NR7 index breakout
@@ -85,8 +85,8 @@ The continuous scanner (`run.bat`) still uses the settings in `.env`.
 
 ## Performance view
 The **Performance** switch at the top of the dashboard shows how the signals have actually done, per market:
-win rate, average R, profit factor, total R and maximum drawdown for closed trades (target 2, stop loss,
-breakeven or time exit; cancelled entries and open trades are not counted). Every figure is shown before and
+win rate, average R, profit factor, total R and maximum drawdown for closed trades (target, stop loss
+or time exit; older target 2 and breakeven exits included; cancelled entries and open trades are not counted). Every figure is shown before and
 after costs, using the same cost model as the backtest, with an equity curve of cumulative R, a table of the
 trades, and breakdowns by strategy, timeframe, exit, order type and side. If a backtest has been run with costs,
 its average R per trade is shown alongside for comparison. Pick all time, 90 days or 30 days. Fewer than
@@ -139,8 +139,8 @@ instead of win / loss gave the same picture.
 
 ## Signal tracking
 Each signal is followed on bars of its own timeframe: **Pending** until the entry is reached
-(**Cancelled** if it isn't in time; filled at the open if price gaps through it) **→ Active → T1 hit** (stop moves to entry) **→ T2 hit** or **Breakeven**;
-**SL hit** closes it; daily signals still open after 20 sessions are **Expired**; intraday signals are closed at the end of their trading day. Status changes (including fills and cancellations)
+(**Cancelled** if it isn't in time; filled at the open if price gaps through it) **→ Active →** **Target hit** (closed at the
+target, as Auto-trade sells there and the backtest scores it) or **SL hit**; daily signals still open after 20 sessions are **Expired**; intraday signals are closed at the end of their trading day. Status changes (including fills and cancellations)
 are posted to Telegram for signals that were sent there.
 
 ### Real-time prices (India, optional)

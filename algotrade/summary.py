@@ -53,14 +53,14 @@ def _signals(day: str) -> list[str]:
     new = [s for s in sigs if (s["sent_at"] or "")[:10] == day]
     if new:
         out.append(f"<b>New signals</b> ({len(new)}): " + ", ".join(f"{s['side']} {s['symbol']}" for s in new[:MAX_LINES]))
-    active = [s for s in sigs if s["status"] in ("ACTIVE", "T1_HIT")]
+    active = [s for s in sigs if s["status"] == "ACTIVE"]
     if active:
         out.append(f"<b>Open signals</b> ({len(active)})")
         for s in active[:MAX_LINES]:
             px, fill = s["ltp"] or s["entry"], s["fill_price"] or s["entry"]
             sign = 1 if s["side"] == "BUY" else -1
             out.append(f"  {s['symbol']} {sign * _pct(px, fill):+.1f}% · stop {abs(_pct(s['stop_loss'], px)):.1f}% away"
-                       f" · T{'2' if s['status'] == 'T1_HIT' else '1'} {abs(_pct(s['target2'] if s['status'] == 'T1_HIT' else s['target1'], px)):.1f}% away")
+                       f" · target {abs(_pct(s['target1'], px)):.1f}% away")
     pending = [s for s in sigs if s["status"] == "PENDING"]
     if pending:
         out.append(f"Pending entries: {len(pending)}")

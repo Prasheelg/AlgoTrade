@@ -28,7 +28,7 @@ HELP = ("<b>AlgoTrade commands</b>\n/positions · open signals and Auto-trade po
 
 def _positions(_args) -> str:
     from . import orders
-    sigs = [s for s in state.all_signals("IN") if s["status"] in ("ACTIVE", "T1_HIT", "PENDING")]
+    sigs = [s for s in state.all_signals("IN") if s["status"] in ("ACTIVE", "PENDING")]
     lines = []
     for s in sigs[:20]:
         px, fill = s["ltp"] or s["entry"], s["fill_price"] or s["entry"]

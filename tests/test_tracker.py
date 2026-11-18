@@ -108,30 +108,20 @@ def test_sl_before_target_in_same_bar():
     assert out["status"] == "SL_HIT" and out["exit_price"] == 96.0 and out["closed_at"] == "2024-01-03"
 
 
-def test_t2_checked_before_t1():
-    out = _walk(sig_row(), days((100, 101, 98.5, 100), (100, 108, 99.5, 107)))
-    assert out["status"] == "T2_HIT" and out["exit_price"] == 108.0
-
-
-def test_t1_then_breakeven_at_fill_price():
+def test_target_1_closes_the_trade():
+    """As Auto-trade does: the whole position is sold at target 1 (target 2 isn't traded)."""
     fill = (100, 101, 98.5, 100)
-    t1 = (100, 104, 99.5, 103)
-    back = (101, 101.5, 98.8, 99)
-    out = _walk(sig_row(), days(fill, t1))
-    assert out["status"] == "T1_HIT" and out["exit_price"] is None
-    out = _walk(sig_row(), days(fill, t1, back))
-    assert out == {"status": "BREAKEVEN", "exit_price": 99.0, "closed_at": "2024-01-04", "fill_price": 99.0,
+    out = _walk(sig_row(), days(fill, (100, 104, 99.5, 103)))
+    assert out == {"status": "T1_HIT", "exit_price": 103.5, "closed_at": "2024-01-03", "fill_price": 99.0,
                    "filled_at": "2024-01-02T00:00:00"}
+    # a bar that also reaches target 2 still closes at target 1; later bars don't matter
+    out = _walk(sig_row(), days(fill, (100, 108, 99.5, 107), (107, 109, 95, 96)))
+    assert (out["status"], out["exit_price"], out["closed_at"]) == ("T1_HIT", 103.5, "2024-01-03")
 
 
-def test_breakeven_uses_gap_fill_price():
-    out = _walk(sig_row(), days((98.5, 99, 98.2, 98.8), (99, 104, 98.9, 103), (101, 101, 98.4, 98.6)))
-    assert out["status"] == "BREAKEVEN" and out["exit_price"] == 98.5
-
-
-def test_t1_then_t2():
-    out = _walk(sig_row(), days((100, 101, 98.5, 100), (100, 104, 99.5, 103), (103, 109, 102, 108)))
-    assert out["status"] == "T2_HIT" and out["exit_price"] == 108.0
+def test_target_from_a_gap_fill():
+    out = _walk(sig_row(), days((98.5, 99, 98.2, 98.8), (99, 104, 98.9, 103)))
+    assert (out["status"], out["fill_price"], out["exit_price"]) == ("T1_HIT", 98.5, 103.5)
 
 
 def test_daily_expiry_after_20_held_bars_fill_bar_not_counted():
@@ -144,8 +134,8 @@ def test_daily_expiry_after_20_held_bars_fill_bar_not_counted():
     assert out["closed_at"] == str(days(*rows).index[-1].date())
 
 
-def test_expired_after_t1_keeps_running():
-    rows = [(100, 101, 98.5, 100), (100, 104, 99.5, 103)] + [(103, 103.2, 102, 103)] * 19
+def test_below_target_expires_at_the_time_exit():
+    rows = [(100, 101, 98.5, 100)] + [(103, 103.2, 102, 103)] * 20
     out = _walk(sig_row(), days(*rows))
     assert out["status"] == "EXPIRED" and out["exit_price"] == 103.0
 
@@ -166,7 +156,7 @@ def test_sell_mirror(monkeypatch):
     fill = (100, 101.5, 99.5, 100)
     assert _walk(s, days(fill))["fill_price"] == 101.0
     out = _walk(s, days(fill, (100, 100.5, 96, 97), (98, 101.2, 97, 101)))
-    assert out["status"] == "BREAKEVEN" and out["exit_price"] == 101.0
+    assert out["status"] == "T1_HIT" and out["exit_price"] == 96.5
     out = _walk(s, days(fill, (100, 105, 91, 100)))
     assert out["status"] == "SL_HIT" and out["exit_price"] == 104.0
     out = _walk(s, days((103, 103.5, 102, 103)))
@@ -277,10 +267,10 @@ def test_update_all_status_change_writes_fields_and_notifies(monkeypatch, tg):
     assert fetch.calls == [dict(symbols=["X"], timeframe="1d", period="3mo", market="IN")]
     r = _row(sig.key)
     assert (r["status"], r["fill_price"], r["filled_at"], r["exit_price"], r["closed_at"], r["ltp"]) == \
-        ("T1_HIT", 99.0, "2024-01-02T00:00:00", None, None, 103.25)
+        ("T1_HIT", 99.0, "2024-01-02T00:00:00", 103.5, "2024-01-03", 103.25)
     assert len(tg.calls) == 1
-    assert tg.calls[0][0][0] == ("<b>BUY X</b> (1d) update\n🎯 Target 1 hit — move stop to entry\n"
-                                 "Entry ₹99.00 → ₹103.25 (+4.29%)")
+    assert tg.calls[0][0][0] == ("<b>BUY X</b> (1d) update\n🎯 Target hit — trade closed\n"
+                                 "Entry ₹99.00 → ₹103.50 (+4.55%)")
 
     # replay is idempotent: no change, no message, ltp still updated
     assert tracker.update_all() == 0
@@ -382,3 +372,17 @@ def test_update_all_sees_forming_daily_bar_during_session(monkeypatch, tg):
     assert tracker.update_all(notify=False) == 1
     r = _row(sig.key)
     assert (r["status"], r["filled_at"], r["ltp"]) == ("ACTIVE", "2024-01-03T00:00:00", 99.4)
+
+
+def test_a_t1_hit_left_open_from_before_closes_at_target_1(monkeypatch, tg):
+    """Before T1 closed trades, T1_HIT was open with the stop at entry: the tracker now closes it at target 1."""
+    sig = make_signal(symbol="X", bar_time=pd.Timestamp("2024-01-01"))
+    state.record([sig], telegram=True)
+    state.update_signal(sig.key, status="T1_HIT", fill_price=99.0, filled_at="2024-01-02T00:00:00")
+    assert [s["key"] for s in state.open_signals()] == [sig.key]
+    frame = daily_frame([(100, 101, 98.5, 100), (100, 104, 99.5, 103.25), QUIET])
+    monkeypatch.setattr(tracker, "fetch_ohlcv", FakeFetch({"X": frame}))
+    assert tracker.update_all() == 1
+    r = _row(sig.key)
+    assert (r["status"], r["exit_price"], r["closed_at"]) == ("T1_HIT", 103.5, "2024-01-03")
+    assert state.open_signals() == []
