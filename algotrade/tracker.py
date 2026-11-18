@@ -18,24 +18,13 @@ import logging
 
 import pandas as pd
 
-from . import config, kotak, markets, state, telegram_bot
+from . import config, kotak, state, telegram_bot
 from .data import fetch_ohlcv
 
 log = logging.getLogger(__name__)
 MAX_HOLD_BARS = 20
 # History needed to cover a signal's whole life on each timeframe
 TRACK_PERIOD = {"1d": "3mo", "1h": "1mo", "30m": "1mo", "15m": "5d", "5m": "5d"}
-
-STATUS_LABEL = {
-    "ACTIVE": "✅ Entry filled — trade is live",
-    "CANCELLED": "❌ Entry not reached in time — order cancelled",
-    "T1_HIT": "🎯 Target hit — trade closed",
-    "T2_HIT": "🏆 Target 2 hit — trade closed",
-    "SL_HIT": "🛑 Stop loss hit — trade closed",
-    "BREAKEVEN": "➖ Back to entry after T1 — closed at breakeven",
-    "EXPIRED": "⌛ Time exit — closed at market",
-}
-
 
 def fill_price(side: str, entry_type: str, entry: float, bar) -> float | None:
     """Price a pending limit / stop order fills at on this bar, or None if it isn't reached.
@@ -132,7 +121,6 @@ def update_all(notify: bool = True, market: str | None = None) -> int:
         live = kotak.quotes(sorted({s["symbol"] for s in open_sigs if s["market"] == "IN"}))
     for mk, tf in sorted({(s["market"], s["timeframe"]) for s in open_sigs}):
         group = [s for s in open_sigs if s["market"] == mk and s["timeframe"] == tf]
-        cur = markets.get(mk).currency
         data = fetch_ohlcv(sorted({s["symbol"] for s in group}), tf, period=TRACK_PERIOD.get(tf, "1mo"),
                            market=mk)
         for sig in group:
@@ -151,17 +139,7 @@ def update_all(notify: bool = True, market: str | None = None) -> int:
                 fields.update(res)
                 changes += 1
                 if notify and sig["telegram"]:  # only signals that were posted to Telegram
-                    flag = "" if mk == "IN" else markets.get(mk).flag + " "
-                    head = f"{flag}<b>{sig['side']} {sig['symbol']}</b> ({tf}) update\n{STATUS_LABEL[res['status']]}\n"
-                    if res["status"] == "CANCELLED":
-                        body = f"Entry {cur}{sig['entry']:,.2f} not reached · LTP {cur}{ltp:,.2f}"
-                    else:
-                        sign = 1 if sig["side"] == "BUY" else -1
-                        fill = res["fill_price"] or sig["entry"]
-                        px = res["exit_price"] if res["exit_price"] is not None else ltp
-                        pnl = sign * (px - fill) / fill * 100
-                        body = f"Entry {cur}{fill:,.2f} → {cur}{px:,.2f} ({pnl:+.2f}%)"
-                    telegram_bot.send_message(head + body)
+                    telegram_bot.send_message(telegram_bot.format_update(sig, res, ltp))
             state.update_signal(sig["key"], **fields)
     log.info("Tracked %d open signals, %d status changes", len(open_sigs), changes)
     return changes

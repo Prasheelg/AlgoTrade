@@ -269,8 +269,10 @@ def test_update_all_status_change_writes_fields_and_notifies(monkeypatch, tg):
     assert (r["status"], r["fill_price"], r["filled_at"], r["exit_price"], r["closed_at"], r["ltp"]) == \
         ("T1_HIT", 99.0, "2024-01-02T00:00:00", 103.5, "2024-01-03", 103.25)
     assert len(tg.calls) == 1
-    assert tg.calls[0][0][0] == ("<b>BUY X</b> (1d) update\n🎯 Target hit — trade closed\n"
-                                 "Entry ₹99.00 → ₹103.50 (+4.55%)")
+    assert tg.calls[0][0][0] == ("🎯 <b>Target hit</b> · trade closed\n"
+                                 "🟢 BUY  <b>X</b> · Daily\n\n"
+                                 "<pre>Entry   ₹99.00\nExit   ₹103.50</pre>\n"
+                                 "🟩 <b>+4.55%</b> · +1.50R")
 
     # replay is idempotent: no change, no message, ltp still updated
     assert tracker.update_all() == 0
@@ -296,8 +298,9 @@ def test_update_all_cancelled_message_and_us_flag(monkeypatch, tg):
     monkeypatch.setattr(tracker, "fetch_ohlcv", FakeFetch({"AAPL": daily_frame([QUIET] * 3)}))
     assert tracker.update_all() == 1
     assert _row(sig.key)["status"] == "CANCELLED"
-    assert tg.calls[0][0][0] == ("🇺🇸 <b>BUY AAPL</b> (1d) update\n❌ Entry not reached in time — order cancelled\n"
-                                 "Entry $99.00 not reached · LTP $100.00")
+    assert tg.calls[0][0][0] == ("❌ <b>Entry not reached</b> · order cancelled\n"
+                                 "🇺🇸 🟢 BUY  <b>AAPL</b> · Daily\n\n"
+                                 "<pre>Entry   $99.00\nLast   $100.00</pre>")
 
 
 def test_update_all_exit_price_used_in_pnl(monkeypatch, tg):
@@ -308,7 +311,8 @@ def test_update_all_exit_price_used_in_pnl(monkeypatch, tg):
     assert tracker.update_all() == 1
     r = _row(sig.key)
     assert (r["status"], r["exit_price"], r["closed_at"], r["ltp"]) == ("SL_HIT", 96.0, "2024-01-03", 100.0)
-    assert tg.calls[0][0][0].endswith("Entry ₹99.00 → ₹96.00 (-3.03%)")
+    assert tg.calls[0][0][0].startswith("🛑 <b>Stop loss hit</b>")
+    assert tg.calls[0][0][0].endswith("<pre>Entry  ₹99.00\nExit   ₹96.00</pre>\n🟥 <b>-3.03%</b> · -1.00R")
 
 
 def test_update_all_telegram0_rows_never_notified(monkeypatch, tg):

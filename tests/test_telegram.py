@@ -7,22 +7,23 @@ import requests
 from algotrade import config, telegram_bot
 from conftest import ORIGINAL_SEND, FakeResponse, Recorder, make_signal
 
-FOOTER = "\n\n<i>Not investment advice. Verify before trading.</i>"
+FOOTER = "\n\n<a href=\"https://www.tradingview.com/chart/?symbol={sym}\">📈 Chart</a>\n" \
+         "<i>Not investment advice. Verify before trading.</i>"
 
 
 def test_format_in_buy_limit():
     assert telegram_bot.format_signal(make_signal()) == (
-        "🟢 <b>BUY RELIANCE</b>  ⭐⭐\n"
-        "<a href=\"https://www.tradingview.com/chart/?symbol=NSE:RELIANCE\">Chart</a> · TF: 1d\n"
+        "🟢 <b>BUY  RELIANCE</b>   ⭐⭐\n"
+        "<i>Daily · Buy limit · on the pullback</i>\n"
         "\n"
-        "<b>Entry:</b> ₹99.00  (buy limit — wait for the pullback)\n"
-        "<i>Now ₹100.00 · order valid 3 sessions</i>\n"
-        "<b>Stop Loss:</b> ₹96.00  (risk ₹3.00/sh)\n"
-        "<b>Target:</b> ₹103.50  (1.5R)\n"
-        "<b>Qty:</b> 333 (risking 1.0% of ₹100,000)\n"
+        "<pre>Entry    ₹99.00\n"
+        "Stop     ₹96.00  -3.03%\n"
+        "Target  ₹103.50  +4.55% · 1.5R</pre>\n"
+        "Qty <b>333</b> · risk ₹999 <i>(1% of ₹1,00,000)</i>\n"
+        "⏳ Now ₹100.00 · order valid 3 sessions\n"
         "\n"
-        "<b>Signals (2):</b> EMA 9/21 Cross, RSI Pullback\n"
-        "RSI 55.0 · ADX 25.0 · Vol 2.0x avg" + FOOTER)
+        "🧭 <b>2 votes</b> · EMA 9/21 Cross · RSI Pullback\n"
+        "RSI 55 · ADX 25 · Vol 2× avg" + FOOTER.format(sym="NSE:RELIANCE"))
 
 
 def test_format_us_stop_intraday():
@@ -30,47 +31,63 @@ def test_format_us_stop_intraday():
                     stop_loss=1200.0, targets=[1286.25, 1338.0], qty=2, score=3, ref_price=1230.0,
                     reasons=["EMA 9/21 Cross", "20-bar Breakout", "MACD Trend Cross"])
     assert telegram_bot.format_signal(s) == (
-        "🇺🇸 🟢 <b>BUY BRK.B</b>  ⭐⭐⭐\n"
-        "<a href=\"https://www.tradingview.com/chart/?symbol=BRK.B\">Chart</a> · TF: 15m\n"
+        "🇺🇸 🟢 <b>BUY  BRK.B</b>   ⭐⭐⭐\n"
+        "<i>15 min · Buy stop · on a break above</i>\n"
         "\n"
-        "<b>Entry:</b> $1,234.50  (buy stop — on a break above)\n"
-        "<i>Now $1,230.00 · order valid 3 15m bars, same day only</i>\n"
-        "<b>Stop Loss:</b> $1,200.00  (risk $34.50/sh)\n"
-        "<b>Target:</b> $1,286.25  (1.5R)\n"
-        "<b>Qty:</b> 2 (risking 1.0% of $10,000)\n"
+        "<pre>Entry   $1,234.50\n"
+        "Stop    $1,200.00  -2.79%\n"
+        "Target  $1,286.25  +4.19% · 1.5R</pre>\n"
+        "Qty <b>2</b> · risk $69 <i>(1% of $10,000)</i>\n"
+        "⏳ Now $1,230.00 · order valid 3 × 15m bars, today only\n"
         "\n"
-        "<b>Signals (3):</b> EMA 9/21 Cross, 20-bar Breakout, MACD Trend Cross\n"
-        "RSI 55.0 · ADX 25.0 · Vol 2.0x avg" + FOOTER)
+        "🧭 <b>3 votes</b> · EMA 9/21 Cross · 20-bar Breakout · MACD Trend Cross\n"
+        "RSI 55 · ADX 25 · Vol 2× avg" + FOOTER.format(sym="BRK.B"))
 
 
 def test_format_in_sell_has_short_note():
     s = make_signal(side="SELL", entry=101.0, stop_loss=104.0, targets=[96.5, 92.0])
     text = telegram_bot.format_signal(s)
-    assert text.startswith("🔴 <b>SELL RELIANCE</b>")
-    assert "<b>Entry:</b> ₹101.00  (sell limit — wait for the bounce)\n" in text
-    assert text.endswith("Vol 2.0x avg\n<i>Short: intraday cash or F&amp;O only</i>" + FOOTER)
+    assert text.startswith("🔴 <b>SELL  RELIANCE</b>")
+    assert "<i>Daily · Sell limit · on the bounce</i>" in text
+    assert "Vol 2× avg\n⚠️ <i>Short: intraday cash or F&amp;O only</i>\n\n<a " in text
     us = telegram_bot.format_signal(make_signal(side="SELL", market="US", entry_type="stop"))
-    assert "Short:" not in us and "(sell stop — on a break below)" in us
+    assert "Short:" not in us and "Sell stop · on a break below" in us
 
 
-def test_format_market_entry_has_no_now_line():
+def test_format_market_entry_has_no_order_line():
     text = telegram_bot.format_signal(make_signal(entry_type="market"))
-    assert "<i>Now" not in text
-    assert "\n<b>Entry:</b> ₹99.00  \n<b>Stop Loss:</b>" in text  # no order text, trailing spaces kept
+    assert "⏳" not in text and "<i>Daily · At market</i>" in text
 
 
 def test_format_escapes_html():
     text = telegram_bot.format_signal(make_signal(symbol="M&M", reasons=["A<B"], score=1))
-    assert "<b>BUY M&amp;M</b>  ⭐\n" in text
+    assert "<b>BUY  M&amp;M</b>   ⭐\n" in text
     assert "symbol=NSE:M&amp;M\"" in text
-    assert "<b>Signals (1):</b> A&lt;B" in text
+    assert "🧭 <b>1 vote</b> · A&lt;B" in text
 
 
 def test_format_single_target_and_live_config(monkeypatch):
     monkeypatch.setattr(config, "RISK_PER_TRADE_PCT", 0.5)
     monkeypatch.setattr(config, "ENTRY_VALID_BARS", 5)
     text = telegram_bot.format_signal(make_signal(targets=[103.5]))
-    assert "Target 2" not in text and "(risking 0.5% of ₹100,000)" in text and "valid 5 sessions" in text
+    assert "Target 2" not in text and "<i>(0.5% of ₹1,00,000)</i>" in text and "valid 5 sessions" in text
+
+
+@pytest.mark.parametrize("v,indian,out", [(100000, True, "1,00,000.00"), (12345678.9, True, "1,23,45,678.90"),
+                                          (999, True, "999.00"), (100000, False, "100,000.00"),
+                                          (-1500.5, True, "-1,500.50")])
+def test_group_digits(v, indian, out):
+    assert telegram_bot.group_digits(v, 2, indian) == out
+
+
+def test_format_update_filled_and_time_exit():
+    sig = {"market": "IN", "side": "SELL", "symbol": "TCS", "timeframe": "15m", "entry": 3000.0,
+           "stop_loss": 3030.0, "target1": 2955.0}
+    filled = telegram_bot.format_update(sig, {"status": "ACTIVE", "fill_price": 3000.0, "exit_price": None}, 2999.0)
+    assert filled == ("✅ <b>Entry filled</b>\n🔴 SELL  <b>TCS</b> · 15 min\n\n"
+                      "<pre>Filled  ₹3,000.00\nStop    ₹3,030.00  +1.00%\nTarget  ₹2,955.00  -1.50%</pre>")
+    out = telegram_bot.format_update(sig, {"status": "EXPIRED", "fill_price": 3000.0, "exit_price": 2985.0}, 2985.0)
+    assert out.startswith("⌛ <b>Time exit</b>") and out.endswith("🟩 <b>+0.50%</b> · +0.50R")
 
 
 # ---- send_message --------------------------------------------------------------------------------
