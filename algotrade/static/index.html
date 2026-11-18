@@ -239,6 +239,62 @@
   .pnl { font-weight: 600; }
   .stars { color: var(--warn); letter-spacing: 1px; font-size: 13px; }
   .tags { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; min-width: 200px; max-width: 280px; }
+  /* Signals table: fits the panel without a sideways scroll. Long status notes wrap (two lines, the rest on hover),
+     SL / T1 / T2 sit under the level bar and the vote stars lead the strategy tags */
+  table.sigt { min-width: 0; }
+  table.sigt .stock { flex-wrap: wrap; gap: 2px 8px; }
+  table.sigt td.when { white-space: normal; min-width: 96px; }
+  table.sigt th { white-space: normal; }
+  table.sigt td .sub { white-space: normal; }
+  table.sigt td.st { white-space: normal; min-width: 115px; max-width: 220px; }
+  table.sigt td.st .sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  table.sigt td.num .sub { max-width: 120px; margin-left: auto; }
+  table.sigt td.lv { min-width: 150px; white-space: normal; }
+  table.sigt td.lv .range { width: 100%; }
+  .lvls span { white-space: nowrap; }
+  .lvls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; font-size: 11px; color: var(--muted);
+          font-variant-numeric: tabular-nums; margin-top: 2px; }
+  table.sigt .tags { min-width: 120px; max-width: 230px; align-items: center; }
+  table.sigt .tags .stars { font-weight: 400; margin-right: 2px; }
+  /* Narrower than the table can fit (tablets, a half-width window): the signals list uses the phone's cards */
+  @media (max-width: 1140px) {
+    .tablewrap table.sigt.cards { min-width: 0; }
+    .tablewrap table.sigt.cards thead { display: none; }
+    .tablewrap table.sigt.cards tbody { display: block; }
+    .tablewrap table.sigt.cards tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px;
+                                padding: 14px 14px 16px; border-bottom: 1px solid var(--line); }
+    .tablewrap table.sigt.cards tr:last-child { border-bottom: 0; }
+    .tablewrap table.sigt.cards tbody tr:hover td { background: transparent; }
+    .tablewrap table.sigt.cards td { display: block; min-width: 0; padding: 0; border: 0; white-space: normal; text-align: left;
+                                font-size: 13.5px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+                                background: transparent !important; }
+    .tablewrap table.sigt.cards td::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--muted);
+                                        font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+                                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tablewrap table.sigt.cards td.primary { order: -2; grid-column: 1 / 3; align-self: center; font-size: 16px; }
+    .tablewrap table.sigt.cards td.aside { order: -1; grid-column: 3; justify-self: end; align-self: center; text-align: right; }
+    .tablewrap table.sigt.cards tr:not(:has(.aside)) td.primary { grid-column: 1 / -1; }
+    .tablewrap table.sigt.cards td.wide { grid-column: 1 / -1; order: 1; }  /* after the figures, so the grid stays whole */
+    .tablewrap table.sigt.cards td.wide[data-label=""] { order: 2; }
+    .tablewrap table.sigt.cards td.primary::before, .tablewrap table.sigt.cards td.aside::before,
+    .tablewrap table.sigt.cards td[data-label=""]::before { display: none; }
+    .tablewrap table.sigt.cards td:empty { display: none; }
+    .tablewrap table.sigt.cards td.primary .stock { gap: 8px; }
+    .tablewrap table.sigt.cards td .sub { font-size: 11px; }
+    .tablewrap table.sigt.cards .pnl { font-size: 15px; }
+    .tablewrap table.sigt.cards .range { width: 100%; max-width: none; }
+    .tablewrap table.sigt.cards .note { max-width: none; min-width: 0; font-size: 12.5px; }
+    .tablewrap table.sigt.cards .tags { min-width: 0; max-width: none; justify-content: flex-start; }
+    .tablewrap table.sigt.cards td[data-label=""] { margin-top: 2px; }
+    .tablewrap table.sigt.cards td[data-label=""] > .hint { display: block; text-align: right; }
+    .tablewrap table.sigt.cards .row-acts, .tablewrap table.sigt.cards .row-acts.v { flex-direction: row; gap: 8px; }
+    .tablewrap table.sigt.cards .row-acts .btn, .tablewrap table.sigt.cards td[data-label=""] > .btn {
+      flex: 1; width: 100%; justify-content: center; padding: 9px 12px !important; font-size: 13.5px !important;
+      font-weight: 600; border-radius: 10px; }
+    .tablewrap table.sigt.cards td.st, .tablewrap table.sigt.cards td.lv, .tablewrap table.sigt.cards td.when { min-width: 0; max-width: none; }
+    .tablewrap table.sigt.cards td.st .sub { -webkit-line-clamp: 3; }
+    .tablewrap table.sigt.cards td.num .sub { margin-left: 0; }
+  }
   .tags span { font-size: 11px; color: var(--ink-2); background: var(--neutral-bg); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
 
   /* SL -> entry -> T1 -> T2 range with current-price marker */
@@ -877,7 +933,7 @@
   <section class="card">
     <div class="list-head"><nav class="tabs" id="tabs"></nav><span class="hint" id="listHint"></span>
       <button type="button" class="btn close-trade" id="clearTab" hidden title="Delete every signal in this tab">Clear</button></div>
-    <div class="tablewrap"><table>
+    <div class="tablewrap"><table class="sigt">
       <thead><tr id="head"></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
@@ -1079,8 +1135,7 @@ const EMPTY = {
 const COLS = [
   ["symbol", "Stock"], ["bar_time", "Signal"], ["status", "Status"], ["entry", "Entry", 1],
   ["current", "LTP / Exit", 1], ["pnl_pct", "P&L", 1], [null, "SL → Entry → T1 → T2"],
-  ["stop_loss", "SL", 1], ["target1", "T1", 1], ["target2", "T2", 1], ["score", "Score"],
-  ["reasons", "Strategies"], [null, ""],
+  ["score", "Strategies"], [null, ""],
 ];
 const FLAGS = { IN: "₹", US: "$" };
 const PHONE = matchMedia("(max-width: 640px)");  // phone layout (matches the CSS breakpoint)  // currency badge on the market switch
@@ -1239,20 +1294,16 @@ function renderTable() {
     return `<tr>
     <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
       <span class="side ${s.side}">${s.side}</span></div></td>
-    <td>${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
-    <td><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}</td>
+    <td class="when">${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
+    <td class="st"><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}</td>
     <td class="num">${inr(s.entry)}${order ? `<div class="sub">${order}` +
       `${s.fill_price != null && s.fill_price !== s.entry ? ` · filled ${inr(s.fill_price)}` : ""}</div>` : ""}</td>
     <td class="num">${inr(s.current)}${s.status === "PENDING" && s.to_entry_pct != null
       ? `<div class="sub">${s.to_entry_pct.toFixed(2)}% to entry</div>` : ""}</td>
     <td class="num">${noPos ? `<span class="flat">–</span>`
       : `<span class="pnl ${cls(s.pnl_pct)}">${sgn(s.pnl_pct, 2, "%")}</span><div class="sub ${cls(s.pnl_r)}">${sgn(s.pnl_r)}R</div>`}</td>
-    <td>${rangeBar(s)}</td>
-    <td class="num">${inr(s.stop_loss)}</td>
-    <td class="num">${inr(s.target1)}</td>
-    <td class="num">${inr(s.target2)}</td>
-    <td class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</td>
-    <td><div class="tags">${String(s.reasons ?? "").split(", ").filter(Boolean).map(r => `<span>${esc(r)}</span>`).join("")}</div></td>
+    <td class="lv">${rangeBar(s)}<div class="lvls"><span>SL ${num(s.stop_loss)}</span><span>T1 ${num(s.target1)}</span><span>T2 ${num(s.target2)}</span></div></td>
+    <td><div class="tags"><b class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</b>${String(s.reasons ?? "").split(", ").filter(Boolean).map(r => `<span>${esc(r)}</span>`).join("")}</div></td>
     <td><div class="row-acts v">${market === "IN" ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
       `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button>` : ""}` +
       `<button type="button" class="btn" data-sdet="${esc(s.key)}" title="Details: strategies, journal, levels" aria-label="${esc(s.symbol)} details" style="padding:4px 10px">ⓘ</button>` +
