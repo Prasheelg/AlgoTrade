@@ -988,6 +988,19 @@ def api_chart():
     return jsonify(out)
 
 
+@app.get("/api/candles")
+def api_candles():
+    """The Chart view: ?s= (stock, index or option contract) &tf= &market= (see charts.py)."""
+    from . import charts
+    try:
+        return jsonify(charts.candles(request.args.get("s", ""), request.args.get("tf", "15m"), _market().code))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        log.warning("Chart for %s failed: %s", request.args.get("s"), exc)
+        return jsonify({"error": str(exc)}), 502
+
+
 # ---- settings, risk, scorecard + backtest, events, market overview, tax report, phone notifications -------
 
 def _trade_guard():
