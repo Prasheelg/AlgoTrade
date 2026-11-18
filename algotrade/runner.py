@@ -6,7 +6,9 @@
   ends a scan in progress at its next step and exits, so a scanner started with run.bat stops too.
 - Per market (India / US): switch_market() turns that market's scanning on or off (MARKETS_KEY). The scanner
   skips a market that is off and stops its scan in progress; switching one on starts the scanner if needed,
-  switching the last one off stops it."""
+  switching the last one off stops it.
+- Kept running: while the dashboard is up, keep_alive() starts the scanner whenever a market is switched on and
+  none is running (at the dashboard's start, or after the scanner died), unless it was asked to stop."""
 import logging
 import os
 import subprocess
@@ -26,7 +28,10 @@ MARKETS_KEY = "scanner_markets"   # {market code: scanning on?}; a market not in
 DEFAULT_ON = {"IN": True, "US": False}   # US scanning stays off until switched on
 STOP_POLL_SEC = 2
 START_GRACE_SEC = 60   # a scanner started here counts as "starting" until its first heartbeat, at most this long
+KEEP_ALIVE_SEC = 60    # the dashboard checks this often that a switched-on market has a scanner
+RESTART_GAP_SEC = 300  # and starts one at most this often, so a scanner that keeps failing isn't restarted in a loop
 _proc: subprocess.Popen | None = None
+_last_auto = [float("-inf")]
 _started = 0.0
 _started_at = ""   # wall clock, to tell this start's heartbeat from an older one
 _lock = threading.Lock()
@@ -115,3 +120,28 @@ def stop() -> dict:
     state.set_setting(STOP_KEY, True)
     log.info("Scanner asked to stop from the dashboard")
     return status()
+
+
+def keep_alive(now: float | None = None) -> bool:
+    """Start the scanner if a market is switched on but no scanner is running (one started with run.bat counts)
+    and nobody asked it to stop. True when it started one."""
+    now = monotonic() if now is None else now
+    if not any(markets_on().values()) or stop_requested():
+        return False
+    if health.scanner_running() or _child_alive() or now - _last_auto[0] < RESTART_GAP_SEC:
+        return False
+    _last_auto[0] = now
+    on = ", ".join(markets.get(c).name for c, v in markets_on().items() if v)
+    log.info("%s scanning is switched on but no scanner is running: starting it", on)
+    start()
+    return True
+
+
+def keep_alive_forever() -> None:
+    import time
+    while True:
+        try:
+            keep_alive()
+        except Exception:
+            log.exception("Scanner keep-alive failed")
+        time.sleep(KEEP_ALIVE_SEC)

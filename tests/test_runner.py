@@ -181,3 +181,35 @@ def test_a_stopped_scan_skips_auto_trade(monkeypatch):
     main.run_scan("IN")
     st = get_status("IN")
     assert st["running"] is False and st["error"] is None
+
+
+# ---- keep-alive: a switched-on market always has a scanner while the dashboard runs ----------------
+
+def test_keep_alive_starts_a_scanner_for_a_switched_on_market(popen, monkeypatch):
+    monkeypatch.setattr(runner, "_last_auto", [float("-inf")])
+    assert runner.markets_on()["IN"] is True             # India is on by default
+    assert runner.keep_alive(now=1000.0) is True and len(popen) == 1
+    assert runner.keep_alive(now=1001.0) is False and len(popen) == 1   # running now
+
+
+def test_keep_alive_leaves_a_running_scanner_alone(popen, monkeypatch):
+    monkeypatch.setattr(runner, "_last_auto", [float("-inf")])
+    health.beat()                                        # e.g. started with run.bat
+    assert runner.keep_alive(now=1000.0) is False and popen == []
+
+
+def test_keep_alive_respects_off(popen, monkeypatch):
+    monkeypatch.setattr(runner, "_last_auto", [float("-inf")])
+    runner.set_markets({"IN": False, "US": False})       # every market switched off
+    assert runner.keep_alive(now=1000.0) is False
+    runner.set_markets({"IN": True})
+    runner.stop()                                        # the whole scanner switched off (or /stop on Telegram)
+    assert runner.keep_alive(now=1000.0) is False and popen == []
+
+
+def test_keep_alive_does_not_restart_in_a_loop(popen, monkeypatch):
+    monkeypatch.setattr(runner, "_last_auto", [float("-inf")])
+    monkeypatch.setattr(FakeProc, "poll", lambda self: 1)   # the scanner dies at once
+    assert runner.keep_alive(now=1000.0) is True
+    assert runner.keep_alive(now=1000.0 + runner.RESTART_GAP_SEC - 1) is False
+    assert runner.keep_alive(now=1000.0 + runner.RESTART_GAP_SEC) is True and len(popen) == 2
