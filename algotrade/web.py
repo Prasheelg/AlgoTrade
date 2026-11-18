@@ -893,6 +893,55 @@ def api_stream():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+def chart_ticks(key: str, feed=None):
+    """Server-sent events for the Chart view: {"ltp", "vol" (the day's volume; null for an index), "t" (now, IST)}
+    whenever the Kotak stream updates the charted instrument (at most every PUSH_MIN_SEC), the current price
+    first, a ping when quiet, and "event: down" if the stream drops (the page goes back to reloading)."""
+    from . import livefeed
+    feed = feed or livefeed
+    seg, tok = key.split("|", 1)
+
+    def event(q):
+        vol = q.get("last_volume")
+        return "data: " + json.dumps({"ltp": float(q["ltp"]), "vol": float(vol) if vol not in (None, "") else None,
+                                      "t": markets.get("IN").now().strftime("%Y-%m-%dT%H:%M:%S")}) + "\n\n"
+    yield "retry: 5000\n\n"
+    seq, sent, beat, touched = feed.seq(), 0.0, time.monotonic(), time.monotonic()
+    q = feed.lookup(seg, [tok]).get(tok)   # also subscribes it if nothing else has
+    if q:
+        yield event(q)
+    while feed.connected():
+        now = time.monotonic()
+        if now - touched > PUSH_TOUCH_SEC:
+            feed.touch([key])
+            touched = now
+        feed.wait(PUSH_PING_SEC)
+        time.sleep(max(0.0, PUSH_MIN_SEC - (time.monotonic() - sent)))
+        seq, changed = feed.changed_since(seq, [key])
+        q = feed.lookup(seg, [tok]).get(tok) if changed else None
+        if q:
+            sent = beat = time.monotonic()
+            yield event(q)
+        elif time.monotonic() - beat > PUSH_PING_SEC:
+            beat = time.monotonic()
+            yield ": ping\n\n"
+    yield "event: down\ndata: 0\n\n"
+
+
+@app.get("/api/candles/live")
+def api_candles_live():
+    """Live ticks for the charted India instrument (?s=), from the Kotak stream; see chart_ticks."""
+    from . import charts, livefeed
+    if not livefeed.connected():
+        return jsonify({"error": "The live price stream isn't connected"}), 503
+    try:
+        inst = charts.resolve(request.args.get("s", ""), "IN")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return Response(chart_ticks(inst["kotak"]), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.get("/api/health")
 def api_health():
     """Current problems (see health.py), as last checked by the monitor; checked now on the first call."""

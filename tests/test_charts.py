@@ -94,3 +94,54 @@ def test_api_candles(fakes):
     assert j["symbol"] == "RELIANCE" and len(j["bars"]) == 2
     assert c.get("/api/candles?s=RELIANCE&tf=7m&market=IN").status_code == 400
     assert c.get("/api/candles?s=NOSUCH&tf=5m&market=IN").status_code == 400
+
+
+class TickFeed:
+    """Scripted feed: each wait() moves the charted instrument to the next price (None: no change)."""
+
+    def __init__(self, prices):
+        self.prices, self.n, self.changed, self.touched, self.q = list(prices), 0, 0, [], {"ltp": 100.0, "last_volume": 10}
+
+    def connected(self):
+        return bool(self.prices)
+
+    def seq(self):
+        return self.n
+
+    def touch(self, keys):
+        self.touched.append(list(keys))
+
+    def lookup(self, seg, toks):
+        assert seg == "nse_fo" and toks == ["111"]
+        return {"111": self.q}
+
+    def wait(self, timeout):
+        px = self.prices.pop(0)
+        if px is not None:
+            self.n += 1
+            self.changed = self.n
+            self.q = {**self.q, "ltp": px, "last_volume": self.q["last_volume"] + 5}
+
+    def changed_since(self, since, keys):
+        return self.n, keys if self.changed > since else []
+
+
+def test_chart_ticks_streams_the_instruments_price(monkeypatch):
+    from datetime import datetime
+    monkeypatch.setattr(web.time, "sleep", lambda s: None)
+    monkeypatch.setattr(type(web.markets.get("IN")), "now", lambda self: datetime(2026, 11, 18, 10, 7, 30))
+    out = list(web.chart_ticks("nse_fo|111", feed=TickFeed([101.5, None, 102.0])))
+    data = [line for line in out if line.startswith("data: {")]
+    assert data == ['data: {"ltp": 100.0, "vol": 10.0, "t": "2026-11-18T10:07:30"}\n\n',   # current price first
+                    'data: {"ltp": 101.5, "vol": 15.0, "t": "2026-11-18T10:07:30"}\n\n',
+                    'data: {"ltp": 102.0, "vol": 20.0, "t": "2026-11-18T10:07:30"}\n\n']
+    assert out[-1] == "event: down\ndata: 0\n\n"
+
+
+def test_api_candles_live_needs_the_stream(fakes, monkeypatch):
+    from algotrade import livefeed
+    monkeypatch.setattr(livefeed, "connected", lambda: False)
+    c = web.app.test_client()
+    assert c.get("/api/candles/live?s=RELIANCE").status_code == 503
+    monkeypatch.setattr(livefeed, "connected", lambda: True)
+    assert c.get("/api/candles/live?s=NOSUCH").status_code == 400

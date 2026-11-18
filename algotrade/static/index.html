@@ -3830,8 +3830,10 @@ const CH_LIB = "https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/light
 const CH_TFS = [["1m", "1m"], ["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1h"], ["1d", "1D"]];
 const CH_IND = [["ema9", "EMA 9", "#e0a100"], ["ema21", "EMA 21", "#2a78d6"], ["ema50", "EMA 50", "#a259d9"],
                 ["vwap", "VWAP", "#eb6834"], ["vol", "Volume", ""]];
-const CH_LIVE_SEC = 5;     // reload while the market is open and the bars are Kotak's
-const CH_IDLE_SEC = 60;    // otherwise
+const CH_LIVE_SEC = 5;     // reload while the market is open and the bars are Kotak's (no live ticks)
+const CH_IDLE_SEC = 60;    // otherwise, and while live ticks keep the newest candle current
+const CH_TF_MIN = { "1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60 };
+const CH_SESSION_MIN = 9 * 60 + 15;   // NSE candles start at 09:15
 const chDefault = mk => mk === "US" ? "AAPL" : "NIFTY";
 const ch = {
   sym: store.get(`chSym_${market}`) || chDefault(market),
@@ -3839,7 +3841,8 @@ const ch = {
   ind: new Set(Array.isArray(store.get("chInd")) ? store.get("chInd") : ["ema9", "ema21", "vol"]),
   data: null, err: "", at: null, key: "", req: 0, inflight: false, tick: 0, market,
 };
-let chLib = null, chApi = null, chBars = [], chByTime = new Map();
+let chLib = null, chApi = null, chBars = [], chByTime = new Map(), chHover = null;
+let chSrc = null, chSrcSym = "", chSrcRetryAt = 0, chDayVol = null, chTickAt = null;
 const chSer = {};
 const chKey = () => `${market}|${ch.sym}|${ch.tf}`;
 const chCss = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -3871,7 +3874,7 @@ function chBuild() {
     chSer[k] = chApi.addLineSeries({ color, lineWidth: k === "vwap" ? 2 : 1, priceLineVisible: false,
                                      lastValueVisible: false, crosshairMarkerVisible: false });
   chRecolor();
-  chApi.subscribeCrosshairMove(p => chLegend(p?.time != null ? chByTime.get(p.time) : null));
+  chApi.subscribeCrosshairMove(p => { chHover = p?.time != null ? chByTime.get(p.time) ?? null : null; chLegend(chHover); });
   new MutationObserver(() => { if (chApi) { chApi.applyOptions(chTheme()); chRecolor(); chApply(false); } })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 }
@@ -3945,8 +3948,62 @@ function chRender() {
     ? `<a href="https://www.tradingview.com/chart/?symbol=${market === "IN" ? "NSE:" : ""}${encodeURIComponent(d.symbol)}" target="_blank" rel="noopener">Open in TradingView ↗</a>` : "";
   document.getElementById("chFoot").innerHTML = d
     ? `<span>${esc(d.source)}</span><span>${d.bars.length} bars</span>${d.lot ? `<span>Lot ${d.lot}</span>` : ""}
-       <span>${ch.err ? `<span class="down">Update failed: ${esc(ch.err)}</span>` : `Updated ${ch.at.toLocaleTimeString(cfg.locale)}`}</span>${tv}`
+       <span id="chUpd">${chUpdText()}</span>${tv}`
     : "";
+}
+function chUpdText() {
+  if (ch.err) return `<span class="down">Update failed: ${esc(ch.err)}</span>`;
+  if (chSrc && chTickAt) return `<span class="up">● Live</span> · tick ${chTickAt.toLocaleTimeString(cfg.locale)}`;
+  return `Updated ${ch.at.toLocaleTimeString(cfg.locale)}`;
+}
+// ---- live ticks: the Kotak stream moves the newest candle (and starts the next one) between reloads ----
+function chStreamSync() {
+  const nse = META?.markets.find(m => m.code === "IN");
+  const want = view === "chart" && !document.hidden && market === "IN" && feedLive && ch.data && ch.key === chKey()
+    && nse && marketState(nse).open ? ch.sym : "";
+  if (want === chSrcSym && (chSrc || !want)) return;
+  if (chSrc) { chSrc.close(); chSrc = null; chTickAt = null; }
+  chSrcSym = "";
+  if (!want || Date.now() < chSrcRetryAt) return;
+  chSrcSym = want; chDayVol = null;
+  const src = chSrc = new EventSource(`/api/candles/live?s=${encodeURIComponent(want)}`);
+  const giveUp = () => { if (chSrc === src) { src.close(); chSrc = null; chTickAt = null; chSrcRetryAt = Date.now() + 30000; } };
+  src.onmessage = e => { if (chSrc === src) try { chOnTick(JSON.parse(e.data)); } catch {} };
+  src.addEventListener("down", giveUp);
+  src.onerror = () => { if (src.readyState === EventSource.CLOSED) giveUp(); };
+}
+function chOnTick({ ltp, vol, t }) {
+  if (!chBars.length || ch.key !== chKey() || !(ltp > 0)) return;
+  let bt = t.slice(0, 10);
+  if (ch.tf !== "1d") {
+    const m = +t.slice(11, 13) * 60 + +t.slice(14, 16), step = CH_TF_MIN[ch.tf];
+    if (m < CH_SESSION_MIN) return;
+    const b = CH_SESSION_MIN + Math.floor((m - CH_SESSION_MIN) / step) * step;
+    bt += `T${String(b / 60 | 0).padStart(2, "0")}:${String(b % 60).padStart(2, "0")}:00`;
+  }
+  const time = ch.tf === "1d" ? bt : Date.parse(bt + "Z") / 1000;
+  const dv = vol != null && chDayVol != null ? Math.max(0, vol - chDayVol) : 0;
+  if (vol != null) chDayVol = vol;
+  const last = chBars[chBars.length - 1];
+  if (time === last.time) {
+    last.h = Math.max(last.h, ltp); last.l = Math.min(last.l, ltp); last.c = ltp; last.v += dv;
+  } else if (time > last.time) {
+    chBars.push({ t: bt, time, o: ltp, h: ltp, l: ltp, c: ltp, v: dv });
+    chByTime.set(time, chBars.length - 1);
+  } else return;   // a tick for a candle already closed
+  chTickAt = new Date();
+  chUpdateLast();
+}
+function chUpdateLast() {
+  const b = chBars[chBars.length - 1], up = chCss("--up"), down = chCss("--down");
+  chSer.c.update({ time: b.time, open: b.o, high: b.h, low: b.l, close: b.c });
+  const hasVol = chBars.some(x => x.v > 0);
+  if (ch.ind.has("vol") && hasVol) chSer.vol.update({ time: b.time, value: b.v, color: (b.c >= b.o ? up : down) + "59" });
+  for (const [k, n] of [["ema9", 9], ["ema21", 21], ["ema50", 50]])
+    if (ch.ind.has(k)) chSer[k].update(chEma(chBars, n).at(-1));
+  if (ch.ind.has("vwap") && hasVol && ch.tf !== "1d") chSer.vwap.update(chVwap(chBars).at(-1));
+  if (chHover == null) chLegend(null);
+  const u = document.getElementById("chUpd"); if (u) u.innerHTML = chUpdText();
 }
 async function chLoad(fresh) {
   const my = ++ch.req, key = chKey();
@@ -4022,9 +4079,10 @@ document.getElementById("chRecent").onclick = e => {
   ch.sym = b.dataset.sym; chLoad(true);
 };
 setInterval(() => {   // keep the open chart current
+  chStreamSync();
   if (view !== "chart" || document.hidden || ch.inflight || !ch.data || ch.key !== chKey()) return;
   const m = META?.markets.find(x => x.code === market);
-  const live = m && marketState(m).open && String(ch.data.source).startsWith("Kotak");
+  const live = m && marketState(m).open && String(ch.data.source).startsWith("Kotak") && !chSrc;
   if (++ch.tick % (live ? CH_LIVE_SEC : CH_IDLE_SEC) === 0) chLoad(false);
 }, 1000);
 
