@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 import main
-from algotrade import backtest, config, costs, markets, settings, telegram_bot, tracker
+from algotrade import backtest, config, costs, markets, runner, settings, telegram_bot, tracker
 from algotrade.strategies import DEFAULT_STRATEGIES
 from conftest import Recorder, StopLoop, make_signal, sleep_after
 
@@ -23,6 +23,7 @@ STARTUP = ("🤖 <b>Scanner started</b>\n🇮🇳 India: NIFTY100 · 09:00–15:
 @pytest.fixture
 def loop(monkeypatch):
     """Install fakes; returns (events, set_clock, run)."""
+    runner.set_markets({"IN": True, "US": True})   # both markets scanning (US is off by default)
     events = []
     monkeypatch.setattr(telegram_bot, "send_message", lambda text: events.append(("msg", text)) or True)
     monkeypatch.setattr(tracker, "update_all", lambda market=None, **k: events.append(("update", market)))

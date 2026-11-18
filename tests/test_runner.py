@@ -107,8 +107,14 @@ def test_api_needs_trade_access_and_a_bool(client, popen):
 
 # ---- per-market switches --------------------------------------------------------------------------
 
-def test_markets_are_on_until_switched_off(popen):
-    assert runner.markets_on() == {code: True for code in markets.MARKETS}
+def test_us_is_off_by_default(popen):
+    assert runner.markets_on() == {"IN": True, "US": False}
+    runner.switch_market("US", True)
+    assert runner.markets_on() == {"IN": True, "US": True}
+
+
+def test_markets_switch_on_and_off(popen):
+    runner.switch_market("US", True)
     health.beat()                                          # a scanner is running
     st = runner.switch_market("US", False)
     assert runner.markets_on()["US"] is False and runner.market_on("IN") is True
@@ -138,7 +144,7 @@ def test_loop_skips_a_market_that_is_off(monkeypatch):
     monkeypatch.setattr(runner, "STOP_POLL_SEC", 0.01)
     scanned = []
     monkeypatch.setattr(main, "run_scan", lambda code, dry_run=False: scanned.append(code) or runner.stop())
-    runner.set_markets({"IN": False})
+    runner.set_markets({"IN": False, "US": True})
     main.run_loop(["IN", "US"])
     assert scanned == ["US"] and get_status("IN")["next_at"] is None
 

@@ -22,7 +22,8 @@ log = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parent.parent
 LOG_FILE = ROOT / "logs" / "scanner.log"
 STOP_KEY = "scanner_stop"
-MARKETS_KEY = "scanner_markets"   # {market code: scanning on?}; a market not in it is on
+MARKETS_KEY = "scanner_markets"   # {market code: scanning on?}; a market not in it uses DEFAULT_ON
+DEFAULT_ON = {"IN": True, "US": False}   # US scanning stays off until switched on
 STOP_POLL_SEC = 2
 START_GRACE_SEC = 60   # a scanner started here counts as "starting" until its first heartbeat, at most this long
 _proc: subprocess.Popen | None = None
@@ -42,7 +43,7 @@ def clear_stop() -> None:
 def markets_on() -> dict[str, bool]:
     """Which markets the scanner scans: {"IN": True, "US": False}."""
     saved = state.get_setting(MARKETS_KEY, {})[0] or {}
-    return {code: bool(saved.get(code, True)) for code in markets.MARKETS}
+    return {code: bool(saved.get(code, DEFAULT_ON.get(code, True))) for code in markets.MARKETS}
 
 
 def market_on(code: str) -> bool:

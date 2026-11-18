@@ -198,7 +198,8 @@ def test_api_scan_settings_save_needs_trade_access(client):
 
 
 def test_api_scan_status(client, monkeypatch):
-    from algotrade import health
+    from algotrade import health, runner
+    runner.set_markets({"US": True})
     monkeypatch.setattr(health, "scanner_running", lambda now=None: True)
     monkeypatch.setattr(health, "scanner_age_min", lambda now=None: 1.5)
     monkeypatch.setattr(markets.Market, "in_scan_window", lambda self, now=None: self.code == "IN")
