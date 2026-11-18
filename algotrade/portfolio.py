@@ -238,18 +238,54 @@ def live_quotes(symbols: list[str]) -> dict[str, dict]:
     return q
 
 
+_live_fo: dict = {"at": None, "tsyms": None, "ltp": {}}
+
+
+def live_option_ltps(tsyms: list[str]) -> dict[str, float]:
+    """Live prices {tsym: ltp} of F&O contracts (option positions), from the stream where it has them, else
+    one quote call; cached like live_quotes."""
+    from . import fno, livefeed
+    tsyms = sorted({t for t in tsyms if t})
+    if not tsyms or not kotak.enabled():
+        return {}
+    now = time.monotonic()
+    ttl = 0.2 if livefeed.connected() else LIVE_SEC
+    if _live_fo["at"] is not None and now - _live_fo["at"] < ttl and set(tsyms) <= set(_live_fo["tsyms"]):
+        return _live_fo["ltp"]
+    try:
+        by_token = {str(c["token"]): t for t in tsyms if (c := fno.contract(t))}
+        out = {}
+        for q in fno._quotes(list(by_token)):
+            t = by_token.get(str(q.get("exchange_token")))
+            if t and fno._f(q.get("ltp")):
+                out[t] = float(q["ltp"])
+    except Exception:
+        log.exception("Live option prices for the portfolio failed")
+        return {}
+    _live_fo.update(at=now, tsyms=tsyms, ltp=out)
+    return out
+
+
 def _apply_live(out: dict) -> None:
-    """Overlay fresh quotes on holdings, positions and open app trades, and recompute P&L and totals.
-    Works on copies, so the cached account data keeps Kotak's own figures."""
+    """Overlay fresh quotes on holdings, positions (stocks and option contracts) and open app trades, and
+    recompute P&L and totals. Works on copies, so the cached account data keeps Kotak's own figures."""
     open_trades = [t for t in out["trades"] if t["state"] in ("OPEN", "EXITING")]
-    q = live_quotes([h["symbol"] for h in out["holdings"]] + [p["symbol"] for p in out["positions"]]
+    fo = [p["tsym"] for p in out["positions"] if p.get("segment") == "nse_fo" and p.get("tsym")]
+    q = live_quotes([h["symbol"] for h in out["holdings"]] + [p["symbol"] for p in out["positions"]
+                                                               if p.get("segment") != "nse_fo"]
                     + [t["symbol"] for t in open_trades])
-    if not q:
+    fo_ltp = live_option_ltps(fo)
+    if not q and not fo_ltp:
         out["live"] = None
         return
+
+    def position_ltp(p):
+        if p.get("segment") == "nse_fo":
+            return fo_ltp.get(p.get("tsym"))
+        return q[p["symbol"]]["ltp"] if p["symbol"] in q else None
     out["holdings"] = [_finish_holding({**h, "ltp": q[h["symbol"]]["ltp"]}) if h["symbol"] in q else h
                        for h in out["holdings"]]
-    out["positions"] = [_finish_position({**p, "ltp": q[p["symbol"]]["ltp"]}) if p["symbol"] in q else p
+    out["positions"] = [_finish_position({**p, "ltp": ltp}) if (ltp := position_ltp(p)) is not None else p
                         for p in out["positions"]]
     out["trades"] = [dict(t) for t in out["trades"]]
     for t in out["trades"]:
@@ -258,8 +294,25 @@ def _apply_live(out: dict) -> None:
             t["unrealized"] = (t["ltp"] - t["fill_price"]) * t["qty"]
     out["totals"] = totals(out["holdings"], (out["funds"] or {}).get("available"))
     times = [v["time"] for v in q.values() if v.get("time")]
-    out["live"] = {"source": "Kotak Neo", "count": len(q),
+    out["live"] = {"source": "Kotak Neo", "count": len(q) + len(fo_ltp),
                    "as_of": max(times).isoformat(timespec="seconds") if times else None}
+
+
+def pnl_summary(r: dict) -> dict:
+    """The top bar's P&L from a report: today's total = every position today (realised + unrealised, as
+    Kotak's Positions screen counts it) + today's change on holdings."""
+    pos = [p["pnl"] for p in r["positions"] if p.get("pnl") is not None]
+    t = r["totals"]
+    positions = sum(pos) if pos else None
+    day = t.get("day_pnl")
+    parts = [v for v in (positions, day) if v is not None]
+    return {"error": r["error"], "today": sum(parts) if parts else None,
+            "positions": positions, "open": sum(1 for p in r["positions"] if p.get("net_qty")),
+            "count": len(r["positions"]), "holdings_day": day,
+            "holdings": t.get("pnl") if t.get("count") else None, "holdings_count": t.get("count", 0),
+            "live": r["live"] is not None,
+            "as_of": (r["live"] or {}).get("as_of")    # newest stock quote; option prices are as of now
+            or (datetime.now().isoformat(timespec="seconds") if r["live"] else r.get("as_of"))}
 
 
 def report(refresh: bool = False, live: bool = False) -> dict:

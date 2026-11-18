@@ -241,3 +241,40 @@ def test_live_quote_failure_is_not_an_error(kotak_fake, monkeypatch):
 def test_api_portfolio_live_flag(live):
     j = web.app.test_client().get("/api/portfolio?live=1").get_json()
     assert j["live"]["count"] == 2 and j["holdings"][0]["ltp"] == 3200.0
+
+
+# ---- live option positions and the top bar's P&L ---------------------------------------------------
+
+def test_option_positions_get_live_prices_and_the_pnl_summary(live, monkeypatch):
+    from algotrade import fno
+    opt = {"trdSym": "GAIL26NOV192.5CE", "exSeg": "nse_fo", "prod": "NRML", "flBuyQty": "4000", "buyAmt": "8000",
+           "netQty": "4000", "ltp": "2.0"}
+    monkeypatch.setattr(portfolio, "_live_fo", {"at": None, "tsyms": None, "ltp": {}})
+    monkeypatch.setattr(fno, "contract", lambda t: {"token": "777"} if t == "GAIL26NOV192.5CE" else None)
+    monkeypatch.setattr(fno, "_quotes", lambda toks: [{"exchange_token": "777", "ltp": "2.5"}] if toks == ["777"] else [])
+    real_call = portfolio.broker.call   # kotak_fake's account, plus an option position
+
+    def call(method, **kw):
+        res = real_call(method, **kw)
+        return {"data": res["data"] + [opt]} if method == "positions" else res
+    monkeypatch.setattr(portfolio.broker, "call", call)
+    r = portfolio.report(live=True)
+    p = next(p for p in r["positions"] if p["tsym"] == "GAIL26NOV192.5CE")
+    assert p["ltp"] == 2.5 and p["pnl"] == pytest.approx(4000 * 2.5 - 8000)
+    s = portfolio.pnl_summary(r)
+    stock_pos = next(p for p in r["positions"] if p["tsym"] != "GAIL26NOV192.5CE")["pnl"]
+    assert s["positions"] == pytest.approx(stock_pos + 2000) and s["count"] == 2
+    assert s["holdings_day"] == 1000.0 and s["today"] == pytest.approx(stock_pos + 2000 + 1000.0)
+    assert s["live"] is True and s["error"] is None
+
+
+def test_pnl_summary_without_positions_or_holdings():
+    r = {"error": None, "positions": [], "totals": portfolio.totals([], None), "live": None, "as_of": None}
+    s = portfolio.pnl_summary(r)
+    assert s["today"] is None and s["positions"] is None and s["live"] is False
+
+
+def test_api_pnl(live):
+    from algotrade import web
+    j = web.app.test_client().get("/api/pnl").get_json()
+    assert j["today"] is not None and j["live"] is True

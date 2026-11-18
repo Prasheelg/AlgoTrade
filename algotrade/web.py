@@ -206,6 +206,13 @@ def api_portfolio():
 
 
 
+@app.get("/api/pnl")
+def api_pnl():
+    """The top bar's P&L today, at live prices (see portfolio.pnl_summary)."""
+    from . import portfolio
+    return jsonify(portfolio.pnl_summary(portfolio.report(live=True)))
+
+
 @app.get("/api/options/underlyings")
 def api_option_underlyings():
     from . import fno

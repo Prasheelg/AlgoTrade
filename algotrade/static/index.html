@@ -85,6 +85,8 @@
   @media (max-width: 1180px) and (min-width: 641px) { h1 { display: none; } .brand { padding-right: 0; border-right: 0; } }
   .sseg { display: flex; align-items: center; gap: 9px; padding: 2px 16px; margin-left: -1px; border-left: 1px solid var(--line-2); }
   .sseg.end { margin-left: auto; }
+  .sseg.pnl { cursor: pointer; }
+  .sseg.pnl:hover .lbl { color: var(--accent); }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
   .sv.dim { color: var(--muted); font-weight: 400; }
   @media (max-width: 1500px) { .sbar .delay { display: none; } }  /* still in the Data tooltip */
@@ -1330,6 +1332,16 @@ function renderStatus() {
         `${num(Math.abs(q.change))} (${sgn(q.change_pct, 2, "%")})</span>`, "",
       q.as_of ? `Daily change vs previous close · as of ${q.as_of} · ${q.source ?? "Yahoo Finance, delayed"}` : ""));
   }
+  const pl = market === "IN" ? pnlTop : null;
+  if (pl && !pl.error && pl.today != null) {
+    const inrS = v => `${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const why = [pl.positions != null ? `Positions ${inrS(pl.positions)} (${pl.open} open of ${pl.count})` : "",
+                 pl.holdings_day != null ? `Holdings today ${inrS(pl.holdings_day)}` : "",
+                 pl.holdings != null ? `Holdings overall ${inrS(pl.holdings)} on ${pl.holdings_count}` : ""].filter(Boolean).join(" · ");
+    parts.push(seg("P&L today", `<span class="sv ${cls(pl.today)}" id="sbPnl">${inrS(pl.today)}</span>` +
+      (pl.live ? "" : `<span class="sv dim">· not live</span>`), "pnl",
+      `${why}. ${pl.live ? "Live Kotak prices" : "Kotak account prices (updated every minute)"}${pl.as_of ? ` · as of ${pl.as_of.replace("T", " ")}` : ""}. Click for Portfolio.`));
+  }
   if (cfg.universe) {
     parts.push(seg("Account", `<span class="sv">${esc(cfg.universe)}</span><span class="sv dim">·</span>` +
       `<span class="sv">${cfg.currency}${cfg.capital.toLocaleString(cfg.locale)}</span><span class="sv dim">·</span>` +
@@ -1349,6 +1361,28 @@ function renderStatus() {
     d.classList.toggle("open", !!mk && marketState(mk).open);
   });
 }
+
+// ---- P&L today in the top bar (/api/pnl): every PNL_LIVE_SEC while the market is open and the stream is up ----
+let pnlTop = null, pnlTick = 0, pnlBusy = false;
+const PNL_LIVE_SEC = 2, PNL_IDLE_SEC = 30;
+async function loadPnl() {
+  if (pnlBusy) return;
+  pnlBusy = true;
+  try {
+    const res = await fetch("/api/pnl");
+    if (res.ok) { const j = await res.json(); const changed = JSON.stringify(j) !== JSON.stringify(pnlTop); pnlTop = j; if (changed) renderStatus(); }
+  } catch {} finally { pnlBusy = false; }
+}
+setInterval(() => {
+  if (market !== "IN" || document.hidden) return;
+  const nse = META?.markets.find(m => m.code === "IN");
+  const live = feedLive && nse && marketState(nse).open;
+  if (++pnlTick % (live ? PNL_LIVE_SEC : PNL_IDLE_SEC) === 0) loadPnl();
+}, 1000);
+document.getElementById("sbar").addEventListener("click", e => {
+  if (!e.target.closest(".sseg.pnl")) return;
+  portTab = "positions"; if (view !== "portfolio") setView("portfolio"); else renderPortTable();
+});
 
 function tickStatus() {
   const m = META?.markets.find(x => x.code === market);
@@ -4098,6 +4132,7 @@ loadMeta();
 load();
 loadHealth();
 loadIndex();
+loadPnl();
 loadTrading();
 setInterval(loadTrading, 30000);
 setView(view);
