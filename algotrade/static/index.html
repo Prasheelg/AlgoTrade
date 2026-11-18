@@ -1727,6 +1727,22 @@ document.getElementById("views").onclick = e => {
   if (b.dataset.view !== view) setView(b.dataset.view);
   if (PHONE.matches) window.scrollTo({ top: 0, behavior: b.dataset.view === view && scrollY ? "smooth" : "instant" });
 };
+// Keyboard shortcuts for the views (not while typing in a box, nor with Ctrl / Alt / Cmd)
+const VIEW_KEYS = { s: "signals", p: "portfolio", w: "watchlist", c: "chart" };
+document.querySelectorAll("#views [data-view]").forEach(b => {
+  const k = Object.keys(VIEW_KEYS).find(k => VIEW_KEYS[k] === b.dataset.view);
+  if (k) b.title = `${b.textContent.trim()} (${k.toUpperCase()})`;
+});
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.altKey || e.metaKey || e.repeat) return;
+  const t = e.target;
+  if (t.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
+  const v = VIEW_KEYS[e.key.toLowerCase()];
+  if (!v) return;
+  e.preventDefault();
+  if (v !== view) setView(v);
+  window.scrollTo({ top: 0, behavior: "instant" });
+});
 document.getElementById("perfDays").onclick = e => {
   const b = e.target.closest("[data-days]"); if (!b) return;
   perfDays = +b.dataset.days; store.set("perfDays", perfDays); loadPerf();
