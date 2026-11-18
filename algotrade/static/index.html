@@ -1728,10 +1728,10 @@ document.getElementById("views").onclick = e => {
   if (PHONE.matches) window.scrollTo({ top: 0, behavior: b.dataset.view === view && scrollY ? "smooth" : "instant" });
 };
 // Keyboard shortcuts for the views (not while typing in a box, nor with Ctrl / Alt / Cmd)
-const VIEW_KEYS = { s: "signals", p: "portfolio", w: "watchlist", c: "chart" };
+const VIEW_KEYS = { s: "signals", p: "portfolio", w: "watchlist", c: "chart", o: "options" };
 document.querySelectorAll("#views [data-view]").forEach(b => {
   const k = Object.keys(VIEW_KEYS).find(k => VIEW_KEYS[k] === b.dataset.view);
-  if (k) b.title = `${b.textContent.trim()} (${k.toUpperCase()})`;
+  if (k) b.title = `${(b.querySelector(".lg") ?? b).textContent.trim()} (${k.toUpperCase()})`;   // .lg: the desktop label
 });
 document.addEventListener("keydown", e => {
   if (e.ctrlKey || e.altKey || e.metaKey || e.repeat) return;
