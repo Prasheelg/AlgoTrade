@@ -3,6 +3,7 @@ import json
 import logging
 import threading
 import time
+from datetime import date
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory
@@ -54,6 +55,10 @@ def _background():
     from . import fno, oibook
     while True:
         refresh()
+        try:
+            oibook.previous_close(date.today().isoformat())   # fetch the previous session's OI before a chain needs it
+        except Exception:
+            log.exception("Previous-day OI unavailable")
         try:
             oibook.close_snapshot(fno.chain)   # once a day after 15:32: final OI of the chains looked at today
         except Exception:

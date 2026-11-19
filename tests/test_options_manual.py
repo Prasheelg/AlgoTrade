@@ -266,7 +266,35 @@ def book(monkeypatch, tmp_path):
     monkeypatch.setattr(oibook, "_book", None)
     monkeypatch.setattr(oibook, "_state", {"dirty": False, "saved": 0.0, "snapshot_day": None})
     monkeypatch.setattr(oibook, "_viewed", {})
+    monkeypatch.setattr(oibook, "_bhav", {})
+    monkeypatch.setattr(oibook, "_bhav_miss", {})
+    monkeypatch.setattr(oibook, "_bhav_day", lambda day: None)    # no NSE bhavcopy unless a test supplies one
     return oibook
+
+
+BHAV = """TradDt,BizDt,Sgmt,Src,FinInstrmTp,FinInstrmId,ISIN,TckrSymb,SctySrs,XpryDt,FininstrmActlXpryDt,StrkPric,OptnTp,FinInstrmNm,OpnPric,HghPric,LwPric,ClsPric,LastPric,PrvsClsgPric,UndrlygPric,SttlmPric,OpnIntrst,ChngInOpnIntrst,TtlTradgVol
+2026-11-18,2026-11-18,FO,NSE,IDO,64439,,NIFTY,,2026-11-23,2026-11-23,25000.00,CE,NIFTY26NOV25000CE,370,428,251.7,312.25,297.2,455,25227.95,312.25,3428490,96330,288945
+2026-11-18,2026-11-18,FO,NSE,IDF,35001,,NIFTY,,2026-11-25,2026-11-25,,,NIFTY26NOVFUT,1,1,1,1,1,1,1,1,999,1,1
+"""
+
+
+def test_parse_bhavcopy_options_only():
+    from algotrade import oibook
+    assert oibook.parse_bhavcopy(BHAV) == {"64439": 3428490.0}
+
+
+def test_bhavcopy_is_the_previous_close(book, monkeypatch):
+    seen = []
+    monkeypatch.setattr(book, "_bhav_day", lambda day: seen.append(day) or ({"64439": 3428490.0} if day == "2026-11-18" else None))
+    r = book.record("64439", "2026-11-19T15:40:00", 2864355)
+    assert r == {"oi_chg": 2864355 - 3428490, "oi_prev": 3428490.0, "oi_prev_day": "2026-11-18"}
+    assert seen == ["2026-11-18"]
+    seen.clear()                                   # Monday: Friday's file, skipping the weekend (and a missing Friday)
+    book.record("64439", "2026-11-23T10:00:00", 1)
+    assert seen == ["2026-11-20", "2026-11-19", "2026-11-18"]
+    # a contract the bhavcopy lacks (new strike) falls back to the dashboard's own record
+    book.record("NEW", "2026-11-18T15:30:00", 10)
+    assert book.record("NEW", "2026-11-19T10:00:00", 25)["oi_chg"] == 15
 
 
 def test_oi_change_against_previous_day(book):
