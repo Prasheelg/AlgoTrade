@@ -28,7 +28,7 @@ DASHBOARD_PIN = _get("DASHBOARD_PIN", "")
 MAX_ORDER_VALUE = float(_get("MAX_ORDER_VALUE", "10000"))   # ₹ per order
 # Intraday Auto-trade: BUY signals on 5m-1h become intraday (MIS) trades, no new entries after INTRADAY_LAST_ENTRY,
 # all squared off at INTRADAY_SQUARE_OFF (IST, before Kotak's own square-off).
-INTRADAY_AUTO_TRADE = _get("INTRADAY_AUTO_TRADE", "false").lower() in ("1", "true", "yes")
+INTRADAY_AUTO_TRADE = _get("INTRADAY_AUTO_TRADE", "true").lower() in ("1", "true", "yes")
 INTRADAY_LAST_ENTRY = _get("INTRADAY_LAST_ENTRY", "14:30")
 INTRADAY_SQUARE_OFF = _get("INTRADAY_SQUARE_OFF", "15:00")
 # Manual option orders (dashboard Strategy Builder tab): fat-finger cap on lots per order

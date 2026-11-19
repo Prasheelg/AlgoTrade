@@ -44,6 +44,7 @@ def kotak(monkeypatch):
     monkeypatch.setattr(broker, "call", fake)
     monkeypatch.setattr(orders, "_market_open", lambda: True)
     monkeypatch.setattr(config, "MAX_ORDER_VALUE", 10000.0)
+    monkeypatch.setattr(config, "INTRADAY_AUTO_TRADE", False)   # tests turn intraday on where they need it
     msgs = Recorder(True)
     monkeypatch.setattr(orders.telegram_bot, "send_message", msgs)
     fake.msgs = msgs
