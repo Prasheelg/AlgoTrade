@@ -243,3 +243,24 @@ def test_api_strategy_local_only(orders_fake, monkeypatch):
     assert c.post("/api/options/strategy", json={}).status_code == 400
     r = c.post("/api/options/strategy", json={"legs": SPREAD, "order_type": "LIMIT", "product": "NRML"})
     assert r.status_code == 200 and r.get_json()["sells_placed"]
+
+
+# ---- margin estimate ----------------------------------------------------------------------------------
+
+def test_margin_estimate_matches_a_broker_iron_condor():
+    # NIFTY 25,514.30, lot 65: Sensibull showed funds needed 80,850 and margin needed 68,805 for this condor
+    legs = [L("PE", 25300, "BUY", 48.5), L("PE", 25400, "SELL", 73.6), L("CE", 25600, "SELL", 111.7), L("CE", 25700, "BUY", 72.35)]
+    m = st.margin_estimate(legs, 25514.3, index=True)
+    assert m["span"] == 6500.0                                  # 100-point spread x 65: the hedge caps it
+    assert m["exposure"] == pytest.approx(0.02 * 25514.3 * 65 * 2, abs=0.01)
+    assert m["funds_needed"] == pytest.approx(80850, rel=0.005)
+    assert m["margin_needed"] == pytest.approx(68805, rel=0.005)
+
+
+def test_margin_estimate_long_only_and_naked():
+    assert st.margin_estimate([L("CE", 23000, "BUY", 100.0)], 23000)["funds_needed"] == 6500.0   # premium only
+    naked = st.margin_estimate([L("CE", 23000, "SELL", 100.0)], 23000)
+    assert naked["span"] == pytest.approx(0.06 * 23000 * 65, abs=1)      # a 6% move against it
+    assert naked["margin_needed"] == pytest.approx(naked["funds_needed"] - 6500.0)
+    stock = st.margin_estimate([L("CE", 1200, "SELL", 20.0, qty=500)], 1200, index=False)
+    assert stock["exposure"] == pytest.approx(0.035 * 1200 * 500)

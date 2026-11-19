@@ -364,4 +364,5 @@ def analyze_strategy(legs_in: list[dict], target_days: float = 0.0, iv_offset: f
             "target_at": target_at.isoformat(timespec="minutes"), "iv_offset": float(iv_offset or 0),
             "sd": sd, "atm_iv": atm_iv, "oi": oi, "table": table,
             "intrinsic_value": round(intrinsic, 2), "time_value": round(time_value, 2),
-            "reward_risk": round(rr, 3) if rr is not None else None, "futures": futures(u)}
+            "reward_risk": round(rr, 3) if rr is not None else None, "futures": futures(u),
+            "margin": strategy.margin_estimate(legs, s, index=cs[0].get("kind") == "index")}

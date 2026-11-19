@@ -161,6 +161,34 @@ def analyze(legs: list[dict], spot: float, days: float, span: float = 0.12, poin
             "payoff_now_at_spot": round(payoff_at(legs, spot, max(t, MIN_T)), 2)}
 
 
+# NSE-style margin for option positions (an estimate, not the broker's figure):
+#   SPAN      ~ the position's worst intrinsic loss if the underlying moves anywhere within the price scan range
+#               (so hedges count: a 100-point-wide spread can't lose more than 100 points x qty)
+#   exposure  = a percentage of the notional (spot x qty) of every sold option
+# Funds needed (to place it)  = SPAN + exposure + premium paid on bought legs
+# Margin needed (blocked after it fills) = funds needed - premium received on sold legs
+SCAN_INDEX, SCAN_STOCK = 0.06, 0.10            # price scan range, as a share of the spot
+EXPOSURE_INDEX, EXPOSURE_STOCK = 0.02, 0.035   # exposure margin on short options, share of notional
+
+
+def margin_estimate(legs: list[dict], spot: float, index: bool = True) -> dict:
+    scan = SCAN_INDEX if index else SCAN_STOCK
+    prices = {spot * (1 + scan * i / 12) for i in range(-12, 13)}
+    prices |= {g["strike"] for g in legs if spot * (1 - scan) <= g["strike"] <= spot * (1 + scan)}
+
+    def intrinsic_pnl(s: float) -> float:
+        return sum(_sign(g) * g["qty"] * (max(s - g["strike"], 0.0) if g["opt"] == "CE" else max(g["strike"] - s, 0.0))
+                   for g in legs)
+    span = max(0.0, max(-intrinsic_pnl(x) for x in prices))
+    exposure = sum(g["qty"] * spot for g in legs if g["side"] == "SELL") * (EXPOSURE_INDEX if index else EXPOSURE_STOCK)
+    paid = sum(g["qty"] * g["price"] for g in legs if g["side"] == "BUY")
+    received = sum(g["qty"] * g["price"] for g in legs if g["side"] == "SELL")
+    funds = span + exposure + paid
+    return {"span": round(span, 2), "exposure": round(exposure, 2), "premium_paid": round(paid, 2),
+            "premium_received": round(received, 2), "funds_needed": round(funds, 2),
+            "margin_needed": round(max(funds - received, 0.0), 2), "scan_pct": scan * 100}
+
+
 def probability_of_profit(legs: list[dict], spot: float, t: float, iv: float, n: int = 400) -> float:
     """Chance the expiry payoff is positive if the underlying is lognormal (risk-neutral drift) at volatility iv."""
     sd = iv * math.sqrt(t)

@@ -3592,6 +3592,14 @@ function sbAnalyze(now = false) {
   }, now ? 0 : 250);
 }
 
+const marginTitle = m => !m ? "" : [
+  `SPAN ≈ ${rupee(m.span, 0)} (worst loss within a ±${m.scan_pct}% move, hedges counted)`,
+  `Exposure ≈ ${rupee(m.exposure, 0)} (on sold options' notional)`,
+  `Premium paid ${rupee(m.premium_paid, 0)} · received ${rupee(m.premium_received, 0)}`,
+  `Funds needed = SPAN + exposure + premium paid`,
+  `Margin needed = funds needed − premium received`,
+  "An estimate from NSE's rules; Kotak's figure can differ a little."].join("\n");
+
 function renderSbStats() {
   const r = sbRes, g = r.greeks, s = r.spot.ltp;
   const bes = r.breakevens.length ? r.breakevens.map(b => `${num(b, 0)} <span class="sub" style="display:inline">(${sgn((b - s) / s * 100, 1, "%")})</span>`).join("<br>") : "none";
@@ -3602,15 +3610,16 @@ function renderSbStats() {
     kpi("Max loss", r.max_loss == null ? unl : `<span class="${cls(r.max_loss)}">${rupee(r.max_loss, 0)}</span>`, "at expiry"),
     kpi("Breakeven", `<span style="font-size:14px">${bes}</span>`, "at expiry, vs spot"),
     kpi("Chance of profit", r.pop == null ? "–" : `${Math.round(r.pop * 100)}%`, "at expiry, from IV", r.pop == null ? "" : meter(r.pop)),
-    kpi("Funds needed", r.funds_estimate == null ? (r.defined_risk ? "–" : unl) : `≈ ${rupee(r.funds_estimate, 0)}`,
-      r.net_premium < 0 ? "premium paid" : "≈ max loss (estimate)"),
+    kpi(`<span title="${esc(marginTitle(r.margin))}">Funds needed ⓘ</span>`, r.margin ? `≈ ${rupee(r.margin.funds_needed, 0)}` : "–",
+      r.margin && (r.margin.span || r.margin.exposure) ? "margin + premium paid, to place it" : "premium paid"),
     kpi("Reward / risk", r.reward_risk == null ? "–" : `${r.reward_risk.toFixed(2)}<span class="sub" style="display:inline;font-size:12px"> : 1</span>`,
       "max profit ÷ max loss"),
     kpi("Time value", `<span class="${cls(r.time_value)}">${rupee(r.time_value, 0)}</span>`, r.time_value < 0 ? "you are short time value" : "you are long time value"),
     kpi("Intrinsic value", rupee(r.intrinsic_value, 0), "at today's spot"),
     kpi("Theta", `<span class="${cls(g.theta)}">${kRupee(g.theta)}</span>`, "per day, whole position"),
     kpi("P&L now", `<span class="${cls(r.payoff_now_at_spot)}">${rupee(r.payoff_now_at_spot, 0)}</span>`, "at today's spot, after entry"),
-    kpi("Days to expiry", r.days.toFixed(1), `${esc(r.expiry)} 15:30`),
+    kpi(`<span title="${esc(marginTitle(r.margin))}">Margin needed ⓘ</span>`, r.margin ? `≈ ${rupee(r.margin.margin_needed, 0)}` : "–",
+      "blocked once filled (estimate)"),
   ].join("");
 }
 
