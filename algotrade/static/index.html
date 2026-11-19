@@ -456,6 +456,42 @@
   .opt-ticket .est { color: var(--ink-2); font-size: 13px; }
   .opt-ticket .btn.primary.sell { background: var(--down); border-color: var(--down); }
   @media (max-width: 640px) { .opt-input { width: 100%; } .opt-spot { margin-left: 0; } }
+  /* OI change by strike */
+  .oic { margin-bottom: 14px; position: relative; }
+  .oic-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px 0; }
+  .oic-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .oic-head .hint { font-size: 12px; }
+  .oic-head .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .oic-ctl { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px; padding: 12px 16px 4px; }
+  .oic-ctl .ctl { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+  .oic-ctl .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .oic-ctl .chip { font-size: 12px; padding: 3px 10px; }
+  .oic-ctl .chip small { color: var(--muted); }
+  .oic-ctl .seg button { padding: 4px 9px; font-size: 12px; }
+  .oic-help { margin: 10px 16px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2);
+              display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 18px; font-size: 12.5px; color: var(--ink-2); }
+  .oic-help > p { grid-column: 1 / -1; margin: 0; color: var(--ink); }
+  .oic-help .g { display: flex; gap: 10px; align-items: flex-start; line-height: 1.45; }
+  .oic-help svg { flex: none; }
+  .oic-help b { color: var(--ink); font-weight: 600; }
+  .oic .chart { padding: 8px 8px 0; }
+  .oic .chart .lbl-x { fill: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .oic .chart .hit { fill: transparent; }
+  .oic .chart .spotline { stroke-dasharray: 4 3; }
+  .oic .chart .hit:hover, .oic .chart .hit.on { fill: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .oic-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; font-size: 12px; color: var(--ink-2); padding: 4px 16px 0; }
+  .oic-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .oic-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; margin: 10px 16px 0; padding: 10px 0 0;
+             border-top: 1px solid var(--line-2); font-size: 13px; color: var(--ink-2); }
+  .oic-sum b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .oic-sum .oic-pill { background: var(--neutral-bg); border-radius: 7px; padding: 5px 10px; color: var(--ink); font-weight: 600; font-size: 12.5px; }
+  .oic-sum .kv { display: grid; grid-template-columns: auto auto; gap: 2px 12px; }
+  .oic-foot { padding: 8px 16px 14px; font-size: 12px; }
+  .oic .empty { margin: 8px 16px 14px; }
+  @media (max-width: 640px) {
+    .oic-head .right { margin-left: 0; width: 100%; justify-content: space-between; }
+    .oic-ctl .seg { flex-wrap: wrap; }
+  }
   /* Strategy builder */
   .sb { margin-bottom: 14px; position: relative; }
   .sb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; }
@@ -1196,6 +1232,33 @@
           <button class="btn primary" type="button" id="sbGo" style="margin-left:auto">Place strategy</button>
         </div>
       </div>
+    </section>
+    <section class="card oic" id="oicCard">
+      <div class="oic-head">
+        <h3 id="oicTitle">OI change</h3>
+        <span class="hint" id="oicSub"></span>
+        <div class="right">
+          <button type="button" class="btn" id="oicHelpBtn" aria-expanded="false" aria-controls="oicHelp">How to read this</button>
+          <label class="switch" title="Draw each strike's whole open interest, with the change marked on top"><input type="checkbox" id="oicShowOi" checked>Show OI</label>
+        </div>
+      </div>
+      <div class="oic-help" id="oicHelp" hidden></div>
+      <div class="oic-ctl">
+        <div class="ctl"><span class="lbl">Expiries included</span><div class="chips" id="oicExp" role="group" aria-label="Expiries included"></div></div>
+        <div class="ctl"><span class="lbl">Strikes around ATM</span><div class="seg" id="oicWidth">
+          <button type="button" data-v="5">±5</button><button type="button" data-v="10" class="on">±10</button><button type="button" data-v="15">±15</button>
+          <button type="button" data-v="20">±20</button><button type="button" data-v="25">±25</button></div></div>
+        <div class="ctl"><span class="lbl">Change over</span><div class="seg" id="oicWin">
+          <button type="button" data-v="5">5m</button><button type="button" data-v="10">10m</button><button type="button" data-v="15">15m</button>
+          <button type="button" data-v="30">30m</button><button type="button" data-v="60">1h</button><button type="button" data-v="120">2h</button>
+          <button type="button" data-v="180">3h</button><button type="button" data-v="" class="on">Full day</button></div></div>
+      </div>
+      <div class="chart" id="oicChart"></div>
+      <div class="tip" id="oicTip" hidden></div>
+      <div class="oic-legend" id="oicLegend"></div>
+      <div class="oic-sum" id="oicSum"></div>
+      <div class="empty" id="oicEmpty" hidden></div>
+      <div class="oic-foot hint" id="oicFoot"></div>
     </section>
     <section class="card">
       <div class="list-head"><span class="lbl">Option chain</span>
@@ -2826,6 +2889,7 @@ async function loadExpiries() {
   optEl("optExp").innerHTML = expiries.map(e => `<option value="${e}">${new Date(e + "T00:00").toLocaleDateString("en-IN",
     { day: "2-digit", month: "short", year: "numeric" })}</option>`).join("");
   if (expiries.includes(prev)) optEl("optExp").value = prev;
+  oicSetExpiries(u, expiries);
   optSel = null; optTicket = null; renderTicket();
   sbLegs = []; sbRes = null; setTpl("custom"); renderSb();   // a strategy belongs to one underlying and expiry
   await loadChain();
@@ -2837,7 +2901,7 @@ async function loadChain(quiet = false) {
   try {
     const j = await optJson(`/api/options/chain?u=${encodeURIComponent(u)}&expiry=${exp}&width=${optEl("optWidth").value}`);
     if (u !== optEl("optU").value.trim().toUpperCase() || exp !== optEl("optExp").value) return;  // changed meanwhile
-    optChain = j; optErr(""); renderChain(); renderTicket(true);
+    optChain = j; optErr(""); renderChain(); renderTicket(true); oicMaybeLoad();
     if (sbLegs.length) sbAnalyze(true);   // keep the strategy's numbers live with the chain
   } catch (err) { if (!quiet) optErr("Option chain unavailable: " + err.message); }
 }
@@ -2875,6 +2939,207 @@ function renderChain() {
     <td>${esc(o.product)}${o.amo === "YES" ? " · AMO" : ""}</td>
     <td>${o.error ? `<span class="down">${esc(o.error)}</span>` : esc(o.order_id)}</td></tr>`).join("");
 }
+
+// ---- OI change by strike (/api/options/oichange): calls red, puts green; Show OI on = whole OI with the change
+// marked on top (hatched = added, hollow = shed), off = the change alone around zero ----
+const oic = { u: null, expiries: [], sel: new Set(), width: 10, win: "", showOi: true, data: null, at: 0, busy: false };
+try { const v = JSON.parse(localStorage.getItem("oic") || "{}"); if (v.width) oic.width = v.width; if (v.win != null) oic.win = v.win;
+      if (v.showOi != null) oic.showOi = v.showOi; } catch (e) {}
+const oicSave = () => { try { localStorage.setItem("oic", JSON.stringify({ width: oic.width, win: oic.win, showOi: oic.showOi })); } catch (e) {} };
+const OIC_WIN_TEXT = { "5": "last 5 minutes", "10": "last 10 minutes", "15": "last 15 minutes", "30": "last 30 minutes",
+                       "60": "last hour", "120": "last 2 hours", "180": "last 3 hours", "": "full day" };
+const dayShort = d => new Date(d + "T00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+
+function oicSetExpiries(u, expiries) {
+  if (oic.u !== u) { oic.sel = new Set(expiries.slice(0, 1)); oic.data = null; }
+  oic.u = u; oic.expiries = expiries;
+  for (const e of [...oic.sel]) if (!expiries.includes(e)) oic.sel.delete(e);
+  if (!oic.sel.size && expiries.length) oic.sel.add(expiries[0]);
+  const today = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) + "T00:00");
+  optEl("oicExp").innerHTML = expiries.slice(0, 6).map(e => {
+    const days = Math.round((new Date(e + "T00:00") - today) / 864e5);
+    return `<label class="chip"><input type="checkbox" value="${e}" ${oic.sel.has(e) ? "checked" : ""}>${dayShort(e)} <small>${days}d</small></label>`;
+  }).join("");
+  optEl("oicWidth").querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.v === oic.width));
+  optEl("oicWin").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === String(oic.win)));
+  optEl("oicShowOi").checked = oic.showOi;
+  oicLoad();
+}
+
+// the chain refreshes every few seconds; OI moves about once a minute, so re-read the chart every 30 s at most
+function oicMaybeLoad() { if (Date.now() - oic.at > 30000) oicLoad(true); }
+
+async function oicLoad(quiet = false) {
+  if (!oic.u || !oic.sel.size || oic.busy) return;
+  oic.busy = true; oic.at = Date.now();
+  const q = `u=${encodeURIComponent(oic.u)}&expiries=${[...oic.sel].sort().join(",")}&width=${oic.width}${oic.win ? `&window=${oic.win}` : ""}`;
+  if (!quiet) optEl("oicChart").style.opacity = .5;
+  try {
+    const j = await optJson(`/api/options/oichange?${q}`);
+    if (j.underlying !== oic.u) return;
+    oic.data = j; optEl("oicEmpty").hidden = true; renderOic();
+  } catch (err) {
+    optEl("oicEmpty").hidden = false; optEl("oicEmpty").innerHTML = `<b>OI change unavailable</b>${esc(err.message)}`;
+  } finally { oic.busy = false; optEl("oicChart").style.opacity = ""; }
+}
+
+optEl("oicExp").onchange = e => {
+  const v = e.target.value;
+  if (e.target.checked) oic.sel.add(v); else if (oic.sel.size > 1) oic.sel.delete(v); else e.target.checked = true;   // keep one
+  oicLoad();
+};
+optEl("oicWidth").onclick = e => { const b = e.target.closest("button"); if (!b) return;
+  oic.width = +b.dataset.v; optEl("oicWidth").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); oicSave(); oicLoad(); };
+optEl("oicWin").onclick = e => { const b = e.target.closest("button"); if (!b) return;
+  oic.win = b.dataset.v; optEl("oicWin").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); oicSave(); oicLoad(); };
+optEl("oicShowOi").onchange = e => { oic.showOi = e.target.checked; oicSave(); renderOic(); };
+optEl("oicHelpBtn").onclick = () => {
+  const h = optEl("oicHelp"), open = h.hidden;
+  if (open && !h.innerHTML) h.innerHTML = `<p>Bars show each strike's open interest: <b>calls red, puts green</b>. With Show OI on, the full bar is today's OI and
+    the top shows the change over the window; with it off, only the change is drawn, above zero for added and below for shed.</p>` +
+    [["call", 1, "Call OI rising", "The hatched top is the OI added. A big rise usually means calls are being written there, so the price may struggle to go above that strike."],
+     ["put", 1, "Put OI rising", "The hatched top is the OI added. A big rise usually means puts are being written there, so the price may hold above that strike."],
+     ["call", -1, "Call OI falling", "The hollow top is the OI shed. Call writers buying back usually expect the price to rise: bullish."],
+     ["put", -1, "Put OI falling", "The hollow top is the OI shed. Put writers buying back usually expect the price to fall: bearish."]]
+      .map(([k, d, t, txt]) => `<div class="g">${oicGlyph(k, d)}<div><b>${t}</b><br>${txt}</div></div>`).join("");
+  h.hidden = !open; optEl("oicHelpBtn").setAttribute("aria-expanded", String(open));
+};
+
+const OIC_COLOR = { call: "var(--down)", put: "var(--up)" };
+function oicDefs() {   // once per page, in an always-rendered 0x0 svg, so every chart and glyph can use the hatches
+  return `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${["call", "put"].map(k => `<pattern id="oicHatch-${k}" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="5" height="5" style="fill:color-mix(in srgb, ${OIC_COLOR[k]} 35%, var(--panel))"/>
+    <rect width="2.2" height="5" style="fill:${OIC_COLOR[k]}"/></pattern>`).join("")}</defs></svg>`;
+}
+optEl("oicCard").insertAdjacentHTML("afterbegin", oicDefs());
+// a small legend / help glyph: solid base with a hatched (added) or hollow (shed) top
+function oicGlyph(k, dir, w = 18, h = 30) {
+  const c = OIC_COLOR[k], top = h * .4;
+  const upper = dir > 0 ? `<rect x="1" y="1" width="${w - 2}" height="${top}" rx="2" fill="url(#oicHatch-${k})"/>`
+    : `<rect x="1.5" y="1.5" width="${w - 3}" height="${top}" rx="2" fill="none" style="stroke:${c}" stroke-width="1.5"/>`;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${upper}
+    <rect x="1" y="${top + 2}" width="${w - 2}" height="${h - top - 3}" rx="1.5" style="fill:${c}"/></svg>`;
+}
+
+function oicNice(v) {   // a round axis step for 0..v
+  const raw = v / 4, p = 10 ** Math.floor(Math.log10(raw || 1)), m = raw / p;
+  return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p;
+}
+
+function renderOic() {
+  const d = oic.data; if (!d) return;
+  const rows = d.rows, n = rows.length, box = optEl("oicChart");
+  const winText = OIC_WIN_TEXT[String(d.window ?? "")];
+  const dayLbl = new Date((d.history_day && d.window ? d.history_day : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })) + "T00:00")
+    .toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
+  optEl("oicTitle").textContent = `OI change · ${d.underlying}`;
+  optEl("oicSub").textContent = d.window ? `${winText}${d.since ? `, since ${d.since}` : ""} · ${dayLbl}`
+    : `since the ${d.prev_day ? dayShort(d.prev_day) : "previous"} close · ${dayLbl}`;
+  const noHist = d.window && !d.since;
+  for (const id of ["oicChart", "oicLegend", "oicSum"]) optEl(id).hidden = noHist;
+  if (noHist) {
+    optEl("oicEmpty").hidden = false; optEl("oicEmpty").innerHTML = `<b>No data for the ${esc(winText)} yet</b>${esc(d.note ?? "")}`;
+    optEl("oicFoot").textContent = ""; optEl("oicTip").hidden = true; return;
+  }
+  if (!n) { box.innerHTML = ""; optEl("oicSum").innerHTML = ""; return; }
+
+  const W = Math.max(320, box.clientWidth - 16), small = W < 560, H = small ? 280 : 340;
+  const M = { l: 46, r: 10, t: 22, b: 40 };
+  const pw = W - M.l - M.r, ph = H - M.t - M.b, gw = pw / n;
+  const bw = Math.max(2, Math.min(14, gw * .36)), gap = Math.min(2, gw * .06);
+  const show = oic.showOi;
+  // y range: Show OI on = 0..max(OI, previous OI); off = the change around zero
+  let lo = 0, hi = 0;
+  for (const r of rows) for (const k of ["ce", "pe"]) {
+    const oi = r[`${k}_oi`], ch = r[`${k}_chg`];
+    if (show) hi = Math.max(hi, oi, oi - ch); else { hi = Math.max(hi, ch); lo = Math.min(lo, ch); }
+  }
+  if (hi === lo) hi = lo + 1;
+  const step = oicNice(hi - lo);
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const y = v => M.t + (hi - v) / (hi - lo) * ph;
+  let svg = "";
+  for (let v = lo; v <= hi + step / 2; v += step)
+    svg += `<line class="${Math.abs(v) < step / 2 ? "zero" : "grid"}" x1="${M.l}" x2="${W - M.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>` +
+      `<text class="axis" x="${M.l - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${v === 0 ? "0" : (v < 0 ? "−" : "") + compact(Math.abs(v)).replace(/\.0+(?=\D*$)/, "")}</text>`;
+  // bars: put then call at each strike
+  const bar = (x, k, oi, ch) => {
+    const kind = k === "ce" ? "call" : "put", c = OIC_COLOR[kind];
+    if (!show) {
+      const y0 = y(0), y1 = y(ch), top = Math.min(y0, y1), h = Math.max(Math.abs(y1 - y0), ch ? 1 : 0);
+      return ch >= 0 ? `<rect x="${x}" y="${top}" width="${bw}" height="${h}" rx="1.5" fill="url(#oicHatch-${kind})"/>`
+        : `<rect x="${x + .6}" y="${top}" width="${bw - 1.2}" height="${h}" rx="1.5" fill="none" style="stroke:${c}" stroke-width="1.2"/>`;
+    }
+    const prev = oi - ch, base = Math.min(oi, prev);
+    let out = `<rect x="${x}" y="${y(base)}" width="${bw}" height="${Math.max(0, y(0) - y(base))}" style="fill:${c}"/>`;
+    if (ch > 0) out += `<rect x="${x}" y="${y(oi)}" width="${bw}" height="${y(base) - y(oi)}" fill="url(#oicHatch-${kind})"/>`;
+    else if (ch < 0) out += `<rect x="${x + .6}" y="${y(prev)}" width="${bw - 1.2}" height="${Math.max(0, y(base) - y(prev))}" fill="none" style="stroke:${c}" stroke-width="1.2"/>`;
+    return out;
+  };
+  const cx = i => M.l + gw * (i + .5);
+  const labelEvery = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw / (small ? 46 : 52)))));
+  rows.forEach((r, i) => {
+    svg += bar(cx(i) - bw - gap / 2, "pe", r.pe_oi, r.pe_chg) + bar(cx(i) + gap / 2, "ce", r.ce_oi, r.ce_chg);
+    if (i % labelEvery === 0)
+      svg += `<text class="lbl-x" x="${cx(i)}" y="${H - M.b + 14}" text-anchor="end" transform="rotate(-40 ${cx(i)} ${H - M.b + 14})">${num(r.strike, r.strike % 1 ? 1 : 0)}</text>`;
+  });
+  // spot: between the strikes it falls between
+  if (d.spot != null && n > 1) {
+    let i = rows.findIndex(r => r.strike >= d.spot);
+    const sx = i <= 0 ? (i === 0 ? cx(0) : cx(n - 1))
+      : cx(i - 1) + (d.spot - rows[i - 1].strike) / (rows[i].strike - rows[i - 1].strike) * gw;
+    svg += `<line class="spotline" x1="${sx}" x2="${sx}" y1="${M.t - 6}" y2="${H - M.b}"/>` +
+      `<text class="spotlbl" x="${sx}" y="${M.t - 10}" text-anchor="middle">${esc(d.underlying)} ${num(d.spot, 1)}</text>`;
+  }
+  svg += rows.map((r, i) => `<rect class="hit" data-i="${i}" x="${M.l + gw * i}" y="${M.t}" width="${gw}" height="${ph}"/>`).join("");
+  box.innerHTML = `<svg id="oicSvg" viewBox="0 0 ${W} ${H}" height="${H}" role="img" tabindex="0"
+    aria-label="Open interest change by strike for ${esc(d.underlying)}, calls and puts">${svg}</svg>`;
+
+  optEl("oicLegend").innerHTML = [["put", "Put OI"], ["call", "Call OI"]].map(([k, t]) =>
+    `<span><i class="key" style="height:10px;width:10px;border-radius:2px;background:${OIC_COLOR[k]}"></i>${t}</span>` +
+    `<span>${oicGlyph(k, 1, 10, 14)}added</span><span>${oicGlyph(k, -1, 10, 14)}shed</span>`).join("");
+
+  const chg = v => `<b class="${cls(v)}">${compactSgn(v)}</b>`;
+  const spotLine = d.window
+    ? (d.since ? `<span class="kv"><span>${esc(d.underlying)} at ${esc(d.since)}</span><b>${d.spot_from == null ? "–" : num(d.spot_from, 2)}</b>` +
+        `<span>${esc(d.underlying)} ${d.is_open ? "now" : `at ${esc(d.history_to ?? "close")}`}</span><b>${d.spot == null ? "–" : num(d.spot, 2)}</b></span>` : "")
+    : `<span class="kv"><span>${esc(d.underlying)} at ${d.prev_day ? dayShort(d.prev_day) : "previous"} close</span><b>${d.spot_from == null ? "–" : num(d.spot_from, 2)}</b>` +
+      `<span>${esc(d.underlying)} ${d.is_open ? "now" : "at close"}</span><b>${d.spot == null ? "–" : num(d.spot, 2)}</b></span>`;
+  optEl("oicSum").innerHTML = `<span class="oic-pill">Change over the ${esc(winText)}</span>` +
+    `<span class="kv"><span>Call OI change</span>${chg(d.ce_chg)}<span>Put OI change</span>${chg(d.pe_chg)}</span>` +
+    `<span class="kv"><span>Call OI</span><b>${compact(d.ce_oi)}</b><span>Put OI</span><b>${compact(d.pe_oi)}</b></span>` +
+    `<span class="kv"><span>PCR</span><b>${d.pcr ?? "–"}</b><span>Strikes</span><b>${n}</b></span>` + spotLine;
+  optEl("oicFoot").textContent = (d.note ? d.note + " " : "") +
+    `Updated ${d.as_of.slice(0, 5)}. The exchange updates open interest every minute or few, not tick by tick` +
+    (d.history_from ? `; intraday OI recorded from ${d.history_from}${d.history_to && d.history_to !== d.history_from ? ` to ${d.history_to}` : ""}.` : ".") +
+    ([...oic.sel].length > 1 ? ` Summed over ${oic.sel.size} expiries.` : "");
+
+  // hover / keyboard: one strike's figures
+  const el = optEl("oicSvg"), tip = optEl("oicTip");
+  const pct = (ch, oi) => oi - ch ? ` (${sgn(ch / (oi - ch) * 100, 1, "%")})` : "";
+  const hover = i => {
+    el.querySelectorAll(".hit.on").forEach(h => h.classList.remove("on"));
+    if (i == null) { tip.hidden = true; return; }
+    const r = rows[i]; el.querySelector(`.hit[data-i="${i}"]`)?.classList.add("on");
+    tip.innerHTML = `<div class="t">${num(r.strike, r.strike % 1 ? 1 : 0)}${r.strike === d.atm ? " · ATM" : ""}</div>` +
+      `<div class="row"><i class="key" style="background:var(--down);height:10px;width:10px"></i><b>${compact(r.ce_oi)}</b><span>Call OI · ${r.ce_known ? compactSgn(r.ce_chg) + pct(r.ce_chg, r.ce_oi) : "change n/a"}</span></div>` +
+      `<div class="row"><i class="key" style="background:var(--up);height:10px;width:10px"></i><b>${compact(r.pe_oi)}</b><span>Put OI · ${r.pe_known ? compactSgn(r.pe_chg) + pct(r.pe_chg, r.pe_oi) : "change n/a"}</span></div>` +
+      (r.ce_oi ? `<div class="row"><span>PCR at strike ${(r.pe_oi / r.ce_oi).toFixed(2)}</span></div>` : "");
+    tip.hidden = false;
+    const rc = el.getBoundingClientRect(), card = optEl("oicCard").getBoundingClientRect(), sc = rc.width / W;
+    const left = rc.left - card.left + cx(i) * sc;
+    tip.style.left = `${Math.max(4, left + 16 + tip.offsetWidth > card.width ? left - 16 - tip.offsetWidth : left + 16)}px`;
+    tip.style.top = `${rc.top - card.top + M.t * sc}px`;
+  };
+  let cur = null;
+  el.onpointermove = e => { const h = e.target.closest(".hit"); if (h) hover(cur = +h.dataset.i); };
+  el.onpointerleave = el.onblur = () => hover(cur = null);
+  el.onfocus = () => hover(cur = Math.max(0, rows.findIndex(r => r.strike === d.atm)));
+  el.onkeydown = e => { const k = { ArrowLeft: -1, ArrowRight: 1 }[e.key]; if (k == null) return; e.preventDefault();
+                        hover(cur = Math.max(0, Math.min(n - 1, (cur ?? 0) + k))); };
+}
+let oicResize;
+window.addEventListener("resize", () => { clearTimeout(oicResize); oicResize = setTimeout(() => { if (view === "options") renderOic(); }, 150); });
 
 function findLeg(tsym) {
   for (const r of optChain?.rows ?? []) for (const k of ["ce", "pe"]) if (r[k]?.tsym === tsym) return { ...r[k], strike: r.strike, opt: k.toUpperCase() };

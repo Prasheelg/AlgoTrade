@@ -20,7 +20,7 @@ from . import config
 log = logging.getLogger(__name__)
 IST = ZoneInfo("Asia/Kolkata")
 IDLE_SEC = 600          # unsubscribe what hasn't been asked for in this long
-MAX_TOKENS = 600        # subscriptions at most (Kotak allows 3000)
+MAX_TOKENS = 1200       # subscriptions at most (Kotak allows 3000); the OI history alone keeps ~300
 SYNC_SEC = 0.5          # subscribe newly requested instruments this often
 RETRY_SEC = (5, 15, 30, 60, 120)   # waits between reconnects after failures
 STALL_SEC = 60          # no message this long while the NSE is open and an index is subscribed (indices tick

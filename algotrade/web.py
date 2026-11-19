@@ -257,6 +257,27 @@ def api_option_expiries():
     return jsonify({"expiries": fno.expiries(request.args.get("u", ""))})
 
 
+@app.get("/api/options/oichange")
+def api_oi_change():
+    """OI change by strike (?u=NIFTY&expiries=2026-11-23,2026-12-01&width=10&window=5|..|180, no window = full day)."""
+    from . import oiflow
+    u = request.args.get("u", "").strip().upper()
+    expiries = [e for e in request.args.get("expiries", "").split(",") if e][:6]
+    width = min(max(request.args.get("width", default=10, type=int), 1), oiflow.TRACK_WIDTH)
+    window = request.args.get("window", type=int)
+    if window is not None and window not in oiflow.WINDOWS:
+        return jsonify({"error": f"window must be one of {oiflow.WINDOWS} minutes, or none for the full day"}), 400
+    if not u or not expiries:
+        return jsonify({"error": "Pick an underlying and at least one expiry"}), 400
+    try:
+        return jsonify(oiflow.change(u, expiries, width, window))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        log.exception("OI change failed")
+        return jsonify({"error": f"OI change unavailable: {exc}"}), 502
+
+
 @app.get("/api/options/chain")
 def api_option_chain():
     """Option chain around the money (?u=NIFTY&expiry=YYYY-MM-DD&width=10), plus what you hold of it."""
@@ -1270,6 +1291,8 @@ def serve(host: str = "127.0.0.1", port: int = 8050) -> None:
     livefeed.start()
     from . import orderbook
     orderbook.start_watch()
+    from . import oiflow
+    oiflow.start()
     log.info("Dashboard running at http://%s:%d", host, port)
     # Flask logs every request; the page polls constantly, so keep only warnings and errors
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
