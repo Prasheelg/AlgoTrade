@@ -23,6 +23,8 @@ IDLE_SEC = 600          # unsubscribe what hasn't been asked for in this long
 MAX_TOKENS = 600        # subscriptions at most (Kotak allows 3000)
 SYNC_SEC = 0.5          # subscribe newly requested instruments this often
 RETRY_SEC = (5, 15, 30, 60, 120)   # waits between reconnects after failures
+STALL_SEC = 60          # no message this long while the NSE is open and an index is subscribed (indices tick
+                        # every second) = a frozen socket (it stays "open" but sends nothing): reconnect
 
 _ticks: dict[str, dict] = {}        # "segment|token" -> quote in the REST shape (see _scrip / _index)
 _want: dict[str, float] = {}        # "segment|token" -> monotonic time it was last asked for
@@ -33,7 +35,8 @@ _changed: dict[str, int] = {}
 _tick = threading.Condition()       # notified on every update (dashboard push streams wait on it)
 _thread: threading.Thread | None = None
 _state = {"connected": False, "since": None, "error": None, "messages": 0, "last_at": None, "reconnects": 0,
-          "down_since": None}   # monotonic time the stream went down (or the thread started)
+          "down_since": None, "last_mono": None}   # down_since: monotonic time the stream went down (or the thread started);
+                                  # last_mono: monotonic time of the last message
 
 
 def key(segment: str, token: str) -> str:
@@ -145,7 +148,23 @@ def on_message(m) -> None:
     with _tick:
         _tick.notify_all()
     _state["messages"] += 1
+    _state["last_mono"] = time.monotonic()
     _state["last_at"] = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def stalled(now: float | None = None, market_open: bool | None = None) -> bool:
+    """True when the connected stream has gone silent for STALL_SEC while the NSE is open with something
+    subscribed. Kotak's socket can freeze without closing, so this is the only sign it's dead. Only counted
+    with an index subscribed: a quiet stock or far option can legitimately go a minute without a trade."""
+    if not any(is_index(k.split("|", 1)[1]) for k in _subscribed):
+        return False
+    if market_open is None:
+        from . import markets
+        market_open = markets.get("IN").is_open()
+    if not market_open:
+        return False
+    now = time.monotonic() if now is None else now
+    return now - (_state["last_mono"] or 0) > STALL_SEC
 
 
 # ---- the connection ---------------------------------------------------------------------------------
@@ -192,7 +211,8 @@ async def _session(force_login: bool = False) -> None:
     with _lock:
         _subscribed.clear()
         _ticks.clear()
-    _state.update(connected=True, since=datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S"), error=None, down_since=None)
+    _state.update(connected=True, since=datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S"), error=None, down_since=None,
+                  last_mono=time.monotonic())
     log.info("Kotak live feed connected")
 
     async def reader():
@@ -204,6 +224,8 @@ async def _session(force_login: bool = False) -> None:
             await _sync(ws)
             if datetime.now(IST).date() != day or not config.LIVE_FEED:
                 break
+            if stalled():
+                raise ConnectionError(f"no prices for {STALL_SEC} s while the market is open")
             await asyncio.sleep(SYNC_SEC)
     finally:
         _state.update(connected=False, down_since=time.monotonic())

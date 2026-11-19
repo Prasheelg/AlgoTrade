@@ -165,6 +165,17 @@ def test_down_minutes(monkeypatch, feed):
     assert livefeed.down_minutes() is None                                  # switched off
 
 
+def test_stalled_only_when_an_index_goes_quiet_in_market_hours(monkeypatch, feed):
+    monkeypatch.setattr(livefeed, "_subscribed", {"nse_cm|11536"})
+    livefeed._state["last_mono"] = 1000.0
+    late = 1000.0 + livefeed.STALL_SEC + 1
+    assert not livefeed.stalled(late, market_open=True)        # a quiet stock alone isn't a frozen socket
+    livefeed._subscribed.add("nse_cm|Nifty 50")
+    assert livefeed.stalled(late, market_open=True)
+    assert not livefeed.stalled(1000.0 + livefeed.STALL_SEC - 1, market_open=True)
+    assert not livefeed.stalled(late, market_open=False)       # nothing ticks outside market hours
+
+
 def test_health_warns_when_the_stream_is_down_in_market_hours(monkeypatch):
     monkeypatch.setattr(broker, "missing_credentials", lambda: ["KOTAK_MPIN"])
     monkeypatch.setattr(config, "KOTAK_CONSUMER_KEY", "")
