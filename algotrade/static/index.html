@@ -434,7 +434,8 @@
                background: var(--panel); color: var(--ink); width: 210px; text-transform: uppercase; }
   .opt-spot { margin-left: auto; display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
   .opt-spot b { font-size: 18px; }
-  table.chain { min-width: 860px; }
+  table.chain { min-width: 980px; }
+  table.chain td.oic { font-size: 12px; }
   table.chain th, table.chain td { padding: 7px 10px; }
   table.chain th.strike, table.chain td.strike { text-align: center; background: var(--panel-2); font-weight: 600;
                                                   border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
@@ -1202,9 +1203,9 @@
           <button type="button" data-v="order" class="on">Click = order</button><button type="button" data-v="strategy">Click = add to strategy</button></div>
         <span class="hint" id="optHint">Click a price to open an order ticket</span></div>
       <div class="tablewrap"><table class="chain">
-        <thead><tr><th class="num">OI</th><th class="num">Volume</th><th class="num">Chg %</th><th class="num">Call LTP</th>
+        <thead><tr><th class="num">OI</th><th class="num" title="Change in open interest since the previous session's close">Chg OI</th><th class="num">Volume</th><th class="num">Chg %</th><th class="num">Call LTP</th>
           <th class="strike">Strike</th>
-          <th class="num">Put LTP</th><th class="num">Chg %</th><th class="num">Volume</th><th class="num">OI</th></tr></thead>
+          <th class="num">Put LTP</th><th class="num">Chg %</th><th class="num">Volume</th><th class="num" title="Change in open interest since the previous session's close">Chg OI</th><th class="num">OI</th></tr></thead>
         <tbody id="optRows"></tbody></table></div>
       <div class="empty" id="optEmpty" hidden></div>
     </section>
@@ -2793,6 +2794,10 @@ let optUnders = null, optChain = null, optSel = null, optTicket = null;
 const optEl = id => document.getElementById(id);
 const compact = v => v == null ? "–" : v >= 1e7 ? `${(v / 1e7).toFixed(2)}Cr` : v >= 1e5 ? `${(v / 1e5).toFixed(2)}L`
   : v >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : `${Math.round(v)}`;
+const compactSgn = v => v == null ? "–" : v === 0 ? "0" : (v > 0 ? "+" : "−") + compact(Math.abs(v));
+const oiChgTitle = o => o.oi_chg == null ? "No previous-day OI recorded yet for this contract"
+  : `${o.oi_chg >= 0 ? "Added" : "Shed"} ${compact(Math.abs(o.oi_chg))} since ${o.oi_prev_day} (OI then ${compact(o.oi_prev)})` +
+    (o.oi_prev ? `, ${sgn(o.oi_chg / o.oi_prev * 100, 1, "%")}` : "");
 const optErr = msg => { const e = optEl("optErr"); e.hidden = !msg; e.textContent = msg || ""; };
 
 async function optJson(url, opts) {
@@ -2841,17 +2846,20 @@ function renderChain() {
   const c = optChain, s = c.spot, maxOi = Math.max(1, ...c.rows.flatMap(r => [r.ce?.oi ?? 0, r.pe?.oi ?? 0]));
   optEl("optSpot").innerHTML = `<span class="lbl">${esc(c.underlying)}</span><b>${s.ltp == null ? "–" : num(s.ltp)}</b>` +
     (s.change != null ? `<span class="chg ${s.change >= 0 ? "up" : "down"}">${sgn(s.change)} (${sgn(s.pct, 2, "%")})</span>` : "") +
-    `<span class="hint">lot ${c.lot} · ${c.days_to_expiry} day${c.days_to_expiry === 1 ? "" : "s"} to expiry · PCR ${c.pcr ?? "–"}</span>`;
+    `<span class="hint">lot ${c.lot} · ${c.days_to_expiry} day${c.days_to_expiry === 1 ? "" : "s"} to expiry · PCR ${c.pcr ?? "–"}` +
+    (c.ce_oi_chg != null && c.pe_oi_chg != null ? ` · Chg OI calls <span class="${cls(c.ce_oi_chg)}">${compactSgn(c.ce_oi_chg)}</span>` +
+      ` puts <span class="${cls(c.pe_oi_chg)}">${compactSgn(c.pe_oi_chg)}</span>` : "") + `</span>`;
   const leg = (o, side, strike) => {
-    if (!o) return "<td></td>".repeat(4);   // no contract at this strike
+    if (!o) return "<td></td>".repeat(5);   // no contract at this strike
     const itm = s.ltp != null && (side === "ce" ? strike < s.ltp : strike > s.ltp) ? "itm" : "";
     const oi = `<td class="num oi ${side} ${itm}" style="--w:${Math.round((o.oi ?? 0) / maxOi * 100)}%">${compact(o.oi)}</td>`;
+    const oic = `<td class="num oic ${itm}" title="${esc(oiChgTitle(o))}"><span class="${cls(o.oi_chg ?? 0)}">${compactSgn(o.oi_chg)}</span></td>`;
     const vol = `<td class="num ${itm}">${compact(o.volume)}</td>`;
     const chg = `<td class="num ${itm}"><span class="${cls(o.pct ?? 0)}">${o.pct == null ? "–" : sgn(o.pct, 1, "%")}</span></td>`;
     const px = `<td class="num px ${itm} ${optSel?.tsym === o.tsym ? "sel" : ""}" data-tsym="${esc(o.tsym)}" data-side="${side}"
       title="${esc(o.tsym)} · bid ${o.bid ?? "–"} / ask ${o.ask ?? "–"}">${o.ltp == null ? "–" : num(o.ltp)}` +
       `<div class="sub">${o.bid ?? "–"} / ${o.ask ?? "–"}</div></td>`;
-    return side === "ce" ? oi + vol + chg + px : px + chg + vol + oi;
+    return side === "ce" ? oi + oic + vol + chg + px : px + chg + vol + oic + oi;
   };
   optEl("optRows").innerHTML = c.rows.map(r => `<tr class="${r.strike === c.atm ? "atm" : ""}">${leg(r.ce, "ce", r.strike)}` +
     `<td class="strike">${num(r.strike, r.strike % 1 ? 1 : 0)}</td>${leg(r.pe, "pe", r.strike)}</tr>`).join("");
@@ -2897,7 +2905,8 @@ function renderTicket(live = false) {
   const leg = findLeg(optSel.tsym) ?? optSel, c = optChain, t = optTicket;
   const held = c.held?.[optSel.tsym.toUpperCase()] ?? 0, heldLots = Math.floor(held / c.lot);
   const quote = `LTP <b>${leg.ltp == null ? "–" : rupee(leg.ltp)}</b> · bid ${leg.bid ?? "–"} × ${compact(leg.bid_qty)} · ` +
-    `ask ${leg.ask ?? "–"} × ${compact(leg.ask_qty)} · OI ${compact(leg.oi)}`;
+    `ask ${leg.ask ?? "–"} × ${compact(leg.ask_qty)} · OI ${compact(leg.oi)}` +
+    (leg.oi_chg != null ? ` (<span class="${cls(leg.oi_chg)}" title="${esc(oiChgTitle(leg))}">${compactSgn(leg.oi_chg)}</span>)` : "");
   if (live && optEl("optQuote")) { optEl("optQuote").innerHTML = quote; return; }
   if (t.side === "SELL" && !heldLots) t.side = "BUY";
   const maxLots = t.side === "SELL" ? Math.min(heldLots, optUnders.maxLots) : optUnders.maxLots;

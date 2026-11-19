@@ -255,3 +255,54 @@ def test_api_order_local_only_and_errors(orders_fake):
     assert c.post("/api/options/order", json={**body, "lots": 50}).status_code == 400
     r = c.post("/api/options/order", json=body)
     assert r.status_code == 200 and r.get_json()["order_id"] == "O1"
+
+
+# ---- change in OI (oibook) --------------------------------------------------------------------
+
+@pytest.fixture
+def book(monkeypatch, tmp_path):
+    from algotrade import oibook
+    monkeypatch.setattr(oibook, "PATH", tmp_path / "oi_book.json")
+    monkeypatch.setattr(oibook, "_book", None)
+    monkeypatch.setattr(oibook, "_state", {"dirty": False, "saved": 0.0, "snapshot_day": None})
+    monkeypatch.setattr(oibook, "_viewed", {})
+    return oibook
+
+
+def test_oi_change_against_previous_day(book):
+    assert book.record("T1", "2026-11-18T15:29:59", 1000)["oi_chg"] is None     # nothing earlier known
+    book.record("T1", "2026-11-18T15:30:00", 1200)                              # last figure of the day wins
+    assert book.record("T1", "2026-11-19T10:00:00", 1500) == {"oi_chg": 300, "oi_prev": 1200, "oi_prev_day": "2026-11-18"}
+    assert book.record("T1", "2026-11-19T11:00:00", 900)["oi_chg"] == -300
+    assert book.record("T1", "2026-11-18T15:30:00", 1)["oi_chg"] is None        # a stale quote changes nothing
+    assert book.record("T1", "2026-11-20T09:20:00", 950)["oi_chg"] == 50         # tomorrow: vs today's last (900)
+    assert book.record("T2", None, 10)["oi_chg"] is None and book.record("T2", "2026-11-19T10:00:00", None)["oi_chg"] is None
+
+
+def test_oi_book_saved_and_reloaded(book):
+    book.record("T1", "2026-11-18T15:30:00", 1200)
+    book.record("T1", "2026-11-19T10:00:00", 1500)
+    book._save(force=True)
+    book._book = None
+    assert book.record("T1", "2026-11-19T10:05:00", 1600)["oi_chg"] == 400
+
+
+def test_chain_carries_oi_change(fo, book):
+    tok = fno.contracts().set_index("tsym").loc["NIFTY26O1923000CE", "token"]
+    book.record(str(tok), "2000-01-01T15:30:00", 100)          # an earlier session than the fake quote's time
+    c = fno.chain("NIFTY", str(EXP1), width=1)
+    ce = c["rows"][1]["ce"]
+    assert ce["oi_chg"] == ce["oi"] - 100 and ce["oi_prev_day"] == "2000-01-01"
+    assert c["rows"][0]["ce"]["oi_chg"] is None and c["ce_oi_chg"] is None    # not every strike has a baseline
+
+
+def test_close_snapshot_rereads_viewed_chains_once(book):
+    from datetime import datetime
+    reads = []
+    book._viewed[("NIFTY", "2026-11-25", 10)] = "2026-11-19"                  # looked at on Thursday 19 Nov
+    book._viewed[("NIFTY", "2026-11-25", 5)] = "2026-11-18"                   # an earlier day: not re-read
+    read = lambda u, e, w, fresh: reads.append((u, e, w, fresh))
+    at = lambda h, m: datetime(2026, 11, 19, h, m)
+    assert book.close_snapshot(read, at(15, 0)) == 0 and not reads             # market still open
+    assert book.close_snapshot(read, at(15, 40)) == 1 and reads == [("NIFTY", "2026-11-25", 10, True)]
+    assert book.close_snapshot(read, at(16, 0)) == 0                           # once a day

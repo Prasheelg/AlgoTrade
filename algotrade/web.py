@@ -51,8 +51,13 @@ def refresh() -> None:
 
 
 def _background():
+    from . import fno, oibook
     while True:
         refresh()
+        try:
+            oibook.close_snapshot(fno.chain)   # once a day after 15:32: final OI of the chains looked at today
+        except Exception:
+            log.exception("Closing OI snapshot failed")
         time.sleep(REFRESH_SEC)
 
 

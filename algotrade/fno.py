@@ -11,7 +11,7 @@ from datetime import date, datetime
 
 import pandas as pd
 
-from . import config, kotak, livefeed
+from . import config, kotak, livefeed, oibook
 
 log = logging.getLogger(__name__)
 SEGMENT = "nse_fo"
@@ -156,12 +156,14 @@ def spot(underlying: str) -> dict:
             "pct": (ltp - prev) / prev * 100 if ltp is not None and prev else None}
 
 
-def chain(underlying: str, expiry: str, width: int = 10) -> dict:
-    """Option chain around the money: `width` strikes either side of the strike nearest the spot.
-    Cached CHAIN_CACHE_SEC per (underlying, expiry, width)."""
+def chain(underlying: str, expiry: str, width: int = 10, fresh: bool = False) -> dict:
+    """Option chain around the money: `width` strikes either side of the strike nearest the spot, each leg with
+    its change in OI since the previous session (oibook). Cached CHAIN_CACHE_SEC per (underlying, expiry, width)."""
     ck = (underlying, expiry, width)
     hit = _chains.get(ck)
-    if hit and time.monotonic() - hit[0] < (LIVE_CHAIN_CACHE_SEC if livefeed.connected() else CHAIN_CACHE_SEC):
+    if not fresh:
+        oibook.viewed(underlying, expiry, width)
+    if hit and not fresh and time.monotonic() - hit[0] < (LIVE_CHAIN_CACHE_SEC if livefeed.connected() else CHAIN_CACHE_SEC):
         return hit[1]
     df = contracts()
     rows = df[(df["underlying"] == underlying) & (df["expiry"].astype(str) == expiry)]
@@ -183,15 +185,20 @@ def chain(underlying: str, expiry: str, width: int = 10) -> dict:
                 row[opt.lower()] = None
                 continue
             c = c.iloc[0]
-            row[opt.lower()] = {"tsym": c["tsym"], **quotes.get(c["token"], {"ltp": None})}
+            q = quotes.get(c["token"], {"ltp": None})
+            row[opt.lower()] = {"tsym": c["tsym"], **q, **oibook.record(c["token"], q.get("time"), q.get("oi"))}
         out_rows.append(row)
     ce_oi = sum((r["ce"] or {}).get("oi") or 0 for r in out_rows)
     pe_oi = sum((r["pe"] or {}).get("oi") or 0 for r in out_rows)
+    chg = {k: [(r[k] or {}).get("oi_chg") for r in out_rows if r[k]] for k in ("ce", "pe")}
     exp_d = date.fromisoformat(expiry)
     data = {"underlying": underlying, "kind": rows.iloc[0]["kind"], "expiry": expiry,
             "days_to_expiry": (exp_d - date.today()).days, "lot": int(rows["lot"].max()),
             "tick": float(rows["tick"].min()), "spot": sp, "atm": float(strikes[atm_i]), "rows": out_rows,
             "pcr": round(pe_oi / ce_oi, 2) if ce_oi else None,
+            # total change in OI over the strikes shown, once every leg has a previous-day figure
+            "ce_oi_chg": sum(chg["ce"]) if chg["ce"] and None not in chg["ce"] else None,
+            "pe_oi_chg": sum(chg["pe"]) if chg["pe"] and None not in chg["pe"] else None,
             "as_of": datetime.now().isoformat(timespec="seconds")}
     _chains[ck] = (time.monotonic(), data)
     return data
