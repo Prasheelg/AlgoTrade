@@ -87,16 +87,20 @@
   .sseg.end { margin-left: auto; }
   .sseg.pnl { cursor: pointer; }
   .sseg.pnl:hover .lbl, .sseg.pnl.on .lbl { color: var(--accent); }
-  .sseg.pnl .caret { width: 12px; height: 12px; stroke: var(--muted); transition: transform .15s; }
+  .sseg.pnl .caret { width: 12px; height: 12px; stroke: var(--muted); transition: transform .26s cubic-bezier(.2, .8, .2, 1); }
   .sseg.pnl:hover .caret, .sseg.pnl.on .caret { stroke: var(--accent); }
   .sseg.pnl.on .caret { transform: rotate(180deg); }
   /* P&L today panel: a full-width strip docked in the sticky top bar under the status strip (never floats), kept
      short: the totals on the left, then one tile per position (open first, then closed today) laid out sideways */
   #pnlPanel { flex-basis: 100%; display: flex; align-items: stretch; gap: 8px; margin-top: 8px; padding: 6px;
               background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
-              max-height: 30vh; overflow: auto; font-size: 12px; animation: ppIn .14s ease-out; }
-  @keyframes ppIn { from { opacity: 0; transform: translateY(-3px); } }
-  #pnlPanel[hidden] { display: none; }
+              max-height: 30vh; overflow: auto; font-size: 12px;
+              transition: max-height .26s cubic-bezier(.2, .8, .2, 1), margin-top .26s cubic-bezier(.2, .8, .2, 1),
+                          padding .26s cubic-bezier(.2, .8, .2, 1), opacity .2s ease, transform .26s ease, border-color .26s, border-width .26s; }
+  /* closed: folded to nothing (togglePnlPanel sets the exact height first, so it opens and folds smoothly) */
+  #pnlPanel.shut { max-height: 0 !important; margin-top: 0; padding-top: 0; padding-bottom: 0; opacity: 0;
+                   transform: translateY(-4px); border-color: transparent; border-width: 0; box-shadow: none; overflow: hidden; }
+  @media (prefers-reduced-motion: reduce) { #pnlPanel, .sseg.pnl .caret { transition: none; } }
   .pp-sum { flex: none; display: flex; flex-direction: column; justify-content: center; padding: 2px 12px 2px 6px;
             border-right: 1px solid var(--line-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .pp-sum .net { font-size: 14px; font-weight: 700; }
@@ -957,7 +961,7 @@
     <button class="btn" id="refresh" title="Re-check open signals against the latest prices"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
   </div>
   <div class="top-in top-strip"><div class="sbar" id="sbar" role="region" aria-label="Market status"></div>
-  <div id="pnlPanel" hidden role="region" aria-label="Open positions"></div></div></header>
+  <div id="pnlPanel" class="shut" inert role="region" aria-label="Open positions"></div></div></header>
 
   <div class="health" id="healthBox" role="alert" hidden></div>
 
@@ -1552,11 +1556,32 @@ function renderPnlPanel() {
        `<div class="pp-tiles">${tiles || `<span class="pp-none">No positions today</span>`}</div>`) +
     `<button type="button" class="pp-x pclose" title="Hide (Esc, or click P&amp;L today)" aria-label="Hide positions">×</button>`;
 }
+// Open / fold with a height transition: from 0 to the content's height (capped like the CSS), then back to the CSS
+// cap so the strip can grow; folding starts from the current height so it moves at once
 function togglePnlPanel(show = !pnlOpen) {
   pnlOpen = show;
-  pnlPanel.hidden = !show;
   renderStatus();
-  if (show) { renderPnlPanel(); loadPnl(); }
+  pnlPanel.inert = !show;
+  if (show) {
+    renderPnlPanel();
+    // measure it open (folded, its centred content overflows upward and scrollHeight comes out short), then fold
+    // back without a transition and let it open to that height
+    pnlPanel.style.transition = "none"; pnlPanel.style.maxHeight = "none"; pnlPanel.classList.remove("shut");
+    const h = Math.min(pnlPanel.offsetHeight, innerHeight * 0.3);
+    pnlPanel.classList.add("shut"); pnlPanel.style.maxHeight = "";
+    void pnlPanel.offsetHeight;
+    pnlPanel.style.transition = "";
+    pnlPanel.style.maxHeight = `${h}px`;
+    pnlPanel.classList.remove("shut");
+    const done = e => { if (e.target === pnlPanel && e.propertyName === "max-height") {
+      pnlPanel.removeEventListener("transitionend", done); if (pnlOpen) pnlPanel.style.maxHeight = ""; } };
+    pnlPanel.addEventListener("transitionend", done);
+    loadPnl();
+  } else {
+    pnlPanel.style.maxHeight = `${pnlPanel.offsetHeight}px`;
+    void pnlPanel.offsetHeight;   // start from there
+    pnlPanel.classList.add("shut");
+  }
 }
 // The strip is rebuilt every couple of seconds while the market is open (P&L, index ticks). When that lands between
 // press and release the browser drops the click (the pressed element is gone), so toggle on the release instead:
