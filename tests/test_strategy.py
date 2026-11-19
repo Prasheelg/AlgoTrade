@@ -117,6 +117,40 @@ def test_analyze_strategy_live(fo):
     assert len(a["x"]) == len(a["pnl_expiry"]) == len(a["pnl_today"])
 
 
+def test_analyze_strategy_target_date_iv_and_extras(fo):
+    legs = [{"tsym": "NIFTY26O1923000CE", "side": "BUY", "lots": 1, "iv": 20},
+            {"tsym": "NIFTY26O1923100CE", "side": "SELL", "lots": 2}]
+    a = fno.analyze_strategy(legs)
+    assert a["legs"][0]["iv"] == pytest.approx(0.20) and a["legs"][0]["iv_set"] and not a["legs"][1]["iv_set"]
+    assert a["pnl_target"] == a["pnl_today"] and a["target_days"] == 0
+    b = fno.analyze_strategy(legs, target_days=99, iv_offset=2)          # past expiry: clipped to expiry
+    assert b["target_days"] == pytest.approx(b["days"], abs=0.01)
+    assert b["legs"][0]["iv"] == pytest.approx(0.22)                      # own IV + offset
+    assert b["pnl_target"] == pytest.approx(b["pnl_expiry"], abs=1.0)     # at expiry the curves meet
+    # per-unit Greeks, futures from the scrip master, the P&L table, value split, reward / risk
+    assert set(a["legs"][0]["unit_greeks"]) == {"delta", "gamma", "theta", "vega"}
+    assert [f["tsym"] for f in a["futures"]] == ["NIFTY26OCTFUT"]
+    assert any(abs(t["price"] - a["spot"]["ltp"]) < 1e-6 for t in a["table"])
+    sign = lambda g: 1 if g["side"] == "BUY" else -1
+    assert a["intrinsic_value"] + a["time_value"] == pytest.approx(sum(sign(g) * g["qty"] * g["mid"] for g in a["legs"]), abs=0.05)
+    if a["max_profit"] is not None and a["max_loss"] is not None and a["max_loss"] < 0:
+        assert a["reward_risk"] == pytest.approx(a["max_profit"] / -a["max_loss"], abs=1e-3)
+
+
+def test_target_curve_on_a_later_date_loses_time_value():
+    legs = [L("CE", 23000, "BUY", 120.0)]
+    a = st.analyze(legs, 23000, 10, target_days=5)
+    i = min(range(len(a["x"])), key=lambda k: abs(a["x"][k] - 23000))
+    assert a["pnl_expiry"][i] < a["pnl_target"][i] < a["pnl_today"][i]     # a long option decays toward expiry
+
+
+def test_api_analyze_passes_target_and_offset(fo):
+    c = web.app.test_client()
+    j = c.post("/api/options/analyze", json={"legs": [{"tsym": "NIFTY26O1923000CE", "side": "BUY", "lots": 1, "iv": 15}],
+                                             "target_days": 1, "iv_offset": 1}).get_json()
+    assert j["target_days"] == 1 and j["iv_offset"] == 1 and j["legs"][0]["iv"] == pytest.approx(0.16)
+
+
 def test_analyze_strategy_rejects_mixed_expiries_and_unknown(fo):
     with pytest.raises(ValueError, match="same underlying and expiry"):
         fno.analyze_strategy([{"tsym": "NIFTY26O1923000CE", "side": "BUY"}, {"tsym": "NIFTY26OCT23000CE", "side": "BUY"}])

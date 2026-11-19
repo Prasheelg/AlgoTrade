@@ -7,7 +7,7 @@ import io
 import logging
 import math
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 
@@ -23,7 +23,7 @@ LIVE_CHAIN_CACHE_SEC = 0.2  # while the live stream is connected (prices come fr
 INDEX_QUOTE = {"NIFTY": "Nifty 50", "BANKNIFTY": "Nifty Bank", "FINNIFTY": "Nifty Fin Service",
                "MIDCPNIFTY": "NIFTY MID SELECT", "NIFTYNXT50": "Nifty Next 50"}
 
-_master = {"day": None, "df": None}
+_master = {"day": None, "df": None, "fut": None}
 _chains: dict = {}
 
 
@@ -65,14 +65,53 @@ def _master_text(segment: str) -> str:
     return text
 
 
+def parse_futures(csv_text: str) -> pd.DataFrame:
+    """Index and stock futures from the nse_fo scrip master: underlying, expiry, token, tsym, lot."""
+    m = pd.read_csv(io.StringIO(csv_text), dtype=str, low_memory=False)
+    m.columns = [c.strip().rstrip(";") for c in m.columns]
+    m = m[m["pInstType"].str.strip().isin(["FUTIDX", "FUTSTK"])]
+    exp = pd.to_numeric(m["pExpiryDate"], errors="coerce") + EPOCH_1980
+    return pd.DataFrame({
+        "underlying": m["pSymbolName"].str.strip(),
+        "expiry": pd.to_datetime(exp, unit="s", utc=True).dt.tz_convert("Asia/Kolkata").dt.date,
+        "token": m["pSymbol"].str.strip(), "tsym": m["pTrdSymbol"].str.strip(),
+        "lot": pd.to_numeric(m["lLotSize"], errors="coerce").fillna(0).astype(int),
+    }).dropna(subset=["expiry"]).reset_index(drop=True)
+
+
 def contracts() -> pd.DataFrame:
     """All option contracts, refreshed once a day (cached on disk across restarts)."""
     today = date.today()
     if _master["day"] != today:
-        df = parse_master(_master_text(SEGMENT))
-        _master.update(day=today, df=df[df["expiry"] >= today].reset_index(drop=True))
+        text = _master_text(SEGMENT)
+        df = parse_master(text)
+        try:
+            fut = parse_futures(text)
+            fut = fut[fut["expiry"] >= today].reset_index(drop=True)
+        except Exception as exc:     # futures are extra information; options must still load
+            log.warning("No futures in the F&O scrip master: %s", exc)
+            fut = None
+        _master.update(day=today, df=df[df["expiry"] >= today].reset_index(drop=True), fut=fut)
         log.info("Kotak F&O scrip master: %d option contracts", len(_master["df"]))
     return _master["df"]
+
+
+def futures(underlying: str, n: int = 3) -> list[dict]:
+    """The nearest `n` futures of an underlying with their live price (empty if none)."""
+    contracts()
+    fut = _master.get("fut")
+    if fut is None:
+        return []
+    rows = fut[fut["underlying"] == underlying].sort_values("expiry").head(n)
+    if rows.empty:
+        return []
+    try:
+        quotes = {str(q.get("exchange_token")): q for q in _quotes(list(rows["token"]))}
+    except Exception as exc:
+        log.debug("Futures quotes failed: %s", exc)
+        quotes = {}
+    return [{"tsym": r["tsym"], "expiry": str(r["expiry"]), "ltp": _f(quotes.get(r["token"], {}).get("ltp"))}
+            for _, r in rows.iterrows()]
 
 
 def underlyings() -> list[dict]:
@@ -231,9 +270,11 @@ def otm_contract(underlying: str, opt: str, spot_px: float, steps: int = 2, min_
     return rows[rows["strike"] == otm[max(steps, 1) - 1]].iloc[0].to_dict()
 
 
-def analyze_strategy(legs_in: list[dict]) -> dict:
-    """Analyse a strategy (legs: tsym, side, lots, optional price) on live quotes: payoff curves, extremes,
-    breakevens, Greeks, probability of profit. Each leg's IV comes from its live mid price."""
+def analyze_strategy(legs_in: list[dict], target_days: float = 0.0, iv_offset: float = 0.0) -> dict:
+    """Analyse a strategy (legs: tsym, side, lots, optional price, optional iv in %) on live quotes: payoff curves
+    (at expiry and on a target date `target_days` from now), extremes, breakevens, Greeks, probability of
+    profit, standard deviations, the expiry's OI by strike and the underlying's futures. Each leg's IV comes from
+    its live mid price, unless the leg sets its own; `iv_offset` (volatility points) shifts every leg's IV."""
     from . import strategy
     if not legs_in:
         raise ValueError("Add at least one leg")
@@ -254,6 +295,7 @@ def analyze_strategy(legs_in: list[dict]) -> dict:
     days = days_to_expiry(exp)
     t = max(days / 365, strategy.MIN_T)
     legs = []
+    off = float(iv_offset or 0) / 100
     for g, c in zip(legs_in, cs):
         q = quotes.get(c["token"], {})
         mid = (q["bid"] + q["ask"]) / 2 if q.get("bid") and q.get("ask") else q.get("ltp")
@@ -261,13 +303,65 @@ def analyze_strategy(legs_in: list[dict]) -> dict:
         price = float(g["price"]) if g.get("price") not in (None, "") else mid
         if price is None:
             raise ValueError(f"No price for {c['tsym']}")
-        legs.append({"tsym": c["tsym"], "opt": c["opt"], "strike": float(c["strike"]),
+        k = float(c["strike"])
+        iv_mkt = strategy.implied_vol(c["opt"], mid or price, s, k, t)
+        iv_set = float(g["iv"]) / 100 if g.get("iv") not in (None, "") else None
+        iv = iv_set if iv_set is not None else iv_mkt
+        iv = max(iv + off, 0.001) if iv is not None else None
+        intrinsic = max(s - k, 0.0) if c["opt"] == "CE" else max(k - s, 0.0)
+        legs.append({"tsym": c["tsym"], "opt": c["opt"], "strike": k,
                      "side": str(g.get("side", "BUY")).upper(), "lots": lots, "qty": lots * int(c["lot"]),
                      "price": price, "mid": mid, "ltp": q.get("ltp"), "bid": q.get("bid"), "ask": q.get("ask"),
-                     "iv": strategy.implied_vol(c["opt"], mid or price, s, float(c["strike"]), t)})
+                     "iv": iv, "iv_market": iv_mkt, "iv_set": iv_set is not None,
+                     "intrinsic": intrinsic, "unit_greeks": strategy.greeks(c["opt"], s, k, t, iv or 0.0)})
     # Chart range: about 3 standard deviations of the expected move (from the legs' IV and time left)
     ivs = [g["iv"] for g in legs if g["iv"]]
     span = min(max(3 * (sum(ivs) / len(ivs) if ivs else 0.2) * math.sqrt(t), 0.02), 0.25)
-    a = strategy.analyze(legs, s, days, span=span)
+    target = min(max(float(target_days or 0), 0.0), days)
+    a = strategy.analyze(legs, s, days, span=span, target_days=target)
+
+    # The expiry's OI by strike (drawn behind the payoff) and its at-the-money IV (for the standard deviation)
+    atm_iv, oi = None, []
+    try:
+        ch = chain(u, str(exp), 25)
+        atm = next((r for r in ch["rows"] if r["strike"] == ch["atm"]), None)
+        if atm:
+            found = [strategy.implied_vol(o, (atm[o.lower()] or {}).get("ltp"), s, atm["strike"], t) for o in ("CE", "PE")]
+            found = [v for v in found if v]
+            atm_iv = sum(found) / len(found) if found else None
+        lo_x, hi_x = a["x"][0], a["x"][-1]
+        oi = [{"strike": r["strike"], "ce": (r["ce"] or {}).get("oi"), "pe": (r["pe"] or {}).get("oi")}
+              for r in ch["rows"] if lo_x <= r["strike"] <= hi_x]
+    except Exception as exc:
+        log.debug("Chain for the strategy's OI / ATM IV failed: %s", exc)
+    sd_iv = atm_iv if atm_iv else (sum(ivs) / len(ivs) if ivs else None)
+    if sd_iv and atm_iv and off:
+        sd_iv = max(sd_iv + off, 0.001)
+    sd = None
+    if sd_iv:
+        pts = s * sd_iv * math.sqrt(max(days, 0) / 365)
+        sd = {"iv": round(sd_iv, 4), "points": round(pts, 2), "pct": round(pts / s * 100, 2),
+              "one": [round(s - pts, 2), round(s + pts, 2)], "two": [round(s - 2 * pts, 2), round(s + 2 * pts, 2)]}
+
+    # P&L table at the strikes in range (and the spot), on the target date and at expiry
+    marks = sorted({*(r["strike"] for r in oi), round(s, 2)})
+    t_left = max(days - target, 0) / 365
+    at_target = (lambda m: strategy.payoff_at(legs, m, t_left if target else max(t_left, strategy.MIN_T))
+                 if t_left > 1e-9 else strategy.payoff_expiry(legs, m))
+    table = [{"price": m, "pnl_target": round(at_target(m), 2),
+              "pnl_expiry": round(strategy.payoff_expiry(legs, m), 2)} for m in marks]
+
+    sign = lambda g: 1 if g["side"] == "BUY" else -1
+    intrinsic = sum(sign(g) * g["qty"] * g["intrinsic"] for g in legs)
+    time_value = sum(sign(g) * g["qty"] * ((g["mid"] if g["mid"] is not None else g["price"]) - g["intrinsic"])
+                     for g in legs)
+    ml, mp = a["max_loss"], a["max_profit"]
+    rr = mp / -ml if mp is not None and ml is not None and ml < 0 else None
+    from zoneinfo import ZoneInfo
+    target_at = datetime.now(ZoneInfo("Asia/Kolkata")) + timedelta(days=target)
     return {**a, "legs": legs, "underlying": u, "expiry": str(exp), "days": round(days, 2), "spot": sp,
-            "lot": int(cs[0]["lot"])}
+            "lot": int(cs[0]["lot"]), "target_days": round(target, 4),
+            "target_at": target_at.isoformat(timespec="minutes"), "iv_offset": float(iv_offset or 0),
+            "sd": sd, "atm_iv": atm_iv, "oi": oi, "table": table,
+            "intrinsic_value": round(intrinsic, 2), "time_value": round(time_value, 2),
+            "reward_risk": round(rr, 3) if rr is not None else None, "futures": futures(u)}

@@ -104,8 +104,10 @@ def defined_risk(legs: list[dict]) -> bool:
     return True
 
 
-def analyze(legs: list[dict], spot: float, days: float, span: float = 0.12, points: int = 241) -> dict:
-    """Full picture of a single-expiry strategy: payoff curves, extremes, breakevens, Greeks, net premium."""
+def analyze(legs: list[dict], spot: float, days: float, span: float = 0.12, points: int = 241,
+            target_days: float = 0.0) -> dict:
+    """Full picture of a single-expiry strategy: payoff curves (at expiry, today and on a target date
+    `target_days` from now), extremes, breakevens, Greeks, net premium."""
     if not legs:
         raise ValueError("Add at least one leg")
     t = max(days, 0) / 365
@@ -115,6 +117,9 @@ def analyze(legs: list[dict], spot: float, days: float, span: float = 0.12, poin
     xs = [lo + (hi - lo) * i / (points - 1) for i in range(points)]
     exp_curve = [payoff_expiry(legs, x) for x in xs]
     now_curve = [payoff_at(legs, x, max(t, MIN_T)) for x in xs]
+    t_target = t - max(target_days, 0) / 365        # at (or past) expiry the target curve is the expiry payoff
+    target_curve = (now_curve if not target_days else
+                    [payoff_at(legs, x, t_target) if t_target > 1e-9 else payoff_expiry(legs, x) for x in xs])
 
     # Extremes: the expiry payoff is piecewise linear, so its max / min over [0, inf) sit at 0, a strike,
     # or run off to infinity on the upside when the tail slope is non-zero.
@@ -149,7 +154,8 @@ def analyze(legs: list[dict], spot: float, days: float, span: float = 0.12, poin
     else:
         funds = -max_loss if max_loss is not None and max_loss < 0 else None   # credit spread: about its max loss
     return {"x": [round(x, 2) for x in xs], "pnl_expiry": [round(v, 2) for v in exp_curve],
-            "pnl_today": [round(v, 2) for v in now_curve], "max_profit": max_profit, "max_loss": max_loss,
+            "pnl_today": [round(v, 2) for v in now_curve], "pnl_target": [round(v, 2) for v in target_curve],
+            "max_profit": max_profit, "max_loss": max_loss,
             "breakevens": bes, "net_premium": round(net, 2), "greeks": {k: round(v, 4) for k, v in g.items()},
             "pop": pop, "defined_risk": defined_risk(legs), "funds_estimate": funds,
             "payoff_now_at_spot": round(payoff_at(legs, spot, max(t, MIN_T)), 2)}

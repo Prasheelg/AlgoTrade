@@ -537,8 +537,73 @@
               border-bottom: 1px solid var(--line-2); padding: 12px 0; }
   .sb-stats .kpi .v { font-size: 19px; }
   .sb-stats .kpi:nth-child(n+7) { margin-top: 12px; }
-  .sb-chart-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding: 12px 16px 0; }
+  .sb-chart-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px 0; }
   .sb-chart-head .lbl { color: var(--ink-2); }
+  .sb-chart-head .right { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .sb-chart-head .seg button { padding: 4px 11px; font-size: 12.5px; }
+  .sb-oiline { padding: 6px 16px 0; font-size: 12px; color: var(--muted); min-height: 18px; font-variant-numeric: tabular-nums; }
+  .sb-oiline b { color: var(--ink); font-weight: 600; }
+  .sb-oiline i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin: 0 4px 0 10px; }
+  .sb .chart .oibar { opacity: .32; }
+  .sb .chart .sdline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 4; }
+  .sb .chart .sdlbl { fill: var(--muted); font-size: 10.5px; font-weight: 600; }
+  .sb .chart .tgtline { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .sb .chart .tgtlbl { fill: var(--accent); font-size: 11px; font-weight: 600; }
+  /* target price / date */
+  .sb-target { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 32px; padding: 14px 16px 4px; }
+  .sb-target .tg { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .sb-target .tg-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
+  .sb-target .tg-h .lbl { margin-right: auto; }
+  .sb-target .tg-h b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .sb-target input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  .sb-target .ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sb-target .linkbtn { border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; padding: 0 2px; cursor: pointer; }
+  .sb-proj { margin: 8px 16px 0; padding: 9px 12px; border-radius: 9px; background: var(--neutral-bg); font-size: 13px; color: var(--ink-2);
+             display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center; }
+  .sb-proj b { font-variant-numeric: tabular-nums; }
+  .stepper { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--panel); }
+  .stepper button { border: 0; background: none; color: var(--ink-2); width: 26px; font-size: 15px; line-height: 1; padding: 0; cursor: pointer; }
+  .stepper button:hover { background: var(--neutral-bg); color: var(--ink); }
+  .stepper input, .stepper select { border: 0 !important; border-left: 1px solid var(--line) !important; border-right: 1px solid var(--line) !important;
+                                    border-radius: 0 !important; background: transparent; text-align: center; font: inherit; font-size: 13px;
+                                    color: var(--ink); padding: 4px 6px; width: 70px; }
+  .stepper select { width: auto; text-align: left; }
+  .stepper input { -moz-appearance: textfield; appearance: textfield; }
+  .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  /* P&L table */
+  .sb-ptable { padding: 8px 16px 0; max-height: 360px; overflow: auto; }
+  .sb-ptable table { min-width: 0; width: 100%; }
+  .sb-ptable td, .sb-ptable th { padding: 6px 10px; }
+  .sb-ptable tr.spot td { background: var(--accent-soft); font-weight: 600; }
+  /* bottom panels: strikewise IVs, Greeks, futures + standard deviation */
+  .sb-panels { display: grid; grid-template-columns: 1.15fr 1fr 1fr; border-top: 1px solid var(--line-2); margin-top: 14px; }
+  .sb-panel { padding: 14px 16px; min-width: 0; }
+  .sb-panel + .sb-panel { border-left: 1px solid var(--line-2); }
+  .sb-panel h4 { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .sb-panel h4 .linkbtn { margin-left: auto; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+  .sb-panel table { min-width: 0; width: 100%; }
+  .sb-panel td, .sb-panel th { padding: 5px 4px; border-bottom: 1px solid var(--line-2); }
+  .sb-panel tr:last-child td { border-bottom: 0; }
+  .sb-panel .stepper input { width: 58px; }
+  .sb-panel .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--ink-2); margin-bottom: 10px; }
+  .sb-panel .toggles { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 9px; background: var(--neutral-bg); margin-bottom: 8px; }
+  .sb-panel .kv { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+  .sb-panel .kv span { color: var(--ink-2); }
+  .sb-panel .kv b { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .sb-panel .sub2 { color: var(--muted); font-size: 11.5px; }
+  .sb-legs tr.off td:not(:first-child) { opacity: .4; }
+  .sb-legs td.on input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .sb-legs .stepper select { padding: 4px 6px; }
+  @media (max-width: 1100px) { .sb-panels { grid-template-columns: 1fr 1fr; } .sb-panel:nth-child(3) { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line-2); } }
+  @media (max-width: 640px) {
+    .sb-target { grid-template-columns: 1fr; }
+    .sb-panels { grid-template-columns: 1fr; }
+    .sb-panel + .sb-panel { border-left: 0; border-top: 1px solid var(--line-2); }
+    .sb-panel:nth-child(3) { grid-column: auto; }
+    #optView .sb-target .stepper input { width: 100px; font-size: 16px; }
+    #optView .sb-panel .stepper input { width: 70px; font-size: 16px; }
+    #optView .stepper button { width: 34px; }
+  }
   .sb-place { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; padding: 12px 16px 14px; border-top: 1px solid var(--line-2); }
   .sb-place .est { font-size: 13px; color: var(--ink-2); }
   .chart .profit { fill: var(--up); opacity: .1; } .chart .loss { fill: var(--down); opacity: .1; }
@@ -1247,22 +1312,55 @@
           <option value="1">1 strike</option><option value="2" selected>2 strikes</option><option value="3">3 strikes</option>
           <option value="4">4 strikes</option><option value="5">5 strikes</option></select></div>
         <div class="ctl"><span class="lbl">Lots</span><input type="number" inputmode="decimal" id="sbLots" min="1" step="1" value="1"></div>
+        <div class="ctl"><span class="lbl">Shift</span><div class="stepper" title="Move every leg one strike down or up">
+          <button type="button" id="sbShiftDn" aria-label="Shift all legs one strike down">−</button><button type="button" id="sbShiftUp" aria-label="Shift all legs one strike up">+</button></div></div>
         <button class="btn" type="button" id="sbAdd">+ Add leg</button>
         <button class="btn" type="button" id="sbClear">Clear</button>
         <span class="hint" id="sbHint">Pick a strategy, or switch the chain to "Add to strategy" and click prices</span>
       </div>
       <div class="sb-tpls" id="sbTpls" role="group" aria-label="Strategy templates"></div>
       <div id="sbBody" hidden>
-        <div class="tablewrap"><table class="sb-legs"><thead><tr><th>Side</th><th>Type</th><th>Strike</th><th class="num">Lots</th>
+        <div class="tablewrap"><table class="sb-legs"><thead><tr><th title="Include the leg">On</th><th>Side</th><th>Type</th><th>Strike</th><th class="num">Lots</th>
           <th class="num">Price ₹</th><th class="num">Bid / Ask</th><th class="num">IV</th><th></th></tr></thead>
           <tbody id="sbLegs"></tbody></table></div>
         <div class="sb-stats" id="sbStats"></div>
-        <div class="sb-chart-head"><span class="lbl">Payoff</span>
+        <div class="sb-chart-head">
+          <div class="seg" id="sbPayTab"><button type="button" data-v="graph" class="on">Payoff graph</button><button type="button" data-v="table">P&amp;L table</button></div>
           <div class="legend"><span><i class="key" style="background:var(--series-net)"></i>At expiry</span>
-            <span><i class="key" style="background:var(--series-gross)"></i>Today</span></div>
-          <span class="hint" id="sbChartHint"></span></div>
+            <span><i class="key" style="background:var(--series-gross)"></i>On target date</span></div>
+          <div class="right">
+            <label class="switch" title="Open interest of this expiry by strike, behind the payoff"><input type="checkbox" id="sbShowOi" checked>Open interest</label>
+            <label class="switch" title="One and two standard deviations of the expected move to expiry"><input type="checkbox" id="sbShowSd" checked>SD lines</label>
+          </div>
+          <span class="hint" id="sbChartHint" style="flex-basis:100%;margin-left:0"></span></div>
+        <div class="sb-oiline" id="sbOiLine"></div>
         <div class="chart" id="sbChart"></div>
+        <div class="sb-ptable" id="sbPTable" hidden></div>
         <div class="tip" id="sbTip" hidden></div>
+        <div class="sb-target">
+          <div class="tg"><div class="tg-h"><span class="lbl">Target price</span><b id="sbTpPct"></b>
+              <div class="stepper"><button type="button" id="sbTpDn" aria-label="Lower target price">−</button>
+                <input type="number" inputmode="decimal" id="sbTpIn" aria-label="Target price"><button type="button" id="sbTpUp" aria-label="Raise target price">+</button></div>
+              <button type="button" class="linkbtn" id="sbTpReset">Reset</button></div>
+            <input type="range" id="sbTp" aria-label="Target price slider"><div class="ends"><span id="sbTpLo"></span><span id="sbTpHi"></span></div></div>
+          <div class="tg"><div class="tg-h"><span class="lbl">Target date</span><b id="sbTdLbl"></b>
+              <div class="stepper"><button type="button" id="sbTdDn" aria-label="One day earlier">‹</button><button type="button" id="sbTdUp" aria-label="One day later">›</button></div>
+              <button type="button" class="linkbtn" id="sbTdReset">Today</button></div>
+            <input type="range" id="sbTd" min="0" step="1" value="0" aria-label="Target date slider"><div class="ends"><span id="sbTdLo"></span><span id="sbTdHi"></span></div></div>
+        </div>
+        <div class="sb-proj" id="sbProj"></div>
+        <div class="sb-panels">
+          <div class="sb-panel"><h4>Strikewise IVs<button type="button" class="linkbtn" id="sbIvReset">Reset IVs</button></h4>
+            <div class="row"><span>Offset (all legs, vol points)</span><div class="stepper"><button type="button" id="sbIvOffDn" aria-label="Lower all IVs">−</button>
+              <input type="number" id="sbIvOff" step="0.5" value="0" aria-label="IV offset"><button type="button" id="sbIvOffUp" aria-label="Raise all IVs">+</button></div></div>
+            <table><thead><tr><th>Strike</th><th class="num">IV %</th><th class="num">Chg</th></tr></thead><tbody id="sbIvRows"></tbody></table></div>
+          <div class="sb-panel"><h4>Greeks</h4>
+            <div class="toggles"><label class="switch"><input type="checkbox" id="sbGLot" checked>Multiply by lot size</label>
+              <label class="switch"><input type="checkbox" id="sbGLots" checked>Multiply by number of lots</label></div>
+            <div id="sbGreeks"></div></div>
+          <div class="sb-panel"><h4>Futures</h4><div id="sbFut"></div>
+            <h4 style="margin-top:14px">Standard deviation <span class="sub2" id="sbSdIv"></span></h4><div id="sbSd"></div></div>
+        </div>
         <div class="sb-place">
           <div class="ctl"><span class="lbl">Type</span><div class="seg" id="sbType">
             <button type="button" data-v="LIMIT" class="on">Limit</button><button type="button" data-v="MARKET">Market</button></div></div>
@@ -3346,6 +3444,11 @@ const SB_SHORT = { bull_put: "Bull put spread", bear_call: "Bear call spread", s
                    short_strangle: "Short strangle", call_fly: "Call butterfly" };
 let sbLegs = [], sbRes = null, sbType = "LIMIT", sbProd = "NRML", optMode = "order", sbTimer = null, sbSeq = 0;
 let sbTplSel = "custom";   // selected strategy; "custom" once legs are edited by hand
+// target date (hours from now), target price (null = the spot), IV offset, chart and Greeks options
+const sbX = { hours: 0, price: null, ivOff: 0, showOi: true, showSd: true, gLot: true, gLots: true, tab: "graph" };
+try { Object.assign(sbX, JSON.parse(localStorage.getItem("sbX") || "{}"), { hours: 0, price: null, ivOff: 0 }); } catch (e) {}
+const sbXSave = () => { try { localStorage.setItem("sbX", JSON.stringify({ showOi: sbX.showOi, showSd: sbX.showSd, gLot: sbX.gLot, gLots: sbX.gLots, tab: sbX.tab })); } catch (e) {} };
+const sbOn = () => sbLegs.filter(g => g.on !== false);
 
 // Mini payoff at expiry for a template, from a rough premium model (shape only, not prices)
 function tplIcon(legs) {
@@ -3403,12 +3506,13 @@ function renderSb() {
   if (!sbLegs.length) { sbRes = null; return; }
   const strikes = optChain?.rows.map(r => r.strike) ?? [];
   optEl("sbLegs").innerHTML = sbLegs.map((g, i) => {
-    const q = chainLeg(g.strike, g.opt) ?? g.q ?? {}, iv = sbRes?.legs?.[i]?.iv;
+    const q = chainLeg(g.strike, g.opt) ?? g.q ?? {}, iv = g.on !== false ? g.q?.iv : null;
     const opts = [...new Set([...strikes, g.strike])].sort((a, b) => a - b);
-    return `<tr data-i="${i}">
+    return `<tr data-i="${i}" class="${g.on === false ? "off" : ""}">
+      <td class="on"><input type="checkbox" data-f="on" ${g.on === false ? "" : "checked"} aria-label="Include this leg"></td>
       <td><div class="seg"><button type="button" data-f="side" data-v="BUY" class="${g.side === "BUY" ? "on" : ""}">Buy</button><button type="button" data-f="side" data-v="SELL" class="${g.side === "SELL" ? "on" : ""}">Sell</button></div></td>
       <td><div class="seg"><button type="button" data-f="opt" data-v="CE" class="${g.opt === "CE" ? "on" : ""}">CE</button><button type="button" data-f="opt" data-v="PE" class="${g.opt === "PE" ? "on" : ""}">PE</button></div></td>
-      <td><select data-f="strike">${opts.map(k => `<option value="${k}" ${k === g.strike ? "selected" : ""}>${num(k, k % 1 ? 1 : 0)}${k === optChain?.atm ? " (ATM)" : ""}</option>`).join("")}</select></td>
+      <td><div class="stepper"><button type="button" data-f="kdn" aria-label="Strike down">−</button><select data-f="strike">${opts.map(k => `<option value="${k}" ${k === g.strike ? "selected" : ""}>${num(k, k % 1 ? 1 : 0)}${k === optChain?.atm ? " (ATM)" : ""}</option>`).join("")}</select><button type="button" data-f="kup" aria-label="Strike up">+</button></div></td>
       <td class="num"><input type="number" inputmode="decimal" data-f="lots" min="1" step="1" value="${g.lots}"></td>
       <td class="num"><input type="number" inputmode="decimal" class="px" data-f="price" step="${optChain?.tick ?? 0.05}" placeholder="${defaultPrice(g) ?? ""}" value="${g.price ?? ""}"
         title="Order price per unit. Empty = ${g.side === "BUY" ? "best ask" : "best bid"} (updates live)"></td>
@@ -3421,6 +3525,7 @@ function renderSb() {
 optEl("sbLegs").addEventListener("click", e => {
   const b = e.target.closest("[data-f]"); if (!b || b.tagName === "INPUT" || b.tagName === "SELECT") return;
   const i = +b.closest("tr").dataset.i, g = sbLegs[i];
+  if (b.dataset.f === "kdn" || b.dataset.f === "kup") { sbMoveStrike(g, b.dataset.f === "kup" ? 1 : -1); setTpl("custom"); renderSb(); sbAnalyze(); return; }
   if (b.dataset.f === "remove") sbLegs.splice(i, 1);
   else { g[b.dataset.f] = b.dataset.v; g.price = b.dataset.f === "side" ? null : g.price; }
   if (b.dataset.f === "opt") { g.tsym = chainLeg(g.strike, g.opt)?.tsym; g.price = null; }
@@ -3431,10 +3536,23 @@ optEl("sbLegs").addEventListener("change", e => {
   const g = sbLegs[+e.target.closest("tr").dataset.i];
   if (f === "strike") { g.strike = +e.target.value; g.tsym = chainLeg(g.strike, g.opt)?.tsym; g.price = null; }
   if (f === "lots") g.lots = Math.max(1, parseInt(e.target.value, 10) || 1);
+  if (f === "on") g.on = e.target.checked;
   if (f === "price") g.price = e.target.value === "" ? null : +e.target.value;
   setTpl("custom"); renderSb(); sbAnalyze();
 });
 optEl("sbWidth").onchange = applyTemplate;
+// one strike down / up within the chain's strikes (a new strike means a new contract and price)
+function sbMoveStrike(g, d) {
+  const ks = optChain?.rows.map(r => r.strike) ?? [], i = ks.indexOf(g.strike);
+  if (i < 0 || !ks[i + d]) return false;
+  g.strike = ks[i + d]; g.tsym = chainLeg(g.strike, g.opt)?.tsym; g.price = null; g.iv = null;
+  return true;
+}
+const sbShift = d => { if (!sbLegs.length) return; const ks = optChain?.rows.map(r => r.strike) ?? [];
+  if (sbLegs.some(g => !ks[ks.indexOf(g.strike) + d])) return;   // keep the shape: all legs move or none
+  sbLegs.forEach(g => sbMoveStrike(g, d)); setTpl("custom"); renderSb(); sbAnalyze(); };
+optEl("sbShiftDn").onclick = () => sbShift(-1);
+optEl("sbShiftUp").onclick = () => sbShift(1);
 optEl("sbLots").onchange = () => { if (sbTplSel === "custom") { const n = Math.max(1, parseInt(optEl("sbLots").value, 10) || 1); sbLegs.forEach(g => g.lots = n); renderSb(); sbAnalyze(); } else applyTemplate(); };
 optEl("sbAdd").onclick = () => {
   if (!optChain) return;
@@ -3442,7 +3560,7 @@ optEl("sbAdd").onclick = () => {
                 price: null, tsym: chainLeg(optChain.atm, "CE")?.tsym });
   setTpl("custom"); renderSb(); sbAnalyze();
 };
-optEl("sbClear").onclick = () => { sbLegs = []; sbRes = null; setTpl("custom"); renderSb(); };
+optEl("sbClear").onclick = () => { sbLegs = []; sbRes = null; sbX.hours = 0; sbX.price = null; sbX.ivOff = 0; setTpl("custom"); renderSb(); };
 optEl("optMode").onclick = e => {
   const b = e.target.closest("[data-v]"); if (!b) return;
   optMode = b.dataset.v;
@@ -3457,17 +3575,19 @@ function sbAnalyze(now = false) {
   clearTimeout(sbTimer);
   if (!sbLegs.length) return;
   sbTimer = setTimeout(async () => {
-    const legs = sbLegs.map(g => ({ tsym: g.tsym, side: g.side, lots: g.lots, price: legPrice(g) }));
+    const on = sbOn();
+    if (!on.length) { optEl("sbHint").textContent = "Every leg is switched off: tick at least one"; return; }
+    const legs = on.map(g => ({ tsym: g.tsym, side: g.side, lots: g.lots, price: legPrice(g), iv: g.iv ?? null }));
     if (legs.some(l => !l.tsym)) { optEl("sbHint").textContent = "A leg's strike has no contract in this expiry"; return; }
     const seq = ++sbSeq;
     try {
       const r = await optJson("/api/options/analyze", { method: "POST", headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify({ legs }) });
+                                                        body: JSON.stringify({ legs, target_days: sbX.hours / 24, iv_offset: sbX.ivOff }) });
       if (seq !== sbSeq) return;   // a newer edit is on its way
       sbRes = r;
-      sbLegs.forEach((g, i) => { g.q = r.legs[i]; });
-      optEl("sbHint").textContent = `${sbLegs.length} leg${sbLegs.length > 1 ? "s" : ""} · ${r.underlying} ${r.expiry} · updated ${new Date().toTimeString().slice(0, 8)}`;
-      renderSb(); renderSbStats(); drawPayoff(); renderSbPlace();
+      on.forEach((g, i) => { g.q = r.legs[i]; });
+      optEl("sbHint").textContent = `${on.length} leg${on.length > 1 ? "s" : ""}${on.length < sbLegs.length ? ` on (${sbLegs.length - on.length} off)` : ""} · ${r.underlying} ${r.expiry} · updated ${new Date().toTimeString().slice(0, 8)}`;
+      renderSb(); renderSbStats(); renderSbTarget(); sbPayView(); renderSbPanels(); renderSbPlace();
     } catch (err) { if (seq === sbSeq) optEl("sbHint").textContent = "Analysis failed: " + err.message; }
   }, now ? 0 : 250);
 }
@@ -3484,10 +3604,11 @@ function renderSbStats() {
     kpi("Chance of profit", r.pop == null ? "–" : `${Math.round(r.pop * 100)}%`, "at expiry, from IV", r.pop == null ? "" : meter(r.pop)),
     kpi("Funds needed", r.funds_estimate == null ? (r.defined_risk ? "–" : unl) : `≈ ${rupee(r.funds_estimate, 0)}`,
       r.net_premium < 0 ? "premium paid" : "≈ max loss (estimate)"),
-    kpi("Delta", g.delta.toFixed(1), "₹ per ₹1 move"),
-    kpi("Theta", `<span class="${cls(g.theta)}">${kRupee(g.theta)}</span>`, "per day"),
-    kpi("Vega", kRupee(g.vega), "per 1% IV"),
-    kpi("Gamma", g.gamma.toFixed(3), "delta change per ₹1"),
+    kpi("Reward / risk", r.reward_risk == null ? "–" : `${r.reward_risk.toFixed(2)}<span class="sub" style="display:inline;font-size:12px"> : 1</span>`,
+      "max profit ÷ max loss"),
+    kpi("Time value", `<span class="${cls(r.time_value)}">${rupee(r.time_value, 0)}</span>`, r.time_value < 0 ? "you are short time value" : "you are long time value"),
+    kpi("Intrinsic value", rupee(r.intrinsic_value, 0), "at today's spot"),
+    kpi("Theta", `<span class="${cls(g.theta)}">${kRupee(g.theta)}</span>`, "per day, whole position"),
     kpi("P&L now", `<span class="${cls(r.payoff_now_at_spot)}">${rupee(r.payoff_now_at_spot, 0)}</span>`, "at today's spot, after entry"),
     kpi("Days to expiry", r.days.toFixed(1), `${esc(r.expiry)} 15:30`),
   ].join("");
@@ -3497,20 +3618,21 @@ function renderSbPlace() {
   const r = sbRes, btn = optEl("sbGo"), note = optEl("sbPlaceNote");
   if (!r) return;
   const nse = META?.markets.find(m => m.code === "IN"), open = nse && marketState(nse).open;
-  const sells = sbLegs.some(g => g.side === "SELL");
+  const sells = sbOn().some(g => g.side === "SELL");
   let why = "";
   if (!r.defined_risk) why = "Sells options without cover (unlimited or very large risk): analysis only, can't be placed here.";
   else if (sells && !open) why = "Strategies with sold legs can only be placed while the market is open (bought legs must fill first).";
   btn.disabled = !!why;
   note.innerHTML = why ? `<span class="down">${why}</span>`
-    : `${sbLegs.length} order${sbLegs.length > 1 ? "s" : ""}: bought legs first${sells ? ", sold legs only after they fill" : ""}` +
+    : `${sbOn().length} order${sbOn().length > 1 ? "s" : ""}: bought legs first${sells ? ", sold legs only after they fill" : ""}` +
       (sbType === "LIMIT" ? " · limit at the prices above" : " · at market") + (!open ? " · AMO (executes at the next open)" : "");
 }
 
 function drawPayoff() {
   const r = sbRes, box = optEl("sbChart");
-  const W = Math.max(box.clientWidth - 16, 280), H = W < 560 ? 230 : 300, M = { l: 62, r: 16, t: 16, b: 30 };
-  const xs = r.x, n = xs.length, ys = [...r.pnl_expiry, ...r.pnl_today, 0];
+  const W = Math.max(box.clientWidth - 16, 280), H = W < 560 ? 250 : 340, M = { l: 62, r: 16, t: 22, b: 30 };
+  const tgt = r.pnl_target ?? r.pnl_today;
+  const xs = r.x, n = xs.length, ys = [...r.pnl_expiry, ...tgt, 0];
   let lo = Math.min(...ys), hi = Math.max(...ys);
   if (hi - lo < 1) { hi += 1; lo -= 1; }
   const step = niceStep(hi - lo, 4);
@@ -3525,31 +3647,55 @@ function drawPayoff() {
   const xstep = niceStep(xs[n - 1] - xs[0], W < 560 ? 3 : 6);
   for (let v = Math.ceil(xs[0] / xstep) * xstep; v <= xs[n - 1]; v += xstep)
     svg += `<text class="axis" x="${x(v).toFixed(1)}" y="${H - 8}" text-anchor="middle">${num(v, 0)}</text>`;
+  // open interest of this expiry behind everything: puts green, calls red, scaled to 60% of the height (no axis;
+  // the figures are in the line above the chart on hover)
+  const oiRows = (r.oi ?? []).filter(o => o.strike >= xs[0] && o.strike <= xs[n - 1]);
+  if (sbX.showOi && oiRows.length) {
+    const maxOi = Math.max(1, ...oiRows.flatMap(o => [o.ce ?? 0, o.pe ?? 0])), ph = (H - M.t - M.b) * .6, base = H - M.b;
+    const gap = oiRows.length > 1 ? x(oiRows[1].strike) - x(oiRows[0].strike) : 20, bw = Math.max(1.5, Math.min(7, gap * .32));
+    for (const o of oiRows) {
+      const cx = x(o.strike), hp = (o.pe ?? 0) / maxOi * ph, hc = (o.ce ?? 0) / maxOi * ph;
+      svg += `<rect class="oibar" x="${(cx - bw - .5).toFixed(1)}" y="${(base - hp).toFixed(1)}" width="${bw}" height="${hp.toFixed(1)}" style="fill:var(--up)"/>` +
+             `<rect class="oibar" x="${(cx + .5).toFixed(1)}" y="${(base - hc).toFixed(1)}" width="${bw}" height="${hc.toFixed(1)}" style="fill:var(--down)"/>`;
+    }
+  }
+  if (sbX.showSd && r.sd) {
+    [["−2SD", r.sd.two[0]], ["−1SD", r.sd.one[0]], ["+1SD", r.sd.one[1]], ["+2SD", r.sd.two[1]]].forEach(([t, v]) => {
+      if (v < xs[0] || v > xs[n - 1]) return;
+      svg += `<line class="sdline" x1="${x(v).toFixed(1)}" x2="${x(v).toFixed(1)}" y1="${M.t}" y2="${H - M.b}"/>` +
+             `<text class="sdlbl" x="${x(v).toFixed(1)}" y="${M.t - 8}" text-anchor="middle">${t}</text>`;
+    });
+  }
   // profit / loss wash under the expiry line
   const area = sign => `M${x(xs[0])},${y0}` + xs.map((v, i) => `L${x(v).toFixed(1)},${y(sign > 0 ? Math.max(r.pnl_expiry[i], 0) : Math.min(r.pnl_expiry[i], 0)).toFixed(1)}`).join("") + `L${x(xs[n - 1])},${y0}Z`;
   svg += `<path class="profit" d="${area(1)}"/><path class="loss" d="${area(-1)}"/>`;
   const line = (arr, color) => `<path d="${xs.map((v, i) => `${i ? "L" : "M"}${x(v).toFixed(1)},${y(arr[i]).toFixed(1)}`).join("")}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`;
-  svg += line(r.pnl_today, "var(--series-gross)") + line(r.pnl_expiry, "var(--series-net)");
+  svg += line(tgt, "var(--series-gross)") + line(r.pnl_expiry, "var(--series-net)");
   const sx = x(r.spot.ltp);
   svg += `<line class="spotline" x1="${sx}" x2="${sx}" y1="${M.t}" y2="${H - M.b}"/><text class="spotlbl" x="${sx + 4}" y="${M.t + 10}">Spot ${num(r.spot.ltp, 0)}</text>`;
+  const tp = sbX.price;
+  if (tp != null && Math.abs(tp - r.spot.ltp) > 1e-6 && tp >= xs[0] && tp <= xs[n - 1])
+    svg += `<line class="tgtline" x1="${x(tp)}" x2="${x(tp)}" y1="${M.t}" y2="${H - M.b}"/><text class="tgtlbl" x="${x(tp) + 4}" y="${M.t + 24}">Target ${num(tp, 0)}</text>`;
   for (const b of r.breakevens) if (b >= xs[0] && b <= xs[n - 1])
     svg += `<circle cx="${x(b)}" cy="${y0}" r="3.5" fill="var(--ink-2)" stroke="var(--panel)" stroke-width="2"/><text class="be" x="${x(b)}" y="${y0 + 15}" text-anchor="middle">${num(b, 0)}</text>`;
   svg += `<g id="sbHover"></g><rect x="${M.l}" y="${M.t}" width="${W - M.l - M.r}" height="${H - M.t - M.b}" fill="transparent"/>`;
   box.innerHTML = `<svg id="sbSvg" viewBox="0 0 ${W} ${H}" height="${H}" role="img" tabindex="0"
     aria-label="Payoff of the strategy at expiry and today across underlying prices">${svg}</svg>`;
-  optEl("sbChartHint").textContent = `${r.underlying} from ${num(xs[0], 0)} to ${num(xs[n - 1], 0)} · hover for P&L at any price`;
+  optEl("sbChartHint").textContent = `${r.underlying} from ${num(xs[0], 0)} to ${num(xs[n - 1], 0)} · hover for P&L and open interest at any price`;
+  sbOiLine(null);
   const el = optEl("sbSvg"), tip = optEl("sbTip");
   const hover = i => {
     const g = optEl("sbHover");
-    if (i == null) { g.innerHTML = ""; tip.hidden = true; return; }
+    if (i == null) { g.innerHTML = ""; tip.hidden = true; sbOiLine(null); return; }
     const px = xs[i];
     g.innerHTML = `<line class="xhair" x1="${x(px)}" x2="${x(px)}" y1="${M.t}" y2="${H - M.b}"/>` +
-      [[r.pnl_expiry, "var(--series-net)"], [r.pnl_today, "var(--series-gross)"]].map(([a, c]) =>
+      [[r.pnl_expiry, "var(--series-net)"], [tgt, "var(--series-gross)"]].map(([a, c]) =>
         `<circle cx="${x(px)}" cy="${y(a[i])}" r="4" fill="${c}" stroke="var(--panel)" stroke-width="2"/>`).join("");
     tip.innerHTML = `<div class="t">${esc(r.underlying)} at ${num(px, 0)} (${sgn((px - r.spot.ltp) / r.spot.ltp * 100, 1, "%")})</div>` +
       `<div class="row"><i class="key" style="background:var(--series-net)"></i><b>${rupee(r.pnl_expiry[i], 0)}</b><span>At expiry</span></div>` +
-      `<div class="row"><i class="key" style="background:var(--series-gross)"></i><b>${rupee(r.pnl_today[i], 0)}</b><span>Today</span></div>`;
+      `<div class="row"><i class="key" style="background:var(--series-gross)"></i><b>${rupee(tgt[i], 0)}</b><span>${sbX.hours ? "On target date" : "Today"}</span></div>`;
     tip.hidden = false;
+    sbOiLine(px);
     const rect = el.getBoundingClientRect(), card = optEl("sbCard").getBoundingClientRect(), sc = rect.width / W;
     const left = rect.left - card.left + x(px) * sc;
     tip.style.left = `${Math.max(4, left + 14 + tip.offsetWidth > card.width ? left - 14 - tip.offsetWidth : left + 14)}px`;
@@ -3565,9 +3711,151 @@ function drawPayoff() {
                         hover(cur = Math.max(0, Math.min(n - 1, (cur ?? 0) + d))); };
 }
 
+// OI at the strike nearest a price (or at the spot)
+function sbOiLine(px) {
+  const r = sbRes, el = optEl("sbOiLine"); if (!r) return;
+  const rows = r.oi ?? [];
+  if (!sbX.showOi || !rows.length) { el.innerHTML = ""; return; }
+  const at = px ?? r.spot.ltp, o = rows.reduce((a, b) => Math.abs(b.strike - at) < Math.abs(a.strike - at) ? b : a);
+  el.innerHTML = `OI at <b>${num(o.strike, o.strike % 1 ? 1 : 0)}</b><i style="background:var(--down)"></i>Call <b>${compact(o.ce)}</b>` +
+    `<i style="background:var(--up)"></i>Put <b>${compact(o.pe)}</b>` + (o.ce ? ` · PCR ${(o.pe / o.ce).toFixed(2)}` : "");
+}
+
+// value of a curve at any price (linear between the sampled points)
+function sbAt(arr, px) {
+  const xs = sbRes.x, n = xs.length;
+  if (px <= xs[0]) return arr[0]; if (px >= xs[n - 1]) return arr[n - 1];
+  const f = (px - xs[0]) / (xs[n - 1] - xs[0]) * (n - 1), i = Math.floor(f);
+  return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
+}
+
+const sbDateText = d => d.toLocaleString("en-IN", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+function renderSbTarget() {
+  const r = sbRes; if (!r) return;
+  const s = r.spot.ltp, xs = r.x, lo = xs[0], hi = xs[xs.length - 1];
+  const step = s > 5000 ? 5 : s > 500 ? 0.5 : 0.05;
+  const tp = sbX.price ?? s, sl = optEl("sbTp");
+  sl.min = lo; sl.max = hi; sl.step = step; sl.value = tp;
+  if (document.activeElement !== optEl("sbTpIn")) optEl("sbTpIn").value = (+tp).toFixed(step < 1 ? 2 : 0);
+  optEl("sbTpIn").step = step;
+  optEl("sbTpPct").innerHTML = `<span class="${cls(tp - s)}">${sgn((tp - s) / s * 100, 2, "%")}</span>`;
+  optEl("sbTpLo").textContent = num(lo, 0); optEl("sbTpHi").textContent = num(hi, 0);
+  const td = optEl("sbTd"); td.max = Math.max(0, Math.floor(r.days * 24)); td.value = sbX.hours;   // hours from now to expiry
+  const at = new Date(Date.now() + sbX.hours * 3600e3), left = Math.max(0, r.days - sbX.hours / 24);
+  optEl("sbTdLbl").textContent = `${sbDateText(at)} · ${left >= 1 ? Math.floor(left) + "d " : ""}${Math.round((left % 1) * 24)}h to expiry`;
+  optEl("sbTdLo").textContent = "Now"; optEl("sbTdHi").textContent = `Expiry ${dayShort(r.expiry)}`;
+  sbProjected();
+}
+function sbProjected() {
+  const r = sbRes; if (!r) return;
+  const s = r.spot.ltp, tp = sbX.price ?? s, tgt = r.pnl_target ?? r.pnl_today;
+  const pt = sbAt(tgt, tp), pe = sbAt(r.pnl_expiry, tp);
+  optEl("sbProj").innerHTML = `<span>If ${esc(r.underlying)} is at <b>${num(tp, 2)}</b> (${sgn((tp - s) / s * 100, 2, "%")})</span>` +
+    `<span>${sbX.hours ? `on ${esc(sbDateText(new Date(Date.now() + sbX.hours * 3600e3)))}` : "now"}: <b class="${cls(pt)}">${rupee(pt, 0)}</b></span>` +
+    `<span>at expiry: <b class="${cls(pe)}">${rupee(pe, 0)}</b></span>`;
+}
+const sbSetPrice = v => { const r = sbRes; if (!r) return; const xs = r.x;
+  sbX.price = Math.min(xs[xs.length - 1], Math.max(xs[0], v)); renderSbTarget(); if (sbX.tab === "graph") drawPayoff(); };
+optEl("sbTp").oninput = e => sbSetPrice(+e.target.value);
+optEl("sbTpIn").onchange = e => { const v = parseFloat(e.target.value); if (isFinite(v)) sbSetPrice(v); };
+const sbTpStep = d => { const r = sbRes; if (!r) return; const s = r.spot.ltp, st = s > 5000 ? 50 : s > 500 ? 5 : 0.5; sbSetPrice((sbX.price ?? s) + d * st); };
+optEl("sbTpDn").onclick = () => sbTpStep(-1);
+optEl("sbTpUp").onclick = () => sbTpStep(1);
+optEl("sbTpReset").onclick = () => { sbX.price = null; renderSbTarget(); drawPayoff(); };
+const sbSetHours = h => { const r = sbRes; if (!r) return; sbX.hours = Math.max(0, Math.min(Math.floor(r.days * 24), Math.round(h)));
+  renderSbTarget(); sbAnalyze(); };
+optEl("sbTd").oninput = e => { sbX.hours = +e.target.value; renderSbTarget(); };
+optEl("sbTd").onchange = e => sbSetHours(+e.target.value);
+optEl("sbTdDn").onclick = () => sbSetHours(sbX.hours - 24);
+optEl("sbTdUp").onclick = () => sbSetHours(sbX.hours + 24);
+optEl("sbTdReset").onclick = () => sbSetHours(0);
+
+// payoff graph or P&L table
+function sbPayView() {
+  setSeg("sbPayTab", sbX.tab);
+  const graph = sbX.tab === "graph";
+  optEl("sbChart").hidden = !graph; optEl("sbOiLine").hidden = !graph; optEl("sbPTable").hidden = graph;
+  if (graph) { drawPayoff(); return; }
+  optEl("sbTip").hidden = true;
+  const r = sbRes, s = r.spot.ltp, lbl = sbX.hours ? `On ${esc(sbDateText(new Date(Date.now() + sbX.hours * 3600e3)))}` : "Today";
+  optEl("sbPTable").innerHTML = `<table><thead><tr><th class="num">${esc(r.underlying)} at</th><th class="num">Change</th>` +
+    `<th class="num">${lbl}</th><th class="num">At expiry</th></tr></thead><tbody>` +
+    r.table.map(t => `<tr class="${Math.abs(t.price - s) < 1e-6 ? "spot" : ""}"><td class="num">${num(t.price, t.price % 1 ? 2 : 0)}${Math.abs(t.price - s) < 1e-6 ? " · spot" : ""}</td>` +
+      `<td class="num"><span class="${cls(t.price - s)}">${sgn((t.price - s) / s * 100, 2, "%")}</span></td>` +
+      `<td class="num"><span class="${cls(t.pnl_target)}">${rupee(t.pnl_target, 0)}</span></td>` +
+      `<td class="num"><span class="${cls(t.pnl_expiry)}">${rupee(t.pnl_expiry, 0)}</span></td></tr>`).join("") + `</tbody></table>`;
+  optEl("sbPTable").querySelector("tr.spot")?.scrollIntoView({ block: "center", inline: "nearest" });
+}
+optEl("sbPayTab").onclick = e => { const b = e.target.closest("[data-v]"); if (!b || !sbRes) return; sbX.tab = b.dataset.v; sbXSave(); sbPayView(); };
+optEl("sbShowOi").checked = sbX.showOi; optEl("sbShowSd").checked = sbX.showSd;
+optEl("sbShowOi").onchange = e => { sbX.showOi = e.target.checked; sbXSave(); if (sbRes && sbX.tab === "graph") drawPayoff(); };
+optEl("sbShowSd").onchange = e => { sbX.showSd = e.target.checked; sbXSave(); if (sbRes && sbX.tab === "graph") drawPayoff(); };
+
+// strikewise IVs, Greeks, futures and standard deviation
+function renderSbPanels() {
+  const r = sbRes; if (!r) return;
+  const on = sbOn();
+  optEl("sbIvOff").value = sbX.ivOff;
+  if (!optEl("sbIvRows").contains(document.activeElement) || document.activeElement.tagName !== "INPUT")   // don't clobber typing
+  optEl("sbIvRows").innerHTML = on.map((g, j) => {
+    const l = r.legs[j], cur = l.iv != null ? l.iv * 100 : null, mkt = l.iv_market != null ? l.iv_market * 100 : null;
+    const chg = cur != null && mkt != null ? cur - mkt : null;
+    return `<tr data-j="${j}"><td>${num(l.strike, l.strike % 1 ? 1 : 0)} ${l.opt}<div class="sub2">${l.side === "BUY" ? "Buy" : "Sell"} · market ${mkt == null ? "–" : mkt.toFixed(1)}</div></td>` +
+      `<td class="num"><div class="stepper"><button type="button" data-iv="-0.5" aria-label="Lower IV">−</button>` +
+      `<input type="number" step="0.5" data-ivin value="${cur == null ? "" : cur.toFixed(1)}" aria-label="IV of ${num(l.strike, 0)} ${l.opt}">` +
+      `<button type="button" data-iv="0.5" aria-label="Raise IV">+</button></div></td>` +
+      `<td class="num"><span class="${chg == null || Math.abs(chg) < 0.05 ? "" : chg > 0 ? "up" : "down"}">${chg == null ? "–" : `(${sgn(chg, 1)})`}</span></td></tr>`;
+  }).join("");
+  // Greeks: per unit, x lot size, x lots
+  optEl("sbGLot").checked = sbX.gLot; optEl("sbGLots").checked = sbX.gLots;
+  const G = { delta: 0, theta: 0, gamma: 0, vega: 0 };
+  r.legs.forEach(l => { const m = (l.side === "BUY" ? 1 : -1) * (sbX.gLot ? r.lot : 1) * (sbX.gLots ? l.lots : 1);
+    for (const k in G) G[k] += (l.unit_greeks?.[k] ?? 0) * m; });
+  const unit = sbX.gLot ? "₹" : "pts";
+  optEl("sbGreeks").innerHTML = [
+    ["Delta", G.delta.toFixed(sbX.gLot ? 1 : 3), `${unit} per 1-point move`],
+    ["Theta", `<span class="${cls(G.theta)}">${G.theta.toFixed(sbX.gLot ? 0 : 2)}</span>`, `${unit} per day`],
+    ["Gamma", G.gamma.toFixed(4), "delta change per point"],
+    ["Vega", `<span class="${cls(G.vega)}">${G.vega.toFixed(sbX.gLot ? 0 : 2)}</span>`, `${unit} per 1% IV`],
+  ].map(([k, v, d]) => `<div class="kv"><span>${k} <span class="sub2">${d}</span></span><b>${v}</b></div>`).join("");
+  // futures
+  const s = r.spot.ltp;
+  optEl("sbFut").innerHTML = (r.futures ?? []).length
+    ? r.futures.map(f => `<div class="kv"><span>${dayShort(f.expiry)} FUT</span><b>${f.ltp == null ? "–" : num(f.ltp, 2)}` +
+        `${f.ltp == null ? "" : ` <span class="sub2">(${sgn(f.ltp - s, 1)})</span>`}</b></div>`).join("")
+    : `<div class="sub2">No futures for ${esc(r.underlying)}.</div>`;
+  // standard deviation to expiry
+  const sd = r.sd;
+  optEl("sbSdIv").textContent = sd ? `IV ${(sd.iv * 100).toFixed(1)}% · ${r.days.toFixed(1)}d` : "";
+  optEl("sbSd").innerHTML = sd ? `<table><thead><tr><th>SD</th><th class="num">Points</th><th class="num">Range</th></tr></thead><tbody>` +
+    [["1 SD", 1, sd.one, "≈ 68%"], ["2 SD", 2, sd.two, "≈ 95%"]].map(([t, m, rg, pr]) =>
+      `<tr><td>${t}<div class="sub2">${pr} of outcomes</div></td><td class="num">${num(sd.points * m, 1)}<div class="sub2">${(sd.pct * m).toFixed(1)}%</div></td>` +
+      `<td class="num">${num(rg[0], 1)}<div>${num(rg[1], 1)}</div></td></tr>`).join("") + `</tbody></table>`
+    : `<div class="sub2">Needs an implied volatility.</div>`;
+}
+optEl("sbIvRows").addEventListener("click", e => {
+  const b = e.target.closest("[data-iv]"); if (!b || !sbRes) return;
+  const j = +b.closest("tr").dataset.j, g = sbOn()[j], l = sbRes.legs[j];
+  const base = (g.iv ?? (l.iv_market != null ? l.iv_market * 100 : null));
+  if (base == null) return;
+  g.iv = Math.max(0.5, +(base + +b.dataset.iv).toFixed(2)); sbAnalyze();
+});
+optEl("sbIvRows").addEventListener("change", e => {
+  if (!e.target.matches("[data-ivin]") || !sbRes) return;
+  const j = +e.target.closest("tr").dataset.j, v = parseFloat(e.target.value);
+  sbOn()[j].iv = isFinite(v) && v > 0 ? v - sbX.ivOff : null; sbAnalyze();   // typed value is the final IV, offset included
+});
+const sbSetOff = v => { sbX.ivOff = Math.max(-50, Math.min(50, Math.round(v * 2) / 2)); sbAnalyze(); };
+optEl("sbIvOffDn").onclick = () => sbSetOff(sbX.ivOff - 0.5);
+optEl("sbIvOffUp").onclick = () => sbSetOff(sbX.ivOff + 0.5);
+optEl("sbIvOff").onchange = e => sbSetOff(parseFloat(e.target.value) || 0);
+optEl("sbIvReset").onclick = () => { sbLegs.forEach(g => g.iv = null); sbX.ivOff = 0; sbAnalyze(); };
+optEl("sbGLot").onchange = e => { sbX.gLot = e.target.checked; sbXSave(); renderSbPanels(); };
+optEl("sbGLots").onchange = e => { sbX.gLots = e.target.checked; sbXSave(); renderSbPanels(); };
+
 optEl("sbGo").onclick = async () => {
   const r = sbRes; if (!r) return;
-  const legs = sbLegs.map(g => ({ tsym: g.tsym, side: g.side, lots: g.lots, price: legPrice(g) }));
+  const legs = sbOn().map(g => ({ tsym: g.tsym, side: g.side, lots: g.lots, price: legPrice(g) }));
   const lines = legs.map(l => `${l.side.padEnd(4)} ${l.lots} lot${l.lots > 1 ? "s" : ""} ${l.tsym}${sbType === "LIMIT" ? ` @ ₹${l.price}` : " @ market"}`).join("\n");
   if (!confirm(`Place this ${r.underlying} strategy (${sbProd})?\n\n${lines}\n\n` +
       `${r.net_premium >= 0 ? "Net credit" : "Net debit"} ≈ ₹${Math.abs(Math.round(r.net_premium)).toLocaleString("en-IN")} · ` +

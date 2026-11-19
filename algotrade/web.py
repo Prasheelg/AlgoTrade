@@ -330,11 +330,13 @@ def _orders_changed(resp):
 def api_option_analyze():
     """Strategy analysis on live quotes (read-only): {"legs": [{"tsym", "side", "lots", "price"?}]}."""
     from . import fno
-    legs = (request.get_json(silent=True) or {}).get("legs")
+    body = request.get_json(silent=True) or {}
+    legs = body.get("legs")
     if not isinstance(legs, list):
         return jsonify({"error": "Send {\"legs\": [...]}"}), 400
     try:
-        return jsonify(fno.analyze_strategy(legs))
+        return jsonify(fno.analyze_strategy(legs, target_days=float(body.get("target_days") or 0),
+                                            iv_offset=float(body.get("iv_offset") or 0)))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:
