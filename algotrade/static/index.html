@@ -432,16 +432,42 @@
   /* ---- Options view ---- */
   .opt-input { font: inherit; font-size: 13px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 7px;
                background: var(--panel); color: var(--ink); width: 210px; text-transform: uppercase; }
-  .opt-spot { margin-left: auto; display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
-  .opt-spot b { font-size: 18px; }
+  .opt-spot { margin-left: auto; display: flex; align-items: center; gap: 18px; font-variant-numeric: tabular-nums; }
+  .opt-spot .q-px { display: flex; flex-direction: column; gap: 1px; padding-right: 18px; border-right: 1px solid var(--line-2); }
+  .opt-spot .q-px .lbl { font-size: 10.5px; }
+  .opt-spot .q-px div { display: flex; align-items: baseline; gap: 8px; }
+  .opt-spot .q-px b { font-size: 20px; font-weight: 650; letter-spacing: -.01em; }
+  .opt-spot .q-px .chg { font-size: 13px; font-weight: 600; }
+  .opt-spot .q-stats { display: flex; gap: 18px; }
+  .opt-spot .q-stats > span { display: flex; flex-direction: column; gap: 2px; }
+  .opt-spot .q-stats .lbl { font-size: 10.5px; }
+  .opt-spot .q-stats b { font-size: 13.5px; font-weight: 600; }
+  .opt-spot .q-stats small { color: var(--muted); font-size: 11px; margin-left: 2px; }
+  /* Strategy Builder sub-tabs */
+  #optView > .opt-top { padding-bottom: 0; }
+  .opt-tabs { display: flex; gap: 4px; margin: 14px -16px 0; padding: 0 12px; border-top: 1px solid var(--line-2); }
+  .opt-tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 500;
+                     padding: 11px 12px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 7px; }
+  .opt-tabs button:hover { color: var(--ink); }
+  .opt-tabs button.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+  .opt-tabs svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .opt-tabs .n { font-size: 11px; color: var(--muted); background: var(--neutral-bg); border-radius: 9px; padding: 0 6px; font-weight: 600; }
+  /* Option chain: CALLS / PUTS group heads, tighter rows, softer in-the-money wash */
+  table.chain thead tr.grp th { padding: 8px 10px 4px; font-size: 11px; letter-spacing: .12em; color: var(--ink-2); border-bottom: 0; }
+  table.chain thead tr.grp th.calls { text-align: left; }
+  table.chain thead tr.grp th.puts { text-align: right; }
+  table.chain thead tr.grp th span { display: inline-flex; align-items: center; gap: 6px; }
+  table.chain thead tr.grp th i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
   table.chain { min-width: 980px; }
   table.chain td.oic { font-size: 12px; }
-  table.chain th, table.chain td { padding: 7px 10px; }
+  table.chain th, table.chain td { padding: 6px 10px; }
+  table.chain td .sub { font-size: 10.5px; line-height: 1.2; }
+  table.chain td.px { line-height: 1.25; }
   table.chain th.strike, table.chain td.strike { text-align: center; background: var(--panel-2); font-weight: 600;
                                                   border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
   table.chain tr.atm td.strike { background: var(--accent-soft); color: var(--accent); }
   table.chain tr.atm td { border-bottom-color: color-mix(in srgb, var(--accent) 40%, transparent); }
-  table.chain td.itm { background: color-mix(in srgb, var(--warn-bg) 55%, transparent); }
+  table.chain td.itm { background: color-mix(in srgb, var(--warn) 7%, transparent); }
   table.chain td.px { cursor: pointer; font-weight: 600; }
   table.chain td.px:hover, table.chain td.px.sel { outline: 1px solid var(--accent); outline-offset: -3px; border-radius: 6px; }
   table.chain td .sub { font-weight: 400; }
@@ -494,7 +520,8 @@
   }
   /* Strategy builder */
   .sb { margin-bottom: 14px; position: relative; }
-  .sb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; }
+  .sb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 16px 12px; }
+  .sb-head h3, .opt-card-title { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.005em; }
   .sb-head .hint { margin-left: auto; }
   .sb-head input[type=number], .sb-legs input { font: inherit; font-size: 13px; width: 72px; padding: 5px 8px; border: 1px solid var(--line);
                                                 border-radius: 7px; background: var(--panel); color: var(--ink); }
@@ -575,7 +602,10 @@
   }
   @media (max-width: 1280px) { .sb-tpls { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 760px) { .sb-tpls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 480px) { .sb-tpls { grid-template-columns: minmax(0, 1fr); } }
+  /* phones: the five template groups side by side in a row that scrolls sideways, not five screens of cards */
+  @media (max-width: 640px) { .sb-tpls { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 84%; overflow-x: auto;
+                                          scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 12px; }
+                              .sb-tpls > * { scroll-snap-align: start; } }
   @media (max-width: 900px) { .sb-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 12px; }
                               .sb-stats .kpi:nth-child(3n+1) { border-left: 0; } }
 
@@ -944,7 +974,12 @@
     #optView > .scan select, .sb-head select, .sb-head input[type=number] { width: 100%; }
     #optSpot { flex-wrap: wrap; gap: 4px 10px; padding-top: 10px; border-top: 1px solid var(--line-2); }
     .sb-head { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; }
-    .sb-head > .lbl, .sb-head > .hint { grid-column: 1 / -1; margin: 0; }
+    .sb-head > h3, .sb-head > .hint { grid-column: 1 / -1; margin: 0; }
+    .opt-spot { flex-direction: column; align-items: stretch; gap: 10px; }
+    .opt-spot .q-px { border-right: 0; padding-right: 0; }
+    .opt-spot .q-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .opt-tabs { margin: 12px -14px 0; padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
+    .opt-tabs button { white-space: nowrap; padding: 11px 10px 10px; }
     .sb-head .btn { justify-content: center; padding: 9px 12px; border-radius: 10px; }
 
     /* Order tickets (buy, sell, modify, options): title + close, fields on a 2-column grid, one big action button */
@@ -1189,7 +1224,7 @@
   </div>
 
   <div id="optView" class="perf" hidden>
-    <section class="card scan"><div class="scan-row">
+    <section class="card scan opt-top"><div class="scan-row">
       <div class="ctl"><span class="lbl">Underlying</span>
         <input id="optU" class="opt-input" list="optUList" placeholder="NIFTY, BANKNIFTY, RELIANCE…" autocomplete="off" spellcheck="false">
         <datalist id="optUList"></datalist></div>
@@ -1197,12 +1232,17 @@
       <div class="ctl"><span class="lbl">Strikes</span><select id="optWidth">
         <option value="5">±5</option><option value="10" selected>±10</option><option value="15">±15</option></select></div>
       <div class="opt-spot" id="optSpot"></div>
-    </div></section>
+    </div>
+    <nav class="opt-tabs" id="optTabs" role="tablist" aria-label="Strategy Builder sections">
+      <button type="button" data-ot="build" role="tab"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Builder &amp; chain</button>
+      <button type="button" data-ot="oi" role="tab"><svg viewBox="0 0 24 24"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8"/></svg>OI change</button>
+      <button type="button" data-ot="orders" role="tab"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Recent orders <span class="n" id="optRecentN">0</span></button>
+    </nav></section>
     <div class="notice err" id="optErr" hidden></div>
-    <section class="card opt-ticket" id="optTicket" hidden></section>
-    <section class="card sb" id="sbCard">
+    <section class="card opt-ticket" id="optTicket" data-ot="build" hidden></section>
+    <section class="card sb" id="sbCard" data-ot="build">
       <div class="sb-head">
-        <span class="lbl">Strategy builder</span>
+        <h3>Strategy builder</h3>
         <div class="ctl"><span class="lbl">Width</span><select id="sbWidth" title="Strikes between legs">
           <option value="1">1 strike</option><option value="2" selected>2 strikes</option><option value="3">3 strikes</option>
           <option value="4">4 strikes</option><option value="5">5 strikes</option></select></div>
@@ -1233,7 +1273,7 @@
         </div>
       </div>
     </section>
-    <section class="card oic" id="oicCard">
+    <section class="card oic" id="oicCard" data-ot="oi">
       <div class="oic-head">
         <h3 id="oicTitle">OI change</h3>
         <span class="hint" id="oicSub"></span>
@@ -1260,24 +1300,27 @@
       <div class="empty" id="oicEmpty" hidden></div>
       <div class="oic-foot hint" id="oicFoot"></div>
     </section>
-    <section class="card">
-      <div class="list-head"><span class="lbl">Option chain</span>
+    <section class="card" data-ot="build">
+      <div class="list-head"><h3 class="opt-card-title">Option chain</h3>
         <div class="seg" id="optMode" title="What clicking a price does">
           <button type="button" data-v="order" class="on">Click = order</button><button type="button" data-v="strategy">Click = add to strategy</button></div>
         <span class="hint" id="optHint">Click a price to open an order ticket</span></div>
       <div class="tablewrap"><table class="chain">
-        <thead><tr><th class="num">OI</th><th class="num" title="Change in open interest since the previous session's close">Chg OI</th><th class="num">Volume</th><th class="num">Chg %</th><th class="num">Call LTP</th>
+        <thead><tr class="grp"><th colspan="5" class="calls"><span><i style="background:var(--down)"></i>CALLS</span></th><th></th>
+          <th colspan="5" class="puts"><span>PUTS<i style="background:var(--up)"></i></span></th></tr>
+          <tr><th class="num">OI</th><th class="num" title="Change in open interest since the previous session's close">Chg OI</th><th class="num">Volume</th><th class="num">Chg %</th><th class="num">Call LTP</th>
           <th class="strike">Strike</th>
           <th class="num">Put LTP</th><th class="num">Chg %</th><th class="num">Volume</th><th class="num" title="Change in open interest since the previous session's close">Chg OI</th><th class="num">OI</th></tr></thead>
         <tbody id="optRows"></tbody></table></div>
       <div class="empty" id="optEmpty" hidden></div>
     </section>
-    <section class="card" id="optRecentCard" hidden>
-      <div class="list-head"><span class="lbl">Your recent option orders</span>
+    <section class="card" id="optRecentCard" data-ot="orders">
+      <div class="list-head"><h3 class="opt-card-title">Your recent option orders</h3>
         <span class="hint">Status and fills: Portfolio › Orders today</span></div>
       <div class="tablewrap"><table><thead><tr><th>Time</th><th>Contract</th><th>Side</th><th class="num">Lots</th>
         <th class="num">Qty</th><th class="num">Price</th><th>Product</th><th>Order # / error</th></tr></thead>
         <tbody id="optRecent"></tbody></table></div>
+      <div class="empty" id="optRecentEmpty" hidden><b>No option orders yet</b>Orders you place from the ticket or the strategy builder show here.</div>
     </section>
   </div>
 </div>
@@ -2870,6 +2913,7 @@ async function optJson(url, opts) {
 }
 
 async function optOpen() {
+  setOptTab(optTab);
   if (optUnders) return loadChain();
   try {
     const j = await optJson("/api/options/underlyings");
@@ -2908,11 +2952,16 @@ async function loadChain(quiet = false) {
 
 function renderChain() {
   const c = optChain, s = c.spot, maxOi = Math.max(1, ...c.rows.flatMap(r => [r.ce?.oi ?? 0, r.pe?.oi ?? 0]));
-  optEl("optSpot").innerHTML = `<span class="lbl">${esc(c.underlying)}</span><b>${s.ltp == null ? "–" : num(s.ltp)}</b>` +
-    (s.change != null ? `<span class="chg ${s.change >= 0 ? "up" : "down"}">${sgn(s.change)} (${sgn(s.pct, 2, "%")})</span>` : "") +
-    `<span class="hint">lot ${c.lot} · ${c.days_to_expiry} day${c.days_to_expiry === 1 ? "" : "s"} to expiry · PCR ${c.pcr ?? "–"}` +
-    (c.ce_oi_chg != null && c.pe_oi_chg != null ? ` · Chg OI calls <span class="${cls(c.ce_oi_chg)}">${compactSgn(c.ce_oi_chg)}</span>` +
-      ` puts <span class="${cls(c.pe_oi_chg)}">${compactSgn(c.pe_oi_chg)}</span>` : "") + `</span>`;
+  optEl("optSpot").innerHTML = `<div class="q-px"><span class="lbl">${esc(c.underlying)} · ${c.kind === "index" ? "index" : "stock"}</span>` +
+    `<div><b>${s.ltp == null ? "–" : num(s.ltp)}</b>` +
+    (s.change != null ? `<span class="chg ${s.change >= 0 ? "up" : "down"}">${sgn(s.change)} (${sgn(s.pct, 2, "%")})</span>` : "") + `</div></div>` +
+    `<div class="q-stats"><span><span class="lbl">Lot</span><b>${c.lot}</b></span>` +
+    `<span><span class="lbl">Expiry in</span><b>${c.days_to_expiry}<small>day${c.days_to_expiry === 1 ? "" : "s"}</small></b></span>` +
+    `<span><span class="lbl">PCR</span><b>${c.pcr ?? "–"}</b></span>` +
+    (c.ce_oi_chg != null && c.pe_oi_chg != null
+      ? `<span title="Change in open interest since the previous close, strikes shown"><span class="lbl">Chg OI calls</span><b class="${cls(c.ce_oi_chg)}">${compactSgn(c.ce_oi_chg)}</b></span>` +
+        `<span title="Change in open interest since the previous close, strikes shown"><span class="lbl">Chg OI puts</span><b class="${cls(c.pe_oi_chg)}">${compactSgn(c.pe_oi_chg)}</b></span>` : "") +
+    `</div>`;
   const leg = (o, side, strike) => {
     if (!o) return "<td></td>".repeat(5);   // no contract at this strike
     const itm = s.ltp != null && (side === "ce" ? strike < s.ltp : strike > s.ltp) ? "itm" : "";
@@ -2932,10 +2981,11 @@ function renderChain() {
   optEl("optHint").textContent = `Click a price to open an order ticket · updated ${c.as_of.slice(11, 19)}` +
     " · shaded = in the money · bars = open interest";
   const rec = c.recent ?? [];
-  optEl("optRecentCard").hidden = !rec.length;
+  optEl("optRecentN").textContent = rec.length;
+  optEl("optRecentEmpty").hidden = rec.length > 0;
   optEl("optRecent").innerHTML = rec.map(o => `<tr><td>${esc(o.placed_at.replace("T", " ").slice(5, 16))}</td>
     <td><span class="sym" data-chart="${esc(o.tsym)}">${esc(o.tsym)}</span></td><td><span class="side ${o.side === "SELL" ? "SELL" : "BUY"}">${esc(o.side)}</span></td>
-    <td class="num">${o.lots}</td><td class="num">${o.qty}</td><td class="num">${o.price == null ? "market" : rupee(o.price)}</td>
+    <td class="num">${o.lots ?? "–"}</td><td class="num">${o.qty ?? "–"}</td><td class="num">${o.price == null ? "market" : rupee(o.price)}</td>
     <td>${esc(o.product)}${o.amo === "YES" ? " · AMO" : ""}</td>
     <td>${o.error ? `<span class="down">${esc(o.error)}</span>` : esc(o.order_id)}</td></tr>`).join("");
 }
@@ -2963,11 +3013,29 @@ function oicSetExpiries(u, expiries) {
   optEl("oicWidth").querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.v === oic.width));
   optEl("oicWin").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === String(oic.win)));
   optEl("oicShowOi").checked = oic.showOi;
-  oicLoad();
+  oic.at = 0;
+  if (optTab === "oi") oicLoad();
 }
 
 // the chain refreshes every few seconds; OI moves about once a minute, so re-read the chart every 30 s at most
-function oicMaybeLoad() { if (Date.now() - oic.at > 30000) oicLoad(true); }
+// (and only while its tab is showing)
+function oicMaybeLoad() { if (optTab === "oi" && Date.now() - oic.at > 30000) oicLoad(true); }
+
+let optTab = "build";
+try { optTab = localStorage.getItem("optTab") || "build"; } catch (e) {}
+function setOptTab(t) {
+  if (!["build", "oi", "orders"].includes(t)) t = "build";
+  optTab = t;
+  try { localStorage.setItem("optTab", t); } catch (e) {}
+  optEl("optTabs").querySelectorAll("button").forEach(b => { const on = b.dataset.ot === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+  document.querySelectorAll("#optView > [data-ot]").forEach(el => {
+    if (el.id === "optTicket") el.style.display = t === "build" ? "" : "none";   // the ticket keeps its own hidden state
+    else el.hidden = el.dataset.ot !== t;
+  });
+  if (t === "oi") { if (oic.data) renderOic(); if (Date.now() - oic.at > 30000) oicLoad(); }
+  if (t === "build" && sbRes) drawPayoff();
+}
+optEl("optTabs").onclick = e => { const b = e.target.closest("button[data-ot]"); if (b) setOptTab(b.dataset.ot); };
 
 async function oicLoad(quiet = false) {
   if (!oic.u || !oic.sel.size || oic.busy) return;
@@ -3061,7 +3129,7 @@ function renderOic() {
   let svg = "";
   for (let v = lo; v <= hi + step / 2; v += step)
     svg += `<line class="${Math.abs(v) < step / 2 ? "zero" : "grid"}" x1="${M.l}" x2="${W - M.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>` +
-      `<text class="axis" x="${M.l - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${v === 0 ? "0" : (v < 0 ? "−" : "") + compact(Math.abs(v)).replace(/\.0+(?=\D*$)/, "")}</text>`;
+      `<text class="axis" x="${M.l - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${v === 0 ? "0" : (v < 0 ? "−" : "") + compact(Math.abs(v)).replace(/(\.\d*?)0+(?=\D*$)/, "$1").replace(/\.(?=\D*$)/, "")}</text>`;
   // bars: put then call at each strike
   const bar = (x, k, oi, ch) => {
     const kind = k === "ce" ? "call" : "put", c = OIC_COLOR[kind];
