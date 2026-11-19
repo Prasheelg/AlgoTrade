@@ -42,6 +42,19 @@ def test_signals_payload_shape(client):
     assert us["config"]["tv_prefix"] == "" and us["config"]["universe"] == "SP100"
 
 
+def test_skipped_signals_are_marked_with_the_reason(monkeypatch):
+    from algotrade import options_auto, orders
+    monkeypatch.setattr(orders, "all_trades", lambda: [
+        {"key": "SHARE", "state": "SKIPPED", "note": "portfolio risk limit"},
+        {"key": "PARKED", "state": "SKIPPED", "note": orders.CLOSED_NOTE},       # waits for the open: not skipped
+        {"key": "BOTH", "state": "SKIPPED", "note": "only BUY"}])
+    monkeypatch.setattr(options_auto, "all_trades", lambda: [
+        {"key": "OPT", "state": "SKIPPED", "note": "open premium limit"},
+        {"key": "BOTH", "state": "OPEN", "note": None}])                         # traded as an option: not skipped
+    assert web._skipped("IN") == {"SHARE": "portfolio risk limit", "OPT": "open premium limit"}
+    assert web._skipped("US") == {}
+
+
 def test_signals_live_source_only_for_india_with_kotak_key(client, monkeypatch):
     monkeypatch.setattr(config, "KOTAK_CONSUMER_KEY", "k")
     assert client.get("/api/signals?market=IN").get_json()["config"]["live"] == "Kotak Neo"

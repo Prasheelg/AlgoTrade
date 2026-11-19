@@ -1120,14 +1120,16 @@
 const STATUS_TEXT = { PENDING: "Pending", CANCELLED: "Cancelled", ACTIVE: "Active", T1_HIT: "Target hit", T2_HIT: "T2 hit", SL_HIT: "SL hit",
                       BREAKEVEN: "Breakeven", EXPIRED: "Expired" };
 const TABS = [
-  ["pending", "Pending entry", s => s.status === "PENDING"],
-  ["active", "Active", s => s.open && s.status !== "PENDING"],
+  ["pending", "Pending entry", s => s.status === "PENDING" && !s.skipped],
+  ["active", "Active", s => s.open && s.status !== "PENDING" && !s.skipped],
+  ["skipped", "Skipped", s => s.open && !!s.skipped],
   ["closed", "Closed", s => !s.open],
   ["all", "All", () => true],
 ];
 const EMPTY = {
   pending: ["No pending entries", "Run a scan to find new setups. Their entry orders wait here until price reaches them."],
   active: ["No active trades", "Pending entries move here once price reaches the entry."],
+  skipped: ["Nothing skipped", "Open signals Auto-trade decided not to trade (premium or risk limits, too late in the day…) show here with the reason."],
   closed: ["Nothing closed yet", "Trades show up here after a stop, a target, a time exit or a cancelled entry."],
   all: ["No signals yet", "Run a scan to get started."],
 };
@@ -1215,8 +1217,8 @@ const kgroup = (title, hint, kpis) => `<div class="card kgroup"><div class="khea
   `<span class="hint">${hint || "&nbsp;"}</span></div><div class="krow">${kpis.join("")}</div></div>`;
 
 function renderTiles() {
-  const pending = data.filter(s => s.status === "PENDING");
-  const open = data.filter(s => s.open && s.status !== "PENDING");
+  const pending = data.filter(s => s.status === "PENDING" && !s.skipped);   // skipped ones have their own tab
+  const open = data.filter(s => s.open && s.status !== "PENDING" && !s.skipped);
   const closed = data.filter(s => !s.open && s.status !== "CANCELLED");
   const cancelled = data.filter(s => s.status === "CANCELLED").length;
   const count = (arr, f) => arr.filter(f).length;
@@ -1296,7 +1298,7 @@ function renderTable() {
     <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
       <span class="side ${s.side}">${s.side}</span></div></td>
     <td class="when">${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
-    <td class="st"><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}</td>
+    <td class="st"><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}${s.skipped && !s.trade && !s.option ? `<div class="sub flat">Skipped: ${esc(s.skipped)}</div>` : ""}</td>
     <td class="num">${inr(s.entry)}${order ? `<div class="sub">${order}` +
       `${s.fill_price != null && s.fill_price !== s.entry ? ` · filled ${inr(s.fill_price)}` : ""}</div>` : ""}</td>
     <td class="num">${inr(s.current)}${s.status === "PENDING" && s.to_entry_pct != null

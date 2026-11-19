@@ -162,14 +162,32 @@ def _option_trades(code: str) -> dict:
         return {}
 
 
+def _skipped(code: str) -> dict[str, str]:
+    """Signal key -> why Auto-trade skipped it, for India signals it decided not to trade at all (a share or option
+    trade SKIPPED and none taken). An intraday signal parked only until the market opens isn't skipped."""
+    if code != "IN":
+        return {}
+    from . import options_auto, orders
+    try:
+        trades = orders.all_trades() + options_auto.all_trades()
+    except Exception:
+        log.exception("Skipped trades unavailable")
+        return {}
+    taken = {t["key"] for t in trades if t["state"] != "SKIPPED"}
+    return {t["key"]: t["note"] or "skipped" for t in trades
+            if t["state"] == "SKIPPED" and t["key"] not in taken and t.get("note") != orders.CLOSED_NOTE}
+
+
 def _signals_payload(mkt: markets.Market) -> dict:
     sigs = state.all_signals(mkt.code)
     _live_ltp(mkt, sigs)
     real = _real_trades(mkt.code)
     opts = _option_trades(mkt.code)
+    skipped = _skipped(mkt.code)
     return {
         "market": mkt.code,
-        "signals": [{**_enrich(s), "trade": real.get(s["key"]), "option": opts.get(s["key"])} for s in sigs],
+        "signals": [{**_enrich(s), "trade": real.get(s["key"]), "option": opts.get(s["key"]),
+                     "skipped": skipped.get(s["key"])} for s in sigs],
         "last_refresh": _last_refresh["at"],
         "config": {"universe": mkt.universe, "timeframe": config.TIMEFRAME, "capital": mkt.capital,
                    "risk_pct": config.RISK_PER_TRADE_PCT, "currency": mkt.currency, "locale": mkt.locale,
