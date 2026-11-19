@@ -87,26 +87,61 @@
   .sseg.end { margin-left: auto; }
   .sseg.pnl { cursor: pointer; }
   .sseg.pnl:hover .lbl, .sseg.pnl.on .lbl { color: var(--accent); }
-  .sseg.pnl .caret { color: var(--muted); font-size: 10px; }
-  /* P&L today drop-down: open positions, under the top bar's P&L segment */
-  /* docked in the sticky top bar, under the status strip: it pushes the page down rather than floating */
-  #pnlPanel { flex-basis: 100%; margin-top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-              padding: 10px 12px; max-height: 38vh; overflow: auto; font-size: 12.5px; }
+  .sseg.pnl .caret { width: 12px; height: 12px; stroke: var(--muted); transition: transform .15s; }
+  .sseg.pnl:hover .caret, .sseg.pnl.on .caret { stroke: var(--accent); }
+  .sseg.pnl.on .caret { transform: rotate(180deg); }
+  /* P&L today panel: docked in the sticky top bar under the status strip (pushes the page down, never floats).
+     A summary row (unrealised / realised / net) over two cards, Open and Closed today, side by side when wide */
+  #pnlPanel { flex-basis: 100%; margin-top: 12px; background: var(--panel); border: 1px solid var(--line);
+              border-radius: 12px; box-shadow: var(--shadow); max-height: 42vh; overflow: auto; font-size: 12.5px;
+              animation: ppIn .16s ease-out; }
+  @keyframes ppIn { from { opacity: 0; transform: translateY(-4px); } }
   #pnlPanel[hidden] { display: none; }
-  #pnlPanel .pclose { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
-  #pnlPanel .pclose:hover { color: var(--ink); }
-  #pnlPanel table { width: 100%; border-collapse: collapse; }
-  #pnlPanel th { position: static; background: none; font-weight: 500; color: var(--muted); text-align: left; padding: 2px 6px 6px; }
-  #pnlPanel td { padding: 5px 6px; border-top: 1px solid var(--line-2); white-space: nowrap; }
+  .pp-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 24px; padding: 12px 16px;
+             border-bottom: 1px solid var(--line-2); position: sticky; top: 0; background: var(--panel); z-index: 1; }
+  .pp-title { display: flex; flex-direction: column; gap: 1px; margin-right: auto; }
+  .pp-title b { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .pp-title span { font-size: 11.5px; color: var(--muted); }
+  .pp-stats { display: flex; gap: 0; }
+  .pp-stat { display: flex; flex-direction: column; align-items: flex-end; padding: 0 18px; border-left: 1px solid var(--line-2); }
+  .pp-stat:first-child { border-left: 0; }
+  .pp-stat > span { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  .pp-stat b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .pp-stat.net b { font-size: 16px; }
+  .pp-x { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px;
+          background: var(--panel-2); color: var(--muted); font-size: 16px; line-height: 1; padding: 0; }
+  .pp-x:hover { color: var(--ink); border-color: var(--muted); }
+  .pp-grid { display: grid; align-items: start; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 12px; padding: 12px 16px 14px; }
+  .pp-card { border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel-2); overflow: hidden; min-width: 0; }
+  .pp-card > header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+  .pp-card > header .n { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--neutral-bg); color: var(--muted);
+                         font-size: 11px; text-align: center; }
+  .pp-card > header .tot { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .pp-scroll { overflow-x: auto; }
+  #pnlPanel table { width: 100%; min-width: 0; border-collapse: collapse; background: var(--panel); }
+  #pnlPanel th { position: static; background: var(--panel); font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
+                 text-transform: uppercase; color: var(--muted); text-align: left; padding: 7px 12px;
+                 border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); }
+  #pnlPanel td { padding: 8px 12px; border: 0; border-bottom: 1px solid var(--line-2); white-space: nowrap; vertical-align: middle; }
+  #pnlPanel tbody tr:last-child td { border-bottom: 0; }
+  #pnlPanel tbody tr:hover td { background: var(--accent-soft); }
   #pnlPanel .num { text-align: right; font-variant-numeric: tabular-nums; }
-  #pnlPanel .ph { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: var(--muted); }
-  #pnlPanel .ph b { color: var(--ink); font-weight: 600; }
-  #pnlPanel .pempty { color: var(--muted); padding: 6px 0 2px; }
-  #pnlPanel .psec { display: flex; justify-content: space-between; gap: 12px; margin: 10px 6px 2px; font-size: 11px;
-                    font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-  #pnlPanel .ph + .psec { margin-top: 2px; }
-  #pnlPanel .psec + .pempty { padding: 2px 6px 4px; }
-  #pnlPanel a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  #pnlPanel td.pl { font-weight: 600; }
+  .pp-ins { display: flex; flex-direction: column; gap: 1px; }
+  .pp-ins a { color: var(--ink); font-weight: 600; cursor: pointer; text-decoration: none; }
+  .pp-ins a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .pp-ins a .k { font-weight: 500; color: var(--ink-2); }
+  .pp-ins small { font-size: 11px; color: var(--muted); }
+  .pp-side { font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; margin-right: 6px; }
+  .pp-side.long { background: var(--up-bg); color: var(--up); }
+  .pp-side.short { background: var(--down-bg); color: var(--down); }
+  .pp-empty { padding: 18px 12px; text-align: center; color: var(--muted); background: var(--panel); border-top: 1px solid var(--line-2); }
+  .pp-err { margin: 12px 16px 14px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); }
+  @media (max-width: 640px) {
+    .pp-stat { padding: 0 10px; }
+    .pp-stat:first-child { padding-left: 0; }
+    .pp-head, .pp-grid { padding-left: 12px; padding-right: 12px; }
+  }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
   .sv.dim { color: var(--muted); font-weight: 400; }
   @media (max-width: 1500px) { .sbar .delay { display: none; } }  /* still in the Data tooltip */
@@ -1414,7 +1449,7 @@ function renderStatus() {
                  pl.holdings_day != null ? `Holdings today ${inrS(pl.holdings_day)}` : "",
                  pl.holdings != null ? `Holdings overall ${inrS(pl.holdings)} on ${pl.holdings_count}` : ""].filter(Boolean).join(" · ");
     parts.push(seg("P&L today", `<span class="sv ${cls(pl.today)}" id="sbPnl">${inrS(pl.today)}</span>` +
-      (pl.live ? "" : `<span class="sv dim">· not live</span>`) + `<span class="caret">${pnlOpen ? "▴" : "▾"}</span>`,
+      (pl.live ? "" : `<span class="sv dim">· not live</span>`) + `<svg class="caret" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`,
       `pnl${pnlOpen ? " on" : ""}`,
       `${why}. ${pl.live ? "Live Kotak prices" : "Kotak account prices (updated every minute)"}${pl.as_of ? ` · as of ${pl.as_of.replace("T", " ")}` : ""}. Click for open positions.`));
   }
@@ -1459,24 +1494,51 @@ setInterval(() => {
 // hides it. An instrument's name opens it on the Chart tab, with the panel left open
 
 const pnlPanel = document.getElementById("pnlPanel");
+// An option's trading symbol, split for reading: NIFTY26D0125350CE → NIFTY 25350 CE, expiry 01 Dec;
+// HINDUNILVR26DEC2060CE → HINDUNILVR 2060 CE, Dec (monthly). Anything else is shown as it is
+const PP_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function ppOption(tsym) {
+  const m = /^([A-Z&-]+)(\d{2})(?:([A-Z]{3})|([1-9OND])(\d{2}))(\d+(?:\.\d+)?)(CE|PE)$/.exec(tsym || "");
+  if (!m) return null;
+  const [, und, , mon3, mc, dd, strike, kind] = m;
+  if (mon3 && !PP_MON.some(x => x.toUpperCase() === mon3)) return null;
+  const mon = mon3 ? mon3[0] + mon3.slice(1).toLowerCase() : PP_MON["123456789OND".indexOf(mc)];
+  return { und, strike, kind, expiry: mon3 ? `${mon} expiry` : `${dd} ${mon} expiry` };
+}
 function renderPnlPanel() {
   if (!pnlOpen) return;
   const pl = pnlTop, open = pl?.open_positions ?? [], closed = pl?.closed_positions ?? [];
-  const money = v => v == null ? "–" : `<span class="${cls(v)}">${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
-  const px = v => v == null ? "–" : "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const amt = v => `₹${Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = v => v == null ? "–" : `<span class="${cls(v)}">${v > 0 ? "+" : v < 0 ? "−" : ""}${amt(v)}</span>`;
+  const px = v => v == null ? "–" : amt(v);
   const sum = rows => rows.reduce((a, p) => a + (p.pnl ?? 0), 0);
-  const name = p => `<td><a data-chart="${esc(p.tsym || p.symbol)}" title="Open chart">${esc(p.tsym || p.symbol)}</a>` +
-    `${p.product ? ` <span class="tf">${esc(p.product)}</span>` : ""}</td>`;
-  const section = (title, rows, heads, cells) =>
-    `<div class="psec"><span>${title} · ${rows.length}</span>${rows.length ? `<span>${money(sum(rows))}</span>` : ""}</div>` +
-    (!rows.length ? `<div class="pempty">None.</div>`
-     : `<table><thead><tr><th>Instrument</th>${heads.map(h => `<th class="num">${h}</th>`).join("")}</tr></thead><tbody>` +
-       rows.map(p => `<tr>${name(p)}${cells(p).map(c => `<td class="num">${c}</td>`).join("")}</tr>`).join("") + `</tbody></table>`);
-  pnlPanel.innerHTML = `<div class="ph"><span><b>Positions today</b></span>` +
-    `<span>${open.length + closed.length ? `P&amp;L ${money(sum(open) + sum(closed))} · ` : ""}<button type="button" class="pclose" title="Hide (or click P&amp;L today)" aria-label="Hide positions">×</button></span></div>` +
-    (pl?.error ? `<div class="pempty">${esc(pl.error)}</div>`
-     : section("Open", open, ["Qty", "Avg", "LTP", "P&amp;L"], p => [p.net_qty, px(p.avg), px(p.ltp), money(p.pnl)]) +
-       section("Closed today", closed, ["Qty", "Buy avg", "Sell avg", "Realised"], p => [p.qty, px(p.buy_avg), px(p.sell_avg), money(p.pnl)]));
+  const name = (p, side) => {
+    const t = p.tsym || p.symbol, o = ppOption(t);
+    const label = o ? `${esc(o.und)} <span class="k">${esc(o.strike)} ${o.kind}</span>` : esc(t);
+    const sub = [o?.expiry, p.product].filter(Boolean).map(esc).join(" · ");
+    return `<td><div class="pp-ins"><a data-chart="${esc(t)}" title="${esc(t)} — open chart">${label}</a>` +
+      `<small>${side ? `<span class="pp-side ${side}">${side === "long" ? "LONG" : "SHORT"}</span>` : ""}${sub}</small></div></td>`;
+  };
+  const card = (title, rows, heads, cells, side) =>
+    `<section class="pp-card"><header>${title}<span class="n">${rows.length}</span>` +
+    `${rows.length ? `<span class="tot">${money(sum(rows))}</span>` : ""}</header>` +
+    (!rows.length ? `<div class="pp-empty">Nothing ${title === "Open" ? "open right now" : "closed yet today"}</div>`
+     : `<div class="pp-scroll"><table><thead><tr><th>Instrument</th>${heads.map(h => `<th class="num">${h}</th>`).join("")}</tr></thead><tbody>` +
+       rows.map(p => `<tr>${name(p, side?.(p))}${cells(p).map((c, i, a) => `<td class="num${i === a.length - 1 ? " pl" : ""}">${c}</td>`).join("")}</tr>`).join("") +
+       `</tbody></table></div>`) + `</section>`;
+  const un = sum(open), re = sum(closed);
+  const stat = (label, v, extra = "") => `<div class="pp-stat ${extra}"><span>${label}</span><b>${money(v)}</b></div>`;
+  const asOf = pl?.as_of ? pl.as_of.replace(/^.*T/, "").slice(0, 5) : null;
+  pnlPanel.innerHTML = `<div class="pp-head"><div class="pp-title"><b>Positions today</b>` +
+    `<span>${pl?.live ? "Live Kotak prices" : "Kotak prices, updated every minute"}${asOf ? ` · as of ${asOf}` : ""} · click a name for its chart</span></div>` +
+    (pl?.error ? "" : `<div class="pp-stats">${stat("Unrealised", un)}${stat("Realised", re)}${stat("Net", un + re, "net")}</div>`) +
+    `<button type="button" class="pp-x pclose" title="Hide (Esc, or click P&amp;L today)" aria-label="Hide positions">×</button></div>` +
+    (pl?.error ? `<div class="pp-err">${esc(pl.error)}</div>`
+     : `<div class="pp-grid">` +
+       card("Open", open, ["Qty", "Avg", "LTP", "P&amp;L"], p => [Math.abs(p.net_qty), px(p.avg), px(p.ltp), money(p.pnl)],
+            p => p.net_qty > 0 ? "long" : "short") +
+       card("Closed today", closed, ["Qty", "Buy avg", "Sell avg", "Realised"], p => [p.qty, px(p.buy_avg), px(p.sell_avg), money(p.pnl)]) +
+       `</div>`);
 }
 function togglePnlPanel(show = !pnlOpen) {
   pnlOpen = show;
