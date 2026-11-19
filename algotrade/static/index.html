@@ -299,8 +299,29 @@
   .lvls span { white-space: nowrap; }
   .lvls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 8px; font-size: 11px; color: var(--muted);
           font-variant-numeric: tabular-nums; margin-top: 2px; }
-  table.sigt .tags { min-width: 120px; max-width: 230px; align-items: center; }
+  table.sigt .tags { min-width: 120px; max-width: 250px; align-items: center; }
   table.sigt .tags .stars { font-weight: 400; margin-right: 2px; }
+  /* Rows: a slim outcome stripe on the left (green / red / pending blue / grey), a little more air, tighter actions */
+  table.sigt td { padding: 11px 12px; }
+  table.sigt th { padding: 10px 12px; }
+  table.sigt tbody tr td:first-child { box-shadow: inset 3px 0 0 var(--stripe, transparent); }
+  table.sigt tr.o-up { --stripe: var(--up); }
+  table.sigt tr.o-down { --stripe: var(--down); }
+  table.sigt tr.o-wait { --stripe: var(--accent); }
+  table.sigt tr.o-flat { --stripe: var(--line); }
+  table.sigt .sym { font-size: 14px; letter-spacing: -.005em; }
+  table.sigt td:first-child .stock { flex-direction: column; align-items: flex-start; gap: 3px; }
+  table.sigt td.when .t { font-weight: 600; font-variant-numeric: tabular-nums; }
+  table.sigt td.when .sub { margin-top: 2px; }
+  table.sigt .pnl { font-size: 14px; }
+  table.sigt td.st .pill { margin-bottom: 3px; }
+  table.sigt .tags .more { background: none; border: 1px dashed var(--line); color: var(--muted); cursor: help; }
+  /* actions: Buy / Sell over details / delete, in a compact 2 x 2 */
+  table.sigt .row-acts.v { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  table.sigt .row-acts.v .btn { padding: 2px 9px; font-size: 12px; min-height: 24px; }
+  table.sigt .row-acts.v .btn.ic { color: var(--muted); padding: 2px 6px; }
+  table.sigt .row-acts.v .btn.ic:hover { color: var(--ink); }
+  table.sigt .row-acts.v .sig-del:hover { color: var(--down); border-color: color-mix(in srgb, var(--down) 50%, var(--line)); }
   /* Narrower than the table can fit (tablets, a half-width window): the signals list uses the phone's cards */
   @media (max-width: 1140px) {
     .tablewrap table.sigt.cards { min-width: 0; }
@@ -332,13 +353,17 @@
     .tablewrap table.sigt.cards .tags { min-width: 0; max-width: none; justify-content: flex-start; }
     .tablewrap table.sigt.cards td[data-label=""] { margin-top: 2px; }
     .tablewrap table.sigt.cards td[data-label=""] > .hint { display: block; text-align: right; }
-    .tablewrap table.sigt.cards .row-acts, .tablewrap table.sigt.cards .row-acts.v { flex-direction: row; gap: 8px; }
+    .tablewrap table.sigt.cards .row-acts, .tablewrap table.sigt.cards .row-acts.v { display: flex; flex-direction: row; gap: 8px; }
     .tablewrap table.sigt.cards .row-acts .btn, .tablewrap table.sigt.cards td[data-label=""] > .btn {
       flex: 1; width: 100%; justify-content: center; padding: 9px 12px !important; font-size: 13.5px !important;
       font-weight: 600; border-radius: 10px; }
     .tablewrap table.sigt.cards td.st, .tablewrap table.sigt.cards td.lv, .tablewrap table.sigt.cards td.when { min-width: 0; max-width: none; }
     .tablewrap table.sigt.cards td.st .sub { -webkit-line-clamp: 3; }
     .tablewrap table.sigt.cards td.num .sub { margin-left: 0; }
+    /* cards: the outcome stripe runs down the card's left edge; the side tag stays beside the name */
+    .tablewrap table.sigt.cards tbody tr td:first-child { box-shadow: none; }
+    .tablewrap table.sigt.cards tbody tr { box-shadow: inset 3px 0 0 var(--stripe, transparent); }
+    .tablewrap table.sigt.cards td:first-child .stock { flex-direction: row; align-items: center; gap: 8px; }
   }
   .tags span { font-size: 11px; color: var(--ink-2); background: var(--neutral-bg); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
 
@@ -1368,13 +1393,20 @@ function renderTable() {
   const clr = document.getElementById("clearTab");
   clr.hidden = !rows.length;
   clr.textContent = tab === "all" ? `Clear all ${rows.length}` : `Clear ${rows.length} ${tab}`;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: market === "IN" ? "Asia/Kolkata" : "America/New_York" });
+  const dayText = d => !d ? "" : d.slice(0, 10) === today ? "Today"
+    : new Date(d.slice(0, 10) + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   document.getElementById("rows").innerHTML = rows.map(s => {
     const noPos = s.status === "PENDING" || s.status === "CANCELLED";
     const order = ORDER_TEXT[s.entry_type];
-    return `<tr>
+    const outcome = s.status === "PENDING" ? "o-wait" : noPos ? "o-flat" : s.pnl_pct > 0 ? "o-up" : s.pnl_pct < 0 ? "o-down" : "o-flat";
+    const tags = String(s.reasons ?? "").split(", ").filter(Boolean), TAGS_SHOWN = 2;
+    const intraday = s.timeframe !== "1d" && s.bar_time;
+    return `<tr class="${outcome}">
     <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
       <span class="side ${s.side}">${s.side}</span></div></td>
-    <td class="when">${esc(signalTime(s))} <span class="tf">${esc(s.timeframe)}</span>${s.closed_at ? `<div class="sub">closed ${esc(s.closed_at)}</div>` : ""}</td>
+    <td class="when" title="${esc(signalTime(s))}"><span class="t">${intraday ? esc(s.bar_time.slice(11, 16)) : esc(dayText(s.bar_date))}</span> <span class="tf">${esc(s.timeframe)}</span>` +
+      `<div class="sub">${intraday ? esc(dayText(s.bar_time)) : ""}${s.closed_at ? `${intraday ? " · " : ""}closed${dayText(s.closed_at) === dayText(intraday ? s.bar_time : s.bar_date) ? "" : ` ${esc(dayText(s.closed_at))}`}` : ""}</div></td>
     <td class="st"><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}${s.skipped && !s.trade && !s.option ? `<div class="sub flat">Skipped: ${esc(s.skipped)}</div>` : ""}</td>
     <td class="num">${inr(s.entry)}${order ? `<div class="sub">${order}` +
       `${s.fill_price != null && s.fill_price !== s.entry ? ` · filled ${inr(s.fill_price)}` : ""}</div>` : ""}</td>
@@ -1383,11 +1415,12 @@ function renderTable() {
     <td class="num">${noPos ? `<span class="flat">–</span>`
       : `<span class="pnl ${cls(s.pnl_pct)}">${sgn(s.pnl_pct, 2, "%")}</span><div class="sub ${cls(s.pnl_r)}">${sgn(s.pnl_r)}R</div>`}</td>
     <td class="lv">${rangeBar(s)}<div class="lvls"><span>SL ${num(s.stop_loss)}</span><span>Target ${num(s.target1)}</span></div></td>
-    <td><div class="tags"><b class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</b>${String(s.reasons ?? "").split(", ").filter(Boolean).map(r => `<span>${esc(r)}</span>`).join("")}</div></td>
+    <td><div class="tags"><b class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</b>${tags.slice(0, TAGS_SHOWN).map(r => `<span>${esc(r)}</span>`).join("")}` +
+      `${tags.length > TAGS_SHOWN ? `<span class="more" title="${esc(tags.slice(TAGS_SHOWN).join(", "))}">+${tags.length - TAGS_SHOWN}</span>` : ""}</div></td>
     <td><div class="row-acts v">${market === "IN" ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
       `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button>` : ""}` +
-      `<button type="button" class="btn" data-sdet="${esc(s.key)}" title="Details: strategies, journal, levels" aria-label="${esc(s.symbol)} details" style="padding:4px 10px">ⓘ</button>` +
-      `<button type="button" class="btn sig-del" data-sdel="${esc(s.key)}" title="Delete this signal" aria-label="Delete ${esc(s.symbol)} signal">✕</button></div></td>
+      `<button type="button" class="btn ic" data-sdet="${esc(s.key)}" title="Details: strategies, journal, levels" aria-label="${esc(s.symbol)} details">ⓘ</button>` +
+      `<button type="button" class="btn ic sig-del" data-sdel="${esc(s.key)}" title="Delete this signal" aria-label="Delete ${esc(s.symbol)} signal">✕</button></div></td>
   </tr>`;
   }).join("");
 }
