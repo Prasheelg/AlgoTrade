@@ -266,12 +266,14 @@ def test_option_positions_get_live_prices_and_the_pnl_summary(live, monkeypatch)
     assert s["positions"] == pytest.approx(stock_pos + 2000) and s["count"] == 2
     assert s["holdings_day"] == 1000.0 and s["today"] == pytest.approx(stock_pos + 2000 + 1000.0)
     assert s["live"] is True and s["error"] is None
+    o = next(o for o in s["open_positions"] if o["tsym"] == "GAIL26NOV192.5CE")   # the top bar's drop-down
+    assert (o["net_qty"], o["avg"], o["ltp"], o["pnl"]) == (4000, 2.0, 2.5, pytest.approx(2000))
 
 
 def test_pnl_summary_without_positions_or_holdings():
     r = {"error": None, "positions": [], "totals": portfolio.totals([], None), "live": None, "as_of": None}
     s = portfolio.pnl_summary(r)
-    assert s["today"] is None and s["positions"] is None and s["live"] is False
+    assert s["today"] is None and s["positions"] is None and s["live"] is False and s["open_positions"] == []
 
 
 def test_api_pnl(live):

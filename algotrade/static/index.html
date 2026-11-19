@@ -86,7 +86,20 @@
   .sseg { display: flex; align-items: center; gap: 9px; padding: 2px 16px; margin-left: -1px; border-left: 1px solid var(--line-2); }
   .sseg.end { margin-left: auto; }
   .sseg.pnl { cursor: pointer; }
-  .sseg.pnl:hover .lbl { color: var(--accent); }
+  .sseg.pnl:hover .lbl, .sseg.pnl.on .lbl { color: var(--accent); }
+  .sseg.pnl .caret { color: var(--muted); font-size: 10px; }
+  /* P&L today drop-down: open positions, under the top bar's P&L segment */
+  #pnlPanel { position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+              box-shadow: 0 8px 24px rgb(0 0 0 / .16); padding: 10px 12px; min-width: 300px;
+              max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; font-size: 12.5px; }
+  #pnlPanel table { width: 100%; border-collapse: collapse; }
+  #pnlPanel th { position: static; background: none; font-weight: 500; color: var(--muted); text-align: left; padding: 2px 6px 6px; }
+  #pnlPanel td { padding: 5px 6px; border-top: 1px solid var(--line-2); white-space: nowrap; }
+  #pnlPanel .num { text-align: right; font-variant-numeric: tabular-nums; }
+  #pnlPanel .ph { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: var(--muted); }
+  #pnlPanel .ph b { color: var(--ink); font-weight: 600; }
+  #pnlPanel .pempty { color: var(--muted); padding: 6px 0 2px; }
+  #pnlPanel a { color: var(--accent); cursor: pointer; text-decoration: none; }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
   .sv.dim { color: var(--muted); font-weight: 400; }
   @media (max-width: 1500px) { .sbar .delay { display: none; } }  /* still in the Data tooltip */
@@ -889,6 +902,7 @@
     <button class="btn" id="refresh" title="Re-check open signals against the latest prices"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
   </div>
   <div class="top-in top-strip"><div class="sbar" id="sbar" role="region" aria-label="Market status"></div></div></header>
+<div id="pnlPanel" hidden role="dialog" aria-label="Open positions"></div>
 
   <div class="health" id="healthBox" role="alert" hidden></div>
 
@@ -1393,8 +1407,9 @@ function renderStatus() {
                  pl.holdings_day != null ? `Holdings today ${inrS(pl.holdings_day)}` : "",
                  pl.holdings != null ? `Holdings overall ${inrS(pl.holdings)} on ${pl.holdings_count}` : ""].filter(Boolean).join(" · ");
     parts.push(seg("P&L today", `<span class="sv ${cls(pl.today)}" id="sbPnl">${inrS(pl.today)}</span>` +
-      (pl.live ? "" : `<span class="sv dim">· not live</span>`), "pnl",
-      `${why}. ${pl.live ? "Live Kotak prices" : "Kotak account prices (updated every minute)"}${pl.as_of ? ` · as of ${pl.as_of.replace("T", " ")}` : ""}. Click for Portfolio.`));
+      (pl.live ? "" : `<span class="sv dim">· not live</span>`) + `<span class="caret">${pnlOpen ? "▴" : "▾"}</span>`,
+      `pnl${pnlOpen ? " on" : ""}`,
+      `${why}. ${pl.live ? "Live Kotak prices" : "Kotak account prices (updated every minute)"}${pl.as_of ? ` · as of ${pl.as_of.replace("T", " ")}` : ""}. Click for open positions.`));
   }
   if (cfg.universe) {
     parts.push(seg("Account", `<span class="sv">${esc(cfg.universe)}</span><span class="sv dim">·</span>` +
@@ -1417,14 +1432,14 @@ function renderStatus() {
 }
 
 // ---- P&L today in the top bar (/api/pnl): every PNL_LIVE_SEC while the market is open and the stream is up ----
-let pnlTop = null, pnlTick = 0, pnlBusy = false;
+let pnlTop = null, pnlTick = 0, pnlBusy = false, pnlOpen = false;
 const PNL_LIVE_SEC = 2, PNL_IDLE_SEC = 30;
 async function loadPnl() {
   if (pnlBusy) return;
   pnlBusy = true;
   try {
     const res = await fetch("/api/pnl");
-    if (res.ok) { const j = await res.json(); const changed = JSON.stringify(j) !== JSON.stringify(pnlTop); pnlTop = j; if (changed) renderStatus(); }
+    if (res.ok) { const j = await res.json(); const changed = JSON.stringify(j) !== JSON.stringify(pnlTop); pnlTop = j; if (changed) { renderStatus(); renderPnlPanel(); } }
   } catch {} finally { pnlBusy = false; }
 }
 setInterval(() => {
@@ -1433,10 +1448,47 @@ setInterval(() => {
   const live = feedLive && nse && marketState(nse).open;
   if (++pnlTick % (live ? PNL_LIVE_SEC : PNL_IDLE_SEC) === 0) loadPnl();
 }, 1000);
+// Clicking P&L today opens a small panel of open positions under it; clicking again (or Esc / outside) hides it
+
+const pnlPanel = document.getElementById("pnlPanel");
+function placePnlPanel() {
+  const seg = document.querySelector("#sbar .sseg.pnl");
+  if (!pnlOpen || !seg) return;
+  const r = seg.getBoundingClientRect(), w = pnlPanel.offsetWidth;
+  pnlPanel.style.top = `${r.bottom + 6}px`;
+  pnlPanel.style.left = `${Math.max(16, Math.min(r.left, window.innerWidth - w - 16))}px`;
+}
+function renderPnlPanel() {
+  if (!pnlOpen) return;
+  const pl = pnlTop, rows = pl?.open_positions ?? [];
+  const money = v => v == null ? "–" : `<span class="${cls(v)}">${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+  const px = v => v == null ? "–" : "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const total = rows.reduce((a, p) => a + (p.pnl ?? 0), 0);
+  pnlPanel.innerHTML = `<div class="ph"><span><b>Open positions</b> · ${rows.length}</span>` +
+    (rows.length ? `<span>P&amp;L ${money(total)}</span>` : "") + `</div>` +
+    (pl?.error ? `<div class="pempty">${esc(pl.error)}</div>`
+     : !rows.length ? `<div class="pempty">No open positions.</div>`
+     : `<table><thead><tr><th>Instrument</th><th class="num">Qty</th><th class="num">Avg</th><th class="num">LTP</th><th class="num">P&amp;L</th></tr></thead><tbody>` +
+       rows.map(p => `<tr><td>${esc(p.tsym || p.symbol)}${p.product ? ` <span class="tf">${esc(p.product)}</span>` : ""}</td>` +
+         `<td class="num">${p.net_qty}</td><td class="num">${px(p.avg)}</td><td class="num">${px(p.ltp)}</td><td class="num">${money(p.pnl)}</td></tr>`).join("") +
+       `</tbody></table>`);
+  placePnlPanel();
+}
+function togglePnlPanel(show = !pnlOpen) {
+  pnlOpen = show;
+  pnlPanel.hidden = !show;
+  renderStatus();
+  if (show) { renderPnlPanel(); loadPnl(); }
+}
 document.getElementById("sbar").addEventListener("click", e => {
-  if (!e.target.closest(".sseg.pnl")) return;
-  portTab = "positions"; if (view !== "portfolio") setView("portfolio"); else renderPortTable();
+  if (e.target.closest(".sseg.pnl")) togglePnlPanel();
 });
+document.addEventListener("click", e => {
+  if (pnlOpen && !e.target.closest("#pnlPanel") && !e.target.closest(".sseg.pnl")) togglePnlPanel(false);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && pnlOpen) togglePnlPanel(false); });
+window.addEventListener("resize", placePnlPanel);
+window.addEventListener("scroll", placePnlPanel, { passive: true });
 
 function tickStatus() {
   const m = META?.markets.find(x => x.code === market);
