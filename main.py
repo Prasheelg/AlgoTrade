@@ -86,10 +86,14 @@ def run_scan(code: str, dry_run: bool = False) -> None:
         for k in ("found", "new", "sent"):
             total[k] += r.get(k, 0)
         total["symbols"] += [f"{x} ({tf})" for x in r.get("symbols", [])]
+        # Auto-trade: India setups (stocks: BUYs; options: both sides), intraday when switched on. Handed over
+        # after each timeframe, not once at the end, so a restart part-way through a loop can't drop them (the
+        # next loop would count them as already seen)
+        if code == "IN" and (new := [x["key"] for x in state.all_signals("IN") if x["key"] not in before]):
+            before.update(new)
+            trade(new)
     set_status(code, running=False, finished_at=_stamp(), timeframe=None, result=total,
                error="; ".join(errors) or None)
-    if code == "IN":   # Auto-trade: India setups (stocks: BUYs; options: both sides), intraday when switched on
-        trade([x["key"] for x in state.all_signals("IN") if x["key"] not in before])
     if errors:
         raise RuntimeError(f"{code} scan failed on {', '.join(e.split(':')[0] for e in errors)}")
 

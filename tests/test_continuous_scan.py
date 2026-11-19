@@ -87,7 +87,7 @@ def scans(monkeypatch):
 
     def fake(**kw):
         calls.append(kw)
-        if isinstance(script.get(kw["timeframe"]), Exception):
+        if isinstance(script.get(kw["timeframe"]), BaseException):
             raise script[kw["timeframe"]]
         sigs = script.get(kw["timeframe"], [])
         state.record(sigs, telegram=False)
@@ -108,13 +108,24 @@ def test_run_scan_uses_saved_panel_on_every_timeframe(scans):
     main.run_scan("IN")
     kw = {"market": "IN", "send": False, "strategies": ["RSI Pullback"], "min_score": 1, "filters": ["trend"]}
     assert calls == [{**kw, "timeframe": "15m"}, {**kw, "timeframe": "1d"}]
-    # every new signal, any timeframe: trade() gives stocks the BUYs, options both sides
-    assert [sorted(t) for t in traded] == [sorted([fast.key, day.key, short.key])]
+    # every new signal, any timeframe, handed over as each timeframe finishes: trade() gives stocks the BUYs,
+    # options both sides
+    assert [sorted(t) for t in traded] == [[fast.key], sorted([day.key, short.key])]
     st = get_status("IN")
     assert st["running"] is False and st["timeframe"] is None and st["error"] is None
     assert st["result"] == {"found": 3, "new": 3, "sent": 0,
                             "symbols": ["BUY FAST (15m)", "BUY DAY (1d)", "SELL DOWN (1d)"]}
     assert st["started_at"] <= st["finished_at"]
+
+
+def test_run_scan_trades_a_timeframe_before_the_next_one_runs(scans):
+    """A scanner killed during a later timeframe has already traded what the earlier ones found."""
+    script, calls, traded = scans
+    fast = make_signal(symbol="FAST", timeframe="15m")
+    script.update({"15m": [fast], "1d": KeyboardInterrupt()})
+    with pytest.raises(KeyboardInterrupt):
+        main.run_scan("IN")
+    assert traded == [[fast.key]]
 
 
 def test_run_scan_picks_up_a_change_on_the_next_scan(scans):
