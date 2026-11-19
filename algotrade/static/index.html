@@ -90,43 +90,43 @@
   .sseg.pnl .caret { width: 12px; height: 12px; stroke: var(--muted); transition: transform .15s; }
   .sseg.pnl:hover .caret, .sseg.pnl.on .caret { stroke: var(--accent); }
   .sseg.pnl.on .caret { transform: rotate(180deg); }
-  /* P&L today panel: a small box docked in the sticky top bar under the status strip (never floats). One line of
-     totals, then one compact table: open positions, then those closed today */
-  #pnlPanel { flex: 0 1 auto; width: fit-content; max-width: 100%; margin-top: 8px; background: var(--panel);
-              border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); max-height: 30vh;
-              overflow: auto; font-size: 12px; animation: ppIn .14s ease-out; }
+  /* P&L today panel: a full-width strip docked in the sticky top bar under the status strip (never floats), kept
+     short: the totals on the left, then one tile per position (open first, then closed today) laid out sideways */
+  #pnlPanel { flex-basis: 100%; display: flex; align-items: stretch; gap: 8px; margin-top: 8px; padding: 6px;
+              background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+              max-height: 30vh; overflow: auto; font-size: 12px; animation: ppIn .14s ease-out; }
   @keyframes ppIn { from { opacity: 0; transform: translateY(-3px); } }
   #pnlPanel[hidden] { display: none; }
-  .pp-head { display: flex; align-items: center; gap: 14px; padding: 6px 8px 6px 12px; white-space: nowrap;
-             border-bottom: 1px solid var(--line-2); position: sticky; top: 0; background: var(--panel); z-index: 1; }
-  .pp-head > b { font-weight: 600; margin-right: auto; }
-  .pp-head .st { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .pp-head .st b { font-weight: 600; margin-left: 4px; }
-  .pp-x { width: 22px; height: 22px; display: grid; place-items: center; border: 0; border-radius: 6px; margin-left: 2px;
-          background: none; color: var(--muted); font-size: 15px; line-height: 1; padding: 0; }
+  .pp-sum { flex: none; display: flex; flex-direction: column; justify-content: center; padding: 2px 12px 2px 6px;
+            border-right: 1px solid var(--line-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pp-sum .net { font-size: 14px; font-weight: 700; }
+  .pp-sum .net small { font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+  .pp-sum .sub { font-size: 11px; color: var(--muted); }
+  .pp-tiles { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-content: center; min-width: 0; }
+  .pp-tile { display: grid; grid-template-columns: auto auto; column-gap: 14px; align-items: baseline; padding: 4px 10px;
+             border: 1px solid var(--line-2); border-left: 3px solid var(--line); border-radius: 7px; background: var(--panel-2);
+             white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .pp-tile.long { border-left-color: var(--up); }
+  .pp-tile.short { border-left-color: var(--down); }
+  .pp-tile:hover { border-color: var(--accent); }
+  .pp-tile a { color: var(--ink); font-weight: 600; cursor: pointer; text-decoration: none; }
+  .pp-tile a:hover { color: var(--accent); }
+  .pp-tile a .k { font-weight: 500; color: var(--ink-2); }
+  .pp-tile .pl { font-weight: 700; text-align: right; }
+  .pp-tile .d { font-size: 10.5px; color: var(--muted); }
+  .pp-tile .d.r { text-align: right; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+  .pp-none { align-self: center; color: var(--muted); padding: 0 6px; }
+  .pp-x { flex: none; align-self: flex-start; width: 22px; height: 22px; display: grid; place-items: center; border: 0;
+          border-radius: 6px; background: none; color: var(--muted); font-size: 15px; line-height: 1; padding: 0; }
   .pp-x:hover { color: var(--ink); background: var(--neutral-bg); }
-  #pnlPanel table { width: 100%; min-width: 0; border-collapse: collapse; }
-  #pnlPanel th { position: static; background: none; font-size: 10px; font-weight: 600; letter-spacing: .05em;
-                 text-transform: uppercase; color: var(--muted); text-align: left; padding: 5px 12px 3px; border: 0; }
-  #pnlPanel td { padding: 4px 12px; border: 0; border-top: 1px solid var(--line-2); white-space: nowrap; vertical-align: middle; }
-  #pnlPanel tr.grp td { padding: 6px 12px 2px; border-top: 0; font-size: 10px; font-weight: 600; letter-spacing: .05em;
-                        text-transform: uppercase; color: var(--muted); }
-  #pnlPanel tr.grp td .none { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; }
-  #pnlPanel tbody tr:not(.grp):hover td { background: var(--accent-soft); }
-  #pnlPanel .num { text-align: right; font-variant-numeric: tabular-nums; }
-  #pnlPanel td.pl { font-weight: 600; }
-  .pp-ins a { color: var(--ink); font-weight: 600; cursor: pointer; text-decoration: none; }
-  .pp-ins a:hover { color: var(--accent); }
-  .pp-ins a .k { font-weight: 500; color: var(--ink-2); }
-  .pp-ins small { font-size: 10.5px; color: var(--muted); margin-left: 6px; }
-  .pp-side { font-size: 9.5px; font-weight: 700; padding: 0 4px; border-radius: 3px; margin-right: 6px; }
-  .pp-side.long { background: var(--up-bg); color: var(--up); }
-  .pp-side.short { background: var(--down-bg); color: var(--down); }
-  .pp-err { padding: 8px 12px; background: var(--warn-bg); color: var(--warn); max-width: 520px; white-space: normal; }
+  .pp-err { align-self: center; color: var(--warn); }
+  /* phones: totals on one line with the ×, the tiles in a single row you swipe sideways */
   @media (max-width: 640px) {
-    .pp-head { flex-wrap: wrap; gap: 2px 12px; }
-    #pnlPanel td, #pnlPanel th { padding-left: 8px; padding-right: 8px; }
-    .pp-ins small { display: none; }
+    #pnlPanel { flex-wrap: wrap; row-gap: 6px; }
+    .pp-sum { flex: 1 1 0; flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 0 10px; border-right: 0; padding: 0 4px; }
+    .pp-tiles { order: 3; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .pp-tiles::-webkit-scrollbar { display: none; }
+    .pp-tile { flex: none; column-gap: 10px; }
   }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
   .sv.dim { color: var(--muted); font-weight: 400; }
@@ -1498,32 +1498,28 @@ function renderPnlPanel() {
   const money = v => v == null ? "–" : `<span class="${cls(v)}">${v > 0 ? "+" : v < 0 ? "−" : ""}${amt(v)}</span>`;
   const px = v => v == null ? "–" : amt(v);
   const sum = rows => rows.reduce((a, p) => a + (p.pnl ?? 0), 0);
-  // one line per position: [LONG] NIFTY 25350 CE  01 Dec · MIS | qty | entry | LTP or exit | P&L
-  const row = (p, side, qty, entry, now) => {
+  // a two-line tile:  NIFTY 25350 CE            +₹2,804.75
+  //                   65 · ₹229.80 → ₹272.95    CLOSED · MIS
+  const tile = (p, kind, qty, entry, now) => {
     const t = p.tsym || p.symbol, o = ppOption(t);
     const label = o ? `${esc(o.und)} <span class="k">${esc(o.strike)} ${o.kind}</span>` : esc(t);
-    const sub = [o?.expiry, p.product].filter(Boolean).map(esc).join(" · ");
-    return `<tr><td class="pp-ins">${side ? `<span class="pp-side ${side}">${side === "long" ? "L" : "S"}</span>` : ""}` +
-      `<a data-chart="${esc(t)}" title="${esc(t)}${side ? ` · ${side}` : ""} — open chart">${label}</a>${sub ? `<small>${sub}</small>` : ""}</td>` +
-      `<td class="num">${qty}</td><td class="num">${px(entry)}</td><td class="num">${px(now)}</td><td class="num pl">${money(p.pnl)}</td></tr>`;
+    const tag = kind === "closed" ? "Closed" : kind === "long" ? "Long" : "Short";
+    return `<div class="pp-tile ${kind}" title="${esc(t)}${o ? ` · expiry ${esc(o.expiry)}` : ""}">` +
+      `<a data-chart="${esc(t)}" title="Open chart">${label}</a><span class="pl">${money(p.pnl)}</span>` +
+      `<span class="d">${qty} · ${px(entry)} → ${px(now)}${kind === "closed" ? "" : " LTP"}</span>` +
+      `<span class="d r">${[tag, p.product].filter(Boolean).map(esc).join(" · ")}</span></div>`;
   };
-  const group = (title, rows, empty) =>
-    `<tr class="grp"><td colspan="5">${title}${rows.length ? "" : `<span class="none">${empty}</span>`}</td></tr>`;
   const un = sum(open), re = sum(closed);
   const asOf = pl?.as_of ? pl.as_of.replace(/^.*T/, "").slice(0, 5) : null;
+  const tiles = open.map(p => tile(p, p.net_qty > 0 ? "long" : "short", Math.abs(p.net_qty), p.avg, p.ltp)).join("") +
+                closed.map(p => tile(p, "closed", p.qty, p.buy_avg, p.sell_avg)).join("");
   pnlPanel.innerHTML =
-    `<div class="pp-head" title="${pl?.live ? "Live Kotak prices" : "Kotak prices, updated every minute"}${asOf ? ` · as of ${asOf}` : ""}">` +
-    `<b>Positions</b>` +
-    (pl?.error ? "" : `<span class="st">Unrealised<b>${money(un)}</b></span><span class="st">Realised<b>${money(re)}</b></span>` +
-                      `<span class="st">Net<b>${money(un + re)}</b></span>`) +
-    `<button type="button" class="pp-x pclose" title="Hide (Esc, or click P&amp;L today)" aria-label="Hide positions">×</button></div>` +
     (pl?.error ? `<div class="pp-err">${esc(pl.error)}</div>`
-     : `<table><thead><tr><th>Instrument</th><th class="num">Qty</th><th class="num">Entry</th><th class="num">LTP / Exit</th><th class="num">P&amp;L</th></tr></thead><tbody>` +
-       group("Open", open, "none") +
-       open.map(p => row(p, p.net_qty > 0 ? "long" : "short", Math.abs(p.net_qty), p.avg, p.ltp)).join("") +
-       group("Closed today", closed, "none yet") +
-       closed.map(p => row(p, null, p.qty, p.buy_avg, p.sell_avg)).join("") +
-       `</tbody></table>`);
+     : `<div class="pp-sum" title="${pl?.live ? "Live Kotak prices" : "Kotak prices, updated every minute"}${asOf ? ` · as of ${asOf}` : ""}">` +
+       `<span class="net"><small>Net</small>${money(un + re)}</span>` +
+       `<span class="sub">${open.length} open ${money(un)} · ${closed.length} closed ${money(re)}</span></div>` +
+       `<div class="pp-tiles">${tiles || `<span class="pp-none">No positions today</span>`}</div>`) +
+    `<button type="button" class="pp-x pclose" title="Hide (Esc, or click P&amp;L today)" aria-label="Hide positions">×</button>`;
 }
 function togglePnlPanel(show = !pnlOpen) {
   pnlOpen = show;
