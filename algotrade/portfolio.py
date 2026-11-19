@@ -312,6 +312,10 @@ def pnl_summary(r: dict) -> dict:
                                 "net_qty": p["net_qty"], "avg": p["buy_avg"] if p["net_qty"] > 0 else p["sell_avg"],
                                 "ltp": p["ltp"], "pnl": p.get("pnl")}
                                for p in r["positions"] if p.get("net_qty")],
+            "closed_positions": [{"symbol": p["symbol"], "tsym": p.get("tsym"), "product": p.get("product"),
+                                  "qty": p["buy_qty"], "buy_avg": p["buy_avg"], "sell_avg": p["sell_avg"],
+                                  "pnl": p.get("pnl")}
+                                 for p in r["positions"] if not p.get("net_qty") and (p["buy_qty"] or p["sell_qty"])],
             "count": len(r["positions"]), "holdings_day": day,
             "holdings": t.get("pnl") if t.get("count") else None, "holdings_count": t.get("count", 0),
             "live": r["live"] is not None,

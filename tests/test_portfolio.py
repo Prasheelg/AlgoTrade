@@ -274,6 +274,17 @@ def test_pnl_summary_without_positions_or_holdings():
     r = {"error": None, "positions": [], "totals": portfolio.totals([], None), "live": None, "as_of": None}
     s = portfolio.pnl_summary(r)
     assert s["today"] is None and s["positions"] is None and s["live"] is False and s["open_positions"] == []
+    assert s["closed_positions"] == []
+
+
+def test_pnl_summary_lists_positions_closed_today():
+    closed = {"symbol": "SBILIFE26NOV1760PE", "tsym": "SBILIFE26NOV1760PE", "product": "NRML", "net_qty": 0,
+              "buy_qty": 750, "sell_qty": 750, "buy_avg": 20.0, "sell_avg": 18.5, "ltp": 18.0, "pnl": -1125.0}
+    r = {"error": None, "positions": [closed], "totals": portfolio.totals([], None), "live": None, "as_of": None}
+    s = portfolio.pnl_summary(r)
+    assert s["open_positions"] == [] and s["open"] == 0 and s["positions"] == -1125.0
+    assert s["closed_positions"] == [{"symbol": "SBILIFE26NOV1760PE", "tsym": "SBILIFE26NOV1760PE", "product": "NRML",
+                                      "qty": 750, "buy_avg": 20.0, "sell_avg": 18.5, "pnl": -1125.0}]
 
 
 def test_api_pnl(live):

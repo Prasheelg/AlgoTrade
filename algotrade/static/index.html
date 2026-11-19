@@ -102,6 +102,10 @@
   #pnlPanel .ph { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: var(--muted); }
   #pnlPanel .ph b { color: var(--ink); font-weight: 600; }
   #pnlPanel .pempty { color: var(--muted); padding: 6px 0 2px; }
+  #pnlPanel .psec { display: flex; justify-content: space-between; gap: 12px; margin: 10px 6px 2px; font-size: 11px;
+                    font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  #pnlPanel .ph + .psec { margin-top: 2px; }
+  #pnlPanel .psec + .pempty { padding: 2px 6px 4px; }
   #pnlPanel a { color: var(--accent); cursor: pointer; text-decoration: none; }
   .sv { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
   .sv.dim { color: var(--muted); font-weight: 400; }
@@ -1457,19 +1461,22 @@ setInterval(() => {
 const pnlPanel = document.getElementById("pnlPanel");
 function renderPnlPanel() {
   if (!pnlOpen) return;
-  const pl = pnlTop, rows = pl?.open_positions ?? [];
+  const pl = pnlTop, open = pl?.open_positions ?? [], closed = pl?.closed_positions ?? [];
   const money = v => v == null ? "–" : `<span class="${cls(v)}">${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
   const px = v => v == null ? "–" : "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const total = rows.reduce((a, p) => a + (p.pnl ?? 0), 0);
-  pnlPanel.innerHTML = `<div class="ph"><span><b>Open positions</b> · ${rows.length}</span>` +
-    `<span>${rows.length ? `P&amp;L ${money(total)} · ` : ""}<button type="button" class="pclose" title="Hide (or click P&amp;L today)" aria-label="Hide open positions">×</button></span></div>` +
+  const sum = rows => rows.reduce((a, p) => a + (p.pnl ?? 0), 0);
+  const name = p => `<td><a data-chart="${esc(p.tsym || p.symbol)}" title="Open chart">${esc(p.tsym || p.symbol)}</a>` +
+    `${p.product ? ` <span class="tf">${esc(p.product)}</span>` : ""}</td>`;
+  const section = (title, rows, heads, cells) =>
+    `<div class="psec"><span>${title} · ${rows.length}</span>${rows.length ? `<span>${money(sum(rows))}</span>` : ""}</div>` +
+    (!rows.length ? `<div class="pempty">None.</div>`
+     : `<table><thead><tr><th>Instrument</th>${heads.map(h => `<th class="num">${h}</th>`).join("")}</tr></thead><tbody>` +
+       rows.map(p => `<tr>${name(p)}${cells(p).map(c => `<td class="num">${c}</td>`).join("")}</tr>`).join("") + `</tbody></table>`);
+  pnlPanel.innerHTML = `<div class="ph"><span><b>Positions today</b></span>` +
+    `<span>${open.length + closed.length ? `P&amp;L ${money(sum(open) + sum(closed))} · ` : ""}<button type="button" class="pclose" title="Hide (or click P&amp;L today)" aria-label="Hide positions">×</button></span></div>` +
     (pl?.error ? `<div class="pempty">${esc(pl.error)}</div>`
-     : !rows.length ? `<div class="pempty">No open positions.</div>`
-     : `<table><thead><tr><th>Instrument</th><th class="num">Qty</th><th class="num">Avg</th><th class="num">LTP</th><th class="num">P&amp;L</th></tr></thead><tbody>` +
-       rows.map(p => `<tr><td><a data-chart="${esc(p.tsym || p.symbol)}" title="Open chart">${esc(p.tsym || p.symbol)}</a>` +
-         `${p.product ? ` <span class="tf">${esc(p.product)}</span>` : ""}</td>` +
-         `<td class="num">${p.net_qty}</td><td class="num">${px(p.avg)}</td><td class="num">${px(p.ltp)}</td><td class="num">${money(p.pnl)}</td></tr>`).join("") +
-       `</tbody></table>`);
+     : section("Open", open, ["Qty", "Avg", "LTP", "P&amp;L"], p => [p.net_qty, px(p.avg), px(p.ltp), money(p.pnl)]) +
+       section("Closed today", closed, ["Qty", "Buy avg", "Sell avg", "Realised"], p => [p.qty, px(p.buy_avg), px(p.sell_avg), money(p.pnl)]));
 }
 function togglePnlPanel(show = !pnlOpen) {
   pnlOpen = show;
