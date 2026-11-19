@@ -600,31 +600,58 @@
     #views button svg { padding: 4px 10px !important; }
   }
 
-  /* ---- Chart view ---- */
-  .ch-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-  .ch-head .opt-input { width: 300px; }
-  .ch-recent { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  .ch-recent:empty { display: none; }
-  .ch-recent button { border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2); border-radius: 999px;
-                      padding: 3px 10px; font-size: 12px; cursor: pointer; }
-  .ch-recent button.on { border-color: var(--accent); color: var(--accent); }
+  /* ---- Chart view ----
+     One card: a toolbar (search, timeframe, indicators), recent symbols, a quote header (name, last price, day's
+     change; the hovered candle's OHLC under it), the chart filling the rest of the screen, and a status footer */
   .ch-card { padding: 0; overflow: hidden; }
-  .ch-legend { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 12px 16px 6px;
-               font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .ch-legend b { color: var(--ink); font-size: 15px; }
-  .ch-legend .v { color: var(--ink-2); }
-  .ch-legend .ind { font-size: 11.5px; }
+  .ch-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 12px;
+            border-bottom: 1px solid var(--line-2); background: var(--panel-2); }
+  .ch-search { position: relative; display: flex; align-items: center; flex: 0 1 300px; min-width: 180px; }
+  .ch-search svg { position: absolute; left: 10px; width: 14px; height: 14px; stroke: var(--muted); pointer-events: none; }
+  .ch-search .opt-input { width: 100%; padding: 6px 66px 6px 30px; border-radius: 8px; background: var(--panel); }
+  .ch-search .opt-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .ch-search .btn { position: absolute; right: 3px; padding: 3px 10px; font-size: 12px; border-radius: 6px; }
+  .ch-bar .seg button { padding: 4px 10px; font-size: 12.5px; }
+  .ch-bar .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
+  .ch-recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 16px 0; }
+  .ch-recent:empty { display: none; }
+  .ch-recent::before { content: "Recent"; font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+                       color: var(--muted); margin-right: 2px; }
+  .ch-recent button { border: 1px solid var(--line); background: none; color: var(--ink-2); border-radius: 999px;
+                      padding: 2px 10px; font-size: 11.5px; cursor: pointer; }
+  .ch-recent button:hover { border-color: var(--muted); color: var(--ink); }
+  .ch-recent button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .ch-quote { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 12px 16px 0; font-variant-numeric: tabular-nums; }
+  .ch-quote:empty { display: none; }
+  .ch-quote .nm { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+  .ch-quote .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; align-self: center; }
+  .ch-quote .px { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+  .ch-quote .chg { font-size: 13.5px; font-weight: 600; }
+  .ch-quote .chg small { font-weight: 500; color: var(--muted); margin-left: 4px; }
+  .ch-legend { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; padding: 4px 16px 6px; min-height: 26px;
+               font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ch-legend .v { color: var(--ink-2); font-weight: 500; }
+  .ch-legend .when { color: var(--ink-2); }
+  .ch-legend .ind { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-2); }
+  .ch-legend .ind i { width: 10px; height: 2px; border-radius: 1px; }
   .ch-wrap { position: relative; }
-  .ch-box { height: min(62vh, 560px); min-height: 320px; }
+  .ch-box { height: clamp(360px, calc(100vh - 360px), 760px); }
   .ch-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px;
             text-align: center; color: var(--muted); background: var(--panel); }
   .ch-msg.err { color: var(--down); }
-  .ch-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 16px 12px; border-top: 1px solid var(--line-2); }
+  .ch-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 8px 16px; border-top: 1px solid var(--line-2);
+             font-size: 11.5px; background: var(--panel-2); }
+  .ch-foot > span:not(:first-child)::before { content: "·"; margin-right: 8px; color: var(--muted); }
   .ch-foot a { color: var(--accent); margin-left: auto; }
   @media (max-width: 640px) {
-    .ch-head .opt-input { width: auto; flex: 1; min-width: 0; }
-    .ch-head .seg { overflow-x: auto; max-width: 100%; }
-    .ch-box { height: 58vh; }
+    .ch-bar { padding: 8px 10px; }
+    .ch-search { flex: 1 1 100%; }
+    .ch-bar .seg { overflow-x: auto; max-width: 100%; }
+    .ch-bar .sep { display: none; }
+    .ch-recent { padding: 8px 12px 0; }
+    .ch-quote, .ch-legend { padding-left: 12px; padding-right: 12px; }
+    .ch-quote .px { font-size: 19px; }
+    .ch-box { height: 56vh; min-height: 300px; }
   }
 
   /* ---- Settings, calculator, journal, scorecard, backtest, tax, market overview ---- */
@@ -1077,13 +1104,17 @@
   </div>
 
   <div id="chartView" class="perf" hidden>
-    <section class="card scan"><div class="ch-head">
-      <input id="chSym" class="opt-input" list="chList" placeholder="Stock, index or option: RELIANCE, NIFTY, NIFTY 25350 CE" autocomplete="off" spellcheck="false">
-      <button class="btn primary" id="chGo" type="button">Show</button>
-      <div class="seg" id="chTf" aria-label="Timeframe"></div>
-      <div class="seg" id="chInd" aria-label="Indicators"></div>
-    </div><div class="ch-recent" id="chRecent"></div></section>
     <section class="card ch-card">
+      <div class="ch-bar">
+        <label class="ch-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="chSym" class="opt-input" list="chList" placeholder="RELIANCE, NIFTY, NIFTY 25350 CE" aria-label="Stock, index or option" autocomplete="off" spellcheck="false">
+          <button class="btn primary" id="chGo" type="button">Show</button></label>
+        <div class="seg" id="chTf" aria-label="Timeframe"></div>
+        <span class="sep"></span>
+        <div class="seg" id="chInd" aria-label="Indicators"></div>
+      </div>
+      <div class="ch-recent" id="chRecent"></div>
+      <div class="ch-quote" id="chQuote"></div>
       <div class="ch-legend" id="chLegend"></div>
       <div class="ch-wrap"><div class="ch-box" id="chBox"></div><div class="ch-msg" id="chMsg">Loading chart…</div></div>
       <div class="ch-foot hint" id="chFoot"></div>
@@ -4056,16 +4087,21 @@ function chLoadLib() {
   });
 }
 function chTheme() {
-  return { layout: { background: { color: chCss("--panel") }, textColor: chCss("--muted"),
+  const line = chCss("--line"), mute = chCss("--muted"), tag = chCss("--ink-2");
+  const hair = { color: mute + "99", width: 1, style: LightweightCharts.LineStyle.Dashed, labelBackgroundColor: tag };
+  return { layout: { background: { color: chCss("--panel") }, textColor: mute, fontSize: 11,
                      fontFamily: getComputedStyle(document.body).fontFamily },
-           grid: { vertLines: { color: chCss("--line-2") }, horzLines: { color: chCss("--line-2") } },
-           rightPriceScale: { borderColor: chCss("--line") },
-           timeScale: { borderColor: chCss("--line"), timeVisible: true, secondsVisible: false, rightOffset: 4 } };
+           grid: { vertLines: { visible: false }, horzLines: { color: chCss("--line-2") } },
+           crosshair: { mode: LightweightCharts.CrosshairMode.Normal, vertLine: hair, horzLine: hair },
+           rightPriceScale: { borderVisible: false },
+           timeScale: { borderColor: line, timeVisible: true, secondsVisible: false, rightOffset: 6 },
+           watermark: { visible: !!ch.data, text: ch.data ? `${ch.data.label} · ${CH_TFS.find(t => t[0] === ch.tf)?.[1] ?? ""}` : "",
+                        color: mute + "14", fontSize: PHONE.matches ? 28 : 44, fontStyle: "600" } };
 }
 function chBuild() {
   chApi = LightweightCharts.createChart(document.getElementById("chBox"), { ...chTheme(), autoSize: true,
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal }, localization: { locale: cfg.locale } });
-  chSer.c = chApi.addCandlestickSeries({ borderVisible: false });
+    localization: { locale: cfg.locale } });
+  chSer.c = chApi.addCandlestickSeries({ borderVisible: false, priceLineStyle: LightweightCharts.LineStyle.Dotted });
   chSer.c.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.22 } });
   chSer.vol = chApi.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "vol", lastValueVisible: false, priceLineVisible: false });
   chApi.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
@@ -4097,6 +4133,7 @@ const chVwap = bars => {   // resets each day
 function chApply(fresh) {
   if (!chApi || !ch.data) return;
   const d = ch.data, up = chCss("--up"), down = chCss("--down");
+  chApi.applyOptions({ watermark: chTheme().watermark });   // follows the symbol and timeframe
   chBars = d.bars.map(b => ({ ...b, time: d.tf === "1d" ? b.t : Date.parse(b.t + "Z") / 1000 }));  // IST shown as is
   chByTime = new Map(chBars.map((b, i) => [b.time, i]));
   const small = chBars.length && chBars[chBars.length - 1].c < 10;
@@ -4112,15 +4149,31 @@ function chApply(fresh) {
     chApi.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - (PHONE.matches ? 70 : 150)), to: n + 4 });
   }
 }
+// The quote header: name, kind, the latest price and its change on the day (against the previous session's close)
+function chQuote() {
+  const box = document.getElementById("chQuote");
+  if (!ch.data || ch.key !== chKey() || !chBars.length) { box.innerHTML = ""; return; }
+  const d = ch.data, last = chBars[chBars.length - 1], f = v => num(v, v < 10 ? 3 : 2);
+  let prev = null;
+  if (d.tf === "1d") prev = chBars[chBars.length - 2]?.c ?? null;
+  else { const day = last.t.slice(0, 10);
+         for (let i = chBars.length - 1; i >= 0; i--) if (chBars[i].t.slice(0, 10) !== day) { prev = chBars[i].c; break; } }
+  const diff = prev ? last.c - prev : null;
+  box.innerHTML = `<span class="nm">${esc(d.label)}</span>${d.kind && d.kind !== "stock" ? `<span class="tag">${esc(d.kind)}</span>` : ""}` +
+    `<span class="px">${f(last.c)}</span>` +
+    (diff != null ? `<span class="chg ${cls(diff)}">${diff > 0 ? "+" : diff < 0 ? "−" : ""}${f(Math.abs(diff))} (${sgn(diff / prev * 100, 2, "%")})<small>today</small></span>` : "");
+}
+// Under it: the hovered candle (the newest when the mouse is off the chart) and the indicators that are on
 function chLegend(i) {
   const box = document.getElementById("chLegend");
+  if (i == null) chQuote();
   if (!ch.data || ch.key !== chKey() || !chBars.length) { box.innerHTML = ""; return; }
   i ??= chBars.length - 1;
   const b = chBars[i], prev = chBars[i - 1]?.c, chg = prev ? (b.c - prev) / prev * 100 : null;
   const d = ch.data, f = v => num(v, v < 10 ? 3 : 2);
   const when = d.tf === "1d" ? b.t : b.t.slice(0, 16).replace("T", " ");
-  const ind = CH_IND.filter(([k, , c]) => c && ch.ind.has(k)).map(([, label, c]) => `<span class="ind" style="color:${c}">${label}</span>`).join(" ");
-  box.innerHTML = `<b>${esc(d.label)}</b><span>${esc(when)}</span>
+  const ind = CH_IND.filter(([k, , c]) => c && ch.ind.has(k)).map(([, label, c]) => `<span class="ind"><i style="background:${c}"></i>${label}</span>`).join("");
+  box.innerHTML = `<span class="when">${esc(when)}</span>
     <span>O <span class="v">${f(b.o)}</span></span><span>H <span class="v">${f(b.h)}</span></span>
     <span>L <span class="v">${f(b.l)}</span></span><span>C <span class="v">${f(b.c)}</span></span>
     ${chg != null ? `<span class="${cls(chg)}">${sgn(chg, 2, "%")}</span>` : ""}
