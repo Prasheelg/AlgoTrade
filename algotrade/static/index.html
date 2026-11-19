@@ -1558,9 +1558,19 @@ function togglePnlPanel(show = !pnlOpen) {
   renderStatus();
   if (show) { renderPnlPanel(); loadPnl(); }
 }
-document.getElementById("sbar").addEventListener("click", e => {
-  if (e.target.closest(".sseg.pnl")) togglePnlPanel();
+// The strip is rebuilt every couple of seconds while the market is open (P&L, index ticks). When that lands between
+// press and release the browser drops the click (the pressed element is gone), so toggle on the release instead:
+// a press that began on P&L today and lets go on the strip without dragging (a swipe scrolls the strip on phones)
+let pnlPress = null;
+const sbarEl = document.getElementById("sbar");
+sbarEl.addEventListener("pointerdown", e => {
+  pnlPress = e.button === 0 && e.target.closest(".sseg.pnl") ? { x: e.clientX, y: e.clientY } : null;
 });
+sbarEl.addEventListener("pointerup", e => {
+  const p = pnlPress; pnlPress = null;
+  if (p && Math.abs(e.clientX - p.x) < 10 && Math.abs(e.clientY - p.y) < 10) togglePnlPanel();
+});
+sbarEl.addEventListener("pointercancel", () => { pnlPress = null; });
 pnlPanel.addEventListener("click", e => { if (e.target.closest(".pclose")) togglePnlPanel(false); });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && pnlOpen && !document.querySelector("dialog[open]")) togglePnlPanel(false);
