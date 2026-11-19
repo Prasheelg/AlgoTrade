@@ -271,8 +271,9 @@ def test_update_all_status_change_writes_fields_and_notifies(monkeypatch, tg):
     assert len(tg.calls) == 1
     assert tg.calls[0][0][0] == ("🎯 <b>Target hit · X</b>\n"
                                  "<i>BUY · Daily · trade closed</i>\n\n"
-                                 "<blockquote>▶️ Entry  <b>₹99.00</b>\n🏁 Exit  <b>₹103.50</b></blockquote>\n"
-                                 "🟩 Result  <b>+4.55%</b>  ·  +1.50R")
+                                 "<pre>          Price  Change\n───────────────────────\n"
+                                 "Entry    ₹99.00\nExit    ₹103.50  +4.55%\n───────────────────────\n"
+                                 "Result   +4.55%  +1.50R</pre>")
 
     # replay is idempotent: no change, no message, ltp still updated
     assert tracker.update_all() == 0
@@ -300,7 +301,8 @@ def test_update_all_cancelled_message_and_us_flag(monkeypatch, tg):
     assert _row(sig.key)["status"] == "CANCELLED"
     assert tg.calls[0][0][0] == ("❌ <b>Entry not reached · AAPL</b>\n"
                                  "<i>🇺🇸 BUY · Daily · order cancelled</i>\n\n"
-                                 "<blockquote>▶️ Entry  <b>$99.00</b>\n💹 Last  <b>$100.00</b></blockquote>")
+                                 "<pre>         Price  Change\n──────────────────────\n"
+                                 "Entry   $99.00\nLast   $100.00  +1.01%</pre>")
 
 
 def test_update_all_exit_price_used_in_pnl(monkeypatch, tg):
@@ -312,8 +314,8 @@ def test_update_all_exit_price_used_in_pnl(monkeypatch, tg):
     r = _row(sig.key)
     assert (r["status"], r["exit_price"], r["closed_at"], r["ltp"]) == ("SL_HIT", 96.0, "2024-01-03", 100.0)
     assert tg.calls[0][0][0].startswith("🛑 <b>Stop loss hit · X</b>")
-    assert tg.calls[0][0][0].endswith("<blockquote>▶️ Entry  <b>₹99.00</b>\n🏁 Exit  <b>₹96.00</b></blockquote>\n"
-                                      "🟥 Result  <b>-3.03%</b>  ·  -1.00R")
+    assert tg.calls[0][0][0].endswith("Exit    ₹96.00  -3.03%\n──────────────────────\n"
+                                      "Result  -3.03%  -1.00R</pre>")
 
 
 def test_update_all_telegram0_rows_never_notified(monkeypatch, tg):

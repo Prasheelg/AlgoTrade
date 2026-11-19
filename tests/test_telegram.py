@@ -16,11 +16,15 @@ def test_format_in_buy_limit():
         "🟢 <b>BUY · RELIANCE</b>  ⭐⭐\n"
         "<i>Daily · Limit order, buy the pullback</i>\n"
         "\n"
-        "<blockquote>▶️ Entry  <b>₹99.00</b>\n"
-        "🛑 Stop  <b>₹96.00</b>  <i>-3.03%</i>\n"
-        "🎯 Target  <b>₹103.50</b>  <i>+4.55%</i></blockquote>\n"
+        "<pre>          Price  Change\n"
+        "───────────────────────\n"
+        "Entry    ₹99.00\n"
+        "Stop     ₹96.00  -3.03%\n"
+        "Target  ₹103.50  +4.55%\n"
+        "───────────────────────\n"
+        "Qty         333\n"
+        "Risk       ₹999    1.5R</pre>\n"
         "\n"
-        "📦 Qty <b>333</b>  ·  Risk <b>₹999</b>  ·  Reward <b>1.5R</b>\n"
         "⏳ Valid 3 sessions  ·  Now ₹100.00\n"
         "\n"
         "💡 <b>Why</b>  EMA 9/21 Cross, RSI Pullback\n"
@@ -35,11 +39,15 @@ def test_format_us_stop_intraday():
         "🇺🇸 🟢 <b>BUY · BRK.B</b>  ⭐⭐⭐\n"
         "<i>15 min · Stop order, buy the breakout</i>\n"
         "\n"
-        "<blockquote>▶️ Entry  <b>$1,234.50</b>\n"
-        "🛑 Stop  <b>$1,200.00</b>  <i>-2.79%</i>\n"
-        "🎯 Target  <b>$1,286.25</b>  <i>+4.19%</i></blockquote>\n"
+        "<pre>            Price  Change\n"
+        "─────────────────────────\n"
+        "Entry   $1,234.50\n"
+        "Stop    $1,200.00  -2.79%\n"
+        "Target  $1,286.25  +4.19%\n"
+        "─────────────────────────\n"
+        "Qty             2\n"
+        "Risk          $69    1.5R</pre>\n"
         "\n"
-        "📦 Qty <b>2</b>  ·  Risk <b>$69</b>  ·  Reward <b>1.5R</b>\n"
         "⏳ Valid 3 bars, today only  ·  Now $1,230.00\n"
         "\n"
         "💡 <b>Why</b>  EMA 9/21 Cross, 20-bar Breakout, MACD Trend Cross\n"
@@ -50,6 +58,7 @@ def test_format_in_sell_has_short_note():
     s = make_signal(side="SELL", entry=101.0, stop_loss=104.0, targets=[96.5, 92.0])
     text = telegram_bot.format_signal(s)
     assert text.startswith("🔴 <b>SELL · RELIANCE</b>")
+    assert "<pre>" in text and "Stop    ₹104.00  +2.97%" in text
     assert "<i>Daily · Limit order, sell the bounce</i>" in text
     assert "Now ₹100.00\n⚠️ Short: intraday cash or F&amp;O only\n\n💡" in text
     us = telegram_bot.format_signal(make_signal(side="SELL", market="US", entry_type="stop"))
@@ -72,7 +81,7 @@ def test_format_single_target_and_live_config(monkeypatch):
     monkeypatch.setattr(config, "TARGET_R_MULTIPLES", [2.0, 3.0])
     monkeypatch.setattr(config, "ENTRY_VALID_BARS", 5)
     text = telegram_bot.format_signal(make_signal(targets=[103.5]))
-    assert "Target 2" not in text and "Reward <b>2R</b>" in text and "Valid 5 sessions" in text
+    assert "Target 2" not in text and "  2R</pre>" in text and "Valid 5 sessions" in text
 
 
 @pytest.mark.parametrize("v,indian,out", [(100000, True, "1,00,000.00"), (12345678.9, True, "1,23,45,678.90"),
@@ -87,10 +96,19 @@ def test_format_update_filled_and_time_exit():
            "stop_loss": 3030.0, "target1": 2955.0}
     filled = telegram_bot.format_update(sig, {"status": "ACTIVE", "fill_price": 3000.0, "exit_price": None}, 2999.0)
     assert filled == ("✅ <b>Entry filled · TCS</b>\n<i>SELL · 15 min · trade is live</i>\n\n"
-                      "<blockquote>▶️ Filled  <b>₹3,000.00</b>\n🛑 Stop  <b>₹3,030.00</b>  <i>+1.00%</i>\n"
-                      "🎯 Target  <b>₹2,955.00</b>  <i>-1.50%</i></blockquote>")
+                      "<pre>            Price  Change\n─────────────────────────\n"
+                      "Filled  ₹3,000.00\nStop    ₹3,030.00  +1.00%\nTarget  ₹2,955.00  -1.50%</pre>")
     out = telegram_bot.format_update(sig, {"status": "EXPIRED", "fill_price": 3000.0, "exit_price": 2985.0}, 2985.0)
-    assert out.startswith("⌛ <b>Time exit · TCS</b>") and out.endswith("🟩 Result  <b>+0.50%</b>  ·  +0.50R")
+    assert out.startswith("⌛ <b>Time exit · TCS</b>")
+    assert out.endswith("Exit    ₹2,985.00  -0.50%\n─────────────────────────\nResult     +0.50%  +0.50R</pre>")
+
+
+def test_table_aligns_escapes_and_fits_a_phone():
+    t = telegram_bot.table([["A&B", "1", "x"], ["VERYLONGSYMBOLNAMEHERE-EQ", "1,234.50", "+12.5%"]],
+                           header=["Stock", "Px", "Chg"])
+    lines = t.removeprefix("<pre>").removesuffix("</pre>").split("\n")
+    assert "A&amp;B" in t and all(len(l.replace("&amp;", "&")) <= telegram_bot.TABLE_WIDTH for l in lines)
+    assert lines[3].endswith("1,234.50  +12.5%") and "…" in lines[3]
 
 
 # ---- send_message --------------------------------------------------------------------------------

@@ -88,11 +88,54 @@ def money(v: float, mkt, decimals: int = 2) -> str:
     return mkt.currency + group_digits(v, decimals, indian=mkt.code == "IN")
 
 
-def _levels(rows: list[tuple[str, str, str]]) -> str:
-    """Price lines in a quote bar: icon, label, bold price and an optional note."""
-    lines = [f"{LEVEL_ICON.get(lab, '•')} {lab}  <b>{html.escape(px)}</b>" + (f"  <i>{note}</i>" if note else "")
-             for lab, px, note in rows]
-    return "<blockquote>" + "\n".join(lines) + "</blockquote>"
+TABLE_WIDTH = 34   # characters of a <pre> line that fit a phone screen without wrapping
+
+
+def px(v: float | None) -> str:
+    """A price for a table cell: no paise from 1,000 up (the column stays narrow), two decimals below."""
+    if v is None:
+        return "–"
+    return f"{v:,.0f}" if abs(v) >= 1000 else f"{v:,.2f}"
+
+
+def more(total: int, shown: int) -> str:
+    """'+13 more' under a list cut short (empty when everything is shown)."""
+    return f"<i>+{total - shown} more</i>" if total > shown else ""
+
+
+def table(rows: list[list], header: list[str] | None = None, align: str = "", rule_before: int | None = None) -> str:
+    """A monospaced table in a <pre> block (Telegram keeps the spacing): columns padded to their widest cell,
+    `align` per column ("l" / "r", default: first column left, the rest right), an optional header with a
+    rule under it, and a rule before row `rule_before`. Cells are escaped here; long first cells are trimmed
+    so a row stays within TABLE_WIDTH."""
+    body = [["" if c is None else str(c) for c in r] for r in rows]
+    head = [str(h) for h in header] if header else None
+    cols = max(len(r) for r in body + ([head] if head else []))
+    body = [r + [""] * (cols - len(r)) for r in body]
+    al = (align or "l" + "r" * (cols - 1)).ljust(cols, "r")
+    widths = [max(len(r[i]) for r in body + ([head] if head else [])) for i in range(cols)]
+    over = sum(widths) + 2 * (cols - 1) - TABLE_WIDTH
+    if over > 0 and widths[0] - over >= 6:             # trim the label column rather than wrap
+        widths[0] -= over
+        body = [[r[0] if len(r[0]) <= widths[0] else r[0][:widths[0] - 1] + "…"] + r[1:] for r in body]
+        if head:
+            head = [head[0][:widths[0]]] + head[1:]
+
+    def line(r):
+        return "  ".join(c.ljust(w) if a == "l" else c.rjust(w) for c, w, a in zip(r, widths, al)).rstrip()
+    rule = "─" * min(TABLE_WIDTH, sum(widths) + 2 * (cols - 1))
+    out = ([line(head), rule] if head else [])
+    for i, r in enumerate(body):
+        if rule_before is not None and i == rule_before:
+            out.append(rule)
+        out.append(line(r))
+    return "<pre>" + html.escape("\n".join(out)) + "</pre>"
+
+
+def _levels(rows: list[tuple[str, str, str]], extra: list[list] | None = None) -> str:
+    """Price levels as a table: label, price, change from the entry (and optional rows under a rule)."""
+    body = [[lab, px, note] for lab, px, note in rows]
+    return table(body + (extra or []), header=["", "Price", "Change"], rule_before=len(body) if extra else None)
 
 
 def _pct(a: float, b: float) -> str:
@@ -118,16 +161,14 @@ def format_signal(sig) -> str:
         ("Entry", money(sig.entry, mkt), ""),
         ("Stop", money(sig.stop_loss, mkt), _pct(sig.stop_loss, sig.entry)),
         ("Target", money(sig.targets[0], mkt), _pct(sig.targets[0], sig.entry)),
-    ]))
-    lines += ["",
-              f"📦 Qty <b>{sig.qty:,}</b>  ·  Risk <b>{money(sig.qty * risk, mkt, 0)}</b>"
-              f"  ·  Reward <b>{config.TARGET_R_MULTIPLES[0]:g}R</b>"]
+    ], extra=[["Qty", f"{sig.qty:,}", ""],
+              ["Risk", money(sig.qty * risk, mkt, 0), f"{config.TARGET_R_MULTIPLES[0]:g}R"]]))
     if sig.entry_type != "market":
         bars = config.ENTRY_VALID_BARS
         unit = "sessions" if sig.timeframe == "1d" else "bars, today only"
-        lines.append(f"⏳ Valid {bars} {unit}  ·  Now {money(sig.ref_price, mkt)}")
+        lines.append(f"\n⏳ Valid {bars} {unit}  ·  Now {money(sig.ref_price, mkt)}")
     if sig.side == "SELL" and mkt.code == "IN":
-        lines.append("⚠️ Short: intraday cash or F&amp;O only")
+        lines.append(("" if sig.entry_type != "market" else "\n") + "⚠️ Short: intraday cash or F&amp;O only")
     lines += ["",
               "💡 <b>Why</b>  " + ", ".join(html.escape(r) for r in sig.reasons),
               f"<i>RSI {sig.rsi:g}  ·  ADX {sig.adx:g}  ·  Volume {sig.vol_ratio:g}× avg</i>",
@@ -156,7 +197,7 @@ def format_update(sig: dict, res: dict, ltp: float) -> str:
     lines = [f"{icon} <b>{what} · {html.escape(sig['symbol'])}</b>",
              f"<i>{flag}{side} · {tf}" + (f" · {note}" if note else "") + "</i>", ""]
     if status == "CANCELLED":
-        lines.append(_levels([("Entry", money(sig["entry"], mkt), ""), ("Last", money(ltp, mkt), "")]))
+        lines.append(_levels([("Entry", money(sig["entry"], mkt), ""), ("Last", money(ltp, mkt), _pct(ltp, sig["entry"]))]))
     elif status == "ACTIVE":
         fill = res["fill_price"] or sig["entry"]
         lines.append(_levels([("Filled", money(fill, mkt), ""),
@@ -168,9 +209,9 @@ def format_update(sig: dict, res: dict, ltp: float) -> str:
         px = res["exit_price"] if res["exit_price"] is not None else ltp
         risk = abs(sig["entry"] - sig["stop_loss"])
         pct = sign * (px - fill) / fill * 100
-        lines.append(_levels([("Entry", money(fill, mkt), ""), ("Exit", money(px, mkt), "")]))
-        lines.append(f"{'🟩' if pct > 0 else '🟥' if pct < 0 else '⬜'} Result  <b>{pct:+.2f}%</b>"
-                     + (f"  ·  {sign * (px - fill) / risk:+.2f}R" if risk else ""))
+        r_mult = f"{sign * (px - fill) / risk:+.2f}R" if risk else ""
+        lines.append(_levels([("Entry", money(fill, mkt), ""), ("Exit", money(px, mkt), _pct(px, fill))],
+                             extra=[["Result", f"{pct:+.2f}%", r_mult]]))
     return "\n".join(lines)
 
 

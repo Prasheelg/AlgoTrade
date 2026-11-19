@@ -29,17 +29,21 @@ HELP = ("<b>AlgoTrade commands</b>\n/positions · open signals and Auto-trade po
 def _positions(_args) -> str:
     from . import orders
     sigs = [s for s in state.all_signals("IN") if s["status"] in ("ACTIVE", "PENDING")]
-    lines = []
+    rows = []
     for s in sigs[:20]:
         px, fill = s["ltp"] or s["entry"], s["fill_price"] or s["entry"]
         pnl = (px - fill) / fill * 100 * (1 if s["side"] == "BUY" else -1)
-        lines.append(f"{s['side']} {s['symbol']} · {s['status'].replace('_', ' ').lower()}"
-                     + ("" if s["status"] == "PENDING" else f" · {pnl:+.1f}%") + f" · stop ₹{s['stop_loss']:,.2f}")
+        rows.append([s["symbol"], s["side"], "pending" if s["status"] == "PENDING" else f"{pnl:+.1f}%",
+                     telegram_bot.px(s["stop_loss"])])
     live = [t for t in orders.all_trades() if t["state"] in orders.ACTIVE_STATES]
-    out = [f"<b>Open signals</b> ({len(sigs)})"] + (lines or ["none"])
+    out = [f"📈 <b>Open signals</b> ({len(sigs)})",
+           telegram_bot.table(rows, header=["Stock", "Side", "P&L", "Stop"], align="llrr") if rows else "none"]
+    if len(sigs) > len(rows):
+        out.append(telegram_bot.more(len(sigs), len(rows)))
     if live:
-        out += [f"\n<b>Auto-trade</b> ({len(live)}, ₹{orders.open_risk():,.0f} at risk)"] + \
-               [f"{t['symbol']} × {t['qty']} · {t['state'].lower()} · stop ₹{t['stop']:,.2f}" for t in live]
+        out += [f"\n🤖 <b>Auto-trade</b> ({len(live)}, ₹{orders.open_risk():,.0f} at risk)",
+                telegram_bot.table([[t["symbol"], t["qty"], t["state"].lower(), telegram_bot.px(t["stop"])] for t in live],
+                                   header=["Stock", "Qty", "State", "Stop"], align="lrlr")]
     return "\n".join(out)
 
 
@@ -47,16 +51,18 @@ def _pnl(_args) -> str:
     from . import summary
     from datetime import date
     lines = summary._account() + summary._signals(date.today().isoformat())[:6]
-    return "<b>Today</b>\n" + ("\n".join(lines) if lines else "Nothing to report yet.")
+    return "📊 <b>Today</b>\n" + ("\n".join(lines) if lines else "Nothing to report yet.")
 
 
 def _signals(_args) -> str:
     from datetime import date
     today = date.today().isoformat()
     new = [s for s in state.all_signals() if (s["sent_at"] or "")[:10] == today]
-    return (f"<b>New signals today</b> ({len(new)})\n" +
-            "\n".join(f"{s['side']} {s['symbol']} ({s['market']}, {s['timeframe']}) · entry {s['entry']:,.2f} · "
-                      f"stop {s['stop_loss']:,.2f}" for s in new[:20])) if new else "No new signals today."
+    return (f"🆕 <b>New signals today</b> ({len(new)})\n" +
+            telegram_bot.table([[s["symbol"] + ("" if s["market"] == "IN" else f" ({s['market']})"), s["side"][0],
+                                 s["timeframe"], telegram_bot.px(s["entry"]), telegram_bot.px(s["stop_loss"])] for s in new[:20]],
+                               header=["Stock", "", "TF", "Entry", "Stop"], align="lllrr") +
+            ("\n" + telegram_bot.more(len(new), 20) if len(new) > 20 else "")) if new else "No new signals today."
 
 
 def _summary(_args) -> str:

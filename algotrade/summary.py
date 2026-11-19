@@ -32,13 +32,17 @@ def _account() -> list[str]:
     if p.get("error"):
         return [f"Account: {html.escape(p['error'][:120])}"]
     t, f = p["totals"], p["funds"] or {}
-    out = []
+    rows = []
     if t.get("count"):
-        out.append(f"Holdings ₹{t['value']:,.0f} · day {t['day_pnl']:+,.0f} · total {t['pnl']:+,.0f}"
-                   if t.get("day_pnl") is not None and t.get("pnl") is not None else f"Holdings ₹{t['value']:,.0f}")
+        rows.append(["Holdings", f"₹{t['value']:,.0f}"])
+        if t.get("day_pnl") is not None:
+            rows.append(["Day P&L", f"{t['day_pnl']:+,.0f}"])
+        if t.get("pnl") is not None:
+            rows.append(["Total P&L", f"{t['pnl']:+,.0f}"])
     if f.get("available") is not None:
-        out.append(f"Cash available ₹{f['available']:,.0f}")
-    return out
+        rows.append(["Cash available", f"₹{f['available']:,.0f}"])
+    return ["💼 <b>Account</b>", telegram_bot.table(rows)] if rows else []
+
 
 
 def _signals(day: str) -> list[str]:
@@ -47,20 +51,28 @@ def _signals(day: str) -> list[str]:
     closed = [t for t in performance.closed_trades("IN") if t["closed_at"] == day]
     if closed:
         tot = sum(t["net_r"] for t in closed)
-        out.append(f"<b>Closed today</b> ({len(closed)}, {tot:+.2f}R after costs)")
-        out += [f"  {t['symbol']} {performance.EXIT_TEXT[t['status']].lower()} {t['net_r']:+.2f}R" for t in closed[:MAX_LINES]]
+        out.append(f"✅ <b>Closed today</b> ({len(closed)}, {tot:+.2f}R after costs)")
+        out.append(telegram_bot.table([[t["symbol"], performance.EXIT_TEXT[t["status"]].lower(), f"{t['net_r']:+.2f}R"]
+                                       for t in closed[:MAX_LINES]], header=["Stock", "Exit", "R"], align="llr"))
+        out.append(telegram_bot.more(len(closed), MAX_LINES))
     sigs = state.all_signals("IN")
     new = [s for s in sigs if (s["sent_at"] or "")[:10] == day]
     if new:
-        out.append(f"<b>New signals</b> ({len(new)}): " + ", ".join(f"{s['side']} {s['symbol']}" for s in new[:MAX_LINES]))
+        out.append(f"\n🆕 <b>New signals</b> ({len(new)})")
+        out.append(telegram_bot.table([[s["symbol"], s["side"], s["timeframe"], telegram_bot.px(s["entry"])] for s in new[:MAX_LINES]],
+                                      header=["Stock", "Side", "TF", "Entry"], align="lllr"))
+        out.append(telegram_bot.more(len(new), MAX_LINES))
     active = [s for s in sigs if s["status"] == "ACTIVE"]
     if active:
-        out.append(f"<b>Open signals</b> ({len(active)})")
+        out.append(f"\n📈 <b>Open signals</b> ({len(active)}) · % to stop / target")
+        rows = []
         for s in active[:MAX_LINES]:
             px, fill = s["ltp"] or s["entry"], s["fill_price"] or s["entry"]
             sign = 1 if s["side"] == "BUY" else -1
-            out.append(f"  {s['symbol']} {sign * _pct(px, fill):+.1f}% · stop {abs(_pct(s['stop_loss'], px)):.1f}% away"
-                       f" · target {abs(_pct(s['target1'], px)):.1f}% away")
+            rows.append([s["symbol"], f"{sign * _pct(px, fill):+.1f}%", f"{abs(_pct(s['stop_loss'], px)):.1f}%",
+                         f"{abs(_pct(s['target1'], px)):.1f}%"])
+        out.append(telegram_bot.table(rows, header=["Stock", "P&L", "Stop", "Target"]))
+        out.append(telegram_bot.more(len(active), MAX_LINES))
     pending = [s for s in sigs if s["status"] == "PENDING"]
     if pending:
         out.append(f"Pending entries: {len(pending)}")
@@ -72,10 +84,13 @@ def _app_trades() -> list[str]:
     live = [t for t in orders.all_trades() if t["state"] in (orders.OPEN, orders.EXITING)]
     if not live:
         return []
-    out = [f"<b>Auto-trade positions</b> ({len(live)}, ₹{orders.open_risk():,.0f} at risk at the stops)"]
-    for t in live[:MAX_LINES]:
-        out.append(f"  {t['symbol']} × {t['qty']} @ ₹{t['fill_price'] or t['entry']:,.2f} · stop ₹{t['stop']:,.2f}"
-                   + (" · ⚠️ NO STOP" if (t["note"] or "").startswith("NO STOP") else ""))
+    out = [f"🤖 <b>Auto-trade positions</b> ({len(live)}, ₹{orders.open_risk():,.0f} at risk at the stops)"]
+    out.append(telegram_bot.table([[t["symbol"], t["qty"], telegram_bot.px(t["fill_price"] or t["entry"]),
+                                    "NO STOP" if (t["note"] or "").startswith("NO STOP") else telegram_bot.px(t["stop"])]
+                                   for t in live[:MAX_LINES]], header=["Stock", "Qty", "Fill", "Stop"]))
+    nostop = [t["symbol"] for t in live if (t["note"] or "").startswith("NO STOP")]
+    if nostop:
+        out.append("⚠️ No stop order: " + ", ".join(html.escape(x) for x in nostop))
     return out
 
 
@@ -87,7 +102,7 @@ def _orders(day: str) -> list[str]:
     count = {}
     for o in rows:
         count[o["state"]] = count.get(o["state"], 0) + 1
-    out = ["<b>Orders today</b>: " + ", ".join(f"{n} {k.lower()}" for k, n in sorted(count.items()))]
+    out = ["🧾 <b>Orders today</b>", telegram_bot.table([[k.lower().replace("_", " "), n] for k, n in sorted(count.items())])]
     out += [f"  ⛔ {o['side']} {o['symbol']}: {html.escape((o['reason'] or '')[:90])}"
             for o in rows if o["state"] == "REJECTED"][:5]
     return out
@@ -103,6 +118,7 @@ def build(now: datetime | None = None) -> str:
         except Exception:
             log.exception("Summary section failed")
             lines = []
+        lines = [x for x in lines if x]
         if lines:
             parts.append("\n".join(lines))
     try:

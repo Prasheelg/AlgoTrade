@@ -128,7 +128,8 @@ def test_summary_once_after_close(msgs, monkeypatch):
     assert summary.daily(fri(15, 0)) is False
     assert summary.daily(fri(15, 50)) is True and summary.daily(fri(16, 30)) is False
     text = msgs.calls[0][0][0]
-    assert "Daily summary" in text and "Cash available ₹5,000" in text and "TCS +1.0%" in text
+    assert "Daily summary" in text and "Cash available ₹5,000" in text
+    assert "<pre>" in text and "TCS    +1.0%" in text
     assert summary.daily(datetime(2026, 10, 17, 16, 0, tzinfo=IST)) is False    # Saturday
 
 
