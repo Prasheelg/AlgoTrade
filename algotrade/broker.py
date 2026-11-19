@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import logging
 import struct
+import threading
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -20,6 +21,8 @@ IST = ZoneInfo("Asia/Kolkata")
 CREDENTIALS = ("KOTAK_CONSUMER_KEY", "KOTAK_MOBILE", "KOTAK_UCC", "KOTAK_MPIN", "KOTAK_TOTP_SECRET")
 
 _session = {"client": None, "day": None, "name": None}
+_login_lock = threading.Lock()   # one login at a time: threads starting together share it (Kotak answers a burst
+                                 # of logins with 429 "too many requests")
 
 
 class BrokerError(RuntimeError):
@@ -68,8 +71,17 @@ def _check(res, step: str) -> dict:
 def login(force: bool = False):
     """Logged-in NeoAPI client for today, logging in if needed."""
     today = datetime.now(IST).date()
-    if _session["client"] is not None and _session["day"] == today and not force:
-        return _session["client"]
+    seen = _session["client"]
+    if seen is not None and _session["day"] == today and not force:
+        return seen
+    with _login_lock:
+        # Another thread logged in while this one waited (for force: a session newer than the one that failed)
+        if _session["client"] is not None and _session["day"] == today and (not force or _session["client"] is not seen):
+            return _session["client"]
+        return _login(today)
+
+
+def _login(today):
     missing = missing_credentials()
     if missing:
         raise BrokerError(f"Missing in .env: {', '.join(missing)}")

@@ -2,6 +2,8 @@
 import base64
 import json
 import sys
+import threading
+import time as time_mod
 
 import neo_api_client
 import pytest
@@ -76,6 +78,36 @@ def test_login_sequence_and_daily_reuse(neo):
                        ("totp_validate", "4321")]
     assert broker.login() is c and len(neo.instances) == 1
     assert broker._session["name"] == "TEST USER"
+
+
+def test_threads_starting_together_log_in_once(neo, monkeypatch):
+    """A burst of logins gets 429 from Kotak; threads waiting on the lock reuse the session just made."""
+    slow = neo.totp_login
+
+    def totp_login(self, **kw):
+        time_mod.sleep(0.2)                 # the first login is still running when the others arrive
+        return slow(self, **kw)
+    monkeypatch.setattr(neo, "totp_login", totp_login)
+    got = []
+    threads = [threading.Thread(target=lambda: got.append(broker.login())) for _ in range(5)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    assert len(neo.instances) == 1 and len({id(c) for c in got}) == 1
+
+
+def test_forced_login_while_waiting_reuses_the_newer_session(neo):
+    broker.login()
+    got = []
+    with broker._login_lock:               # another thread is logging in again right now
+        th = threading.Thread(target=lambda: got.append(broker.login(force=True)))
+        th.start()
+        time_mod.sleep(0.1)
+        newer = broker._session["client"] = object()
+    th.join()
+    assert got == [newer] and len(neo.instances) == 1
+    assert broker.login(force=True) is not newer and len(neo.instances) == 2   # nothing newer: logs in
 
 
 def test_missing_credentials(monkeypatch):
