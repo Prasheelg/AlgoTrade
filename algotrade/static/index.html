@@ -89,9 +89,12 @@
   .sseg.pnl:hover .lbl, .sseg.pnl.on .lbl { color: var(--accent); }
   .sseg.pnl .caret { color: var(--muted); font-size: 10px; }
   /* P&L today drop-down: open positions, under the top bar's P&L segment */
-  #pnlPanel { position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-              box-shadow: 0 8px 24px rgb(0 0 0 / .16); padding: 10px 12px; min-width: 300px;
-              max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; font-size: 12.5px; }
+  /* docked in the sticky top bar, under the status strip: it pushes the page down rather than floating */
+  #pnlPanel { flex-basis: 100%; margin-top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+              padding: 10px 12px; max-height: 38vh; overflow: auto; font-size: 12.5px; }
+  #pnlPanel[hidden] { display: none; }
+  #pnlPanel .pclose { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+  #pnlPanel .pclose:hover { color: var(--ink); }
   #pnlPanel table { width: 100%; border-collapse: collapse; }
   #pnlPanel th { position: static; background: none; font-weight: 500; color: var(--muted); text-align: left; padding: 2px 6px 6px; }
   #pnlPanel td { padding: 5px 6px; border-top: 1px solid var(--line-2); white-space: nowrap; }
@@ -901,8 +904,8 @@
     <button class="btn" id="logout" type="button" hidden title="Log this device out" aria-label="Log out"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Log out</span></button>
     <button class="btn" id="refresh" title="Re-check open signals against the latest prices"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
   </div>
-  <div class="top-in top-strip"><div class="sbar" id="sbar" role="region" aria-label="Market status"></div></div></header>
-<div id="pnlPanel" hidden role="dialog" aria-label="Open positions"></div>
+  <div class="top-in top-strip"><div class="sbar" id="sbar" role="region" aria-label="Market status"></div>
+  <div id="pnlPanel" hidden role="region" aria-label="Open positions"></div></div></header>
 
   <div class="health" id="healthBox" role="alert" hidden></div>
 
@@ -1448,16 +1451,10 @@ setInterval(() => {
   const live = feedLive && nse && marketState(nse).open;
   if (++pnlTick % (live ? PNL_LIVE_SEC : PNL_IDLE_SEC) === 0) loadPnl();
 }, 1000);
-// Clicking P&L today opens a small panel of open positions under it; clicking again (or Esc / outside) hides it
+// Clicking P&L today shows the open positions in a panel docked under the top bar; clicking again (or ×, Esc)
+// hides it. An instrument's name opens it on the Chart tab, with the panel left open
 
 const pnlPanel = document.getElementById("pnlPanel");
-function placePnlPanel() {
-  const seg = document.querySelector("#sbar .sseg.pnl");
-  if (!pnlOpen || !seg) return;
-  const r = seg.getBoundingClientRect(), w = pnlPanel.offsetWidth;
-  pnlPanel.style.top = `${r.bottom + 6}px`;
-  pnlPanel.style.left = `${Math.max(16, Math.min(r.left, window.innerWidth - w - 16))}px`;
-}
 function renderPnlPanel() {
   if (!pnlOpen) return;
   const pl = pnlTop, rows = pl?.open_positions ?? [];
@@ -1465,14 +1462,14 @@ function renderPnlPanel() {
   const px = v => v == null ? "–" : "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const total = rows.reduce((a, p) => a + (p.pnl ?? 0), 0);
   pnlPanel.innerHTML = `<div class="ph"><span><b>Open positions</b> · ${rows.length}</span>` +
-    (rows.length ? `<span>P&amp;L ${money(total)}</span>` : "") + `</div>` +
+    `<span>${rows.length ? `P&amp;L ${money(total)} · ` : ""}<button type="button" class="pclose" title="Hide (or click P&amp;L today)" aria-label="Hide open positions">×</button></span></div>` +
     (pl?.error ? `<div class="pempty">${esc(pl.error)}</div>`
      : !rows.length ? `<div class="pempty">No open positions.</div>`
      : `<table><thead><tr><th>Instrument</th><th class="num">Qty</th><th class="num">Avg</th><th class="num">LTP</th><th class="num">P&amp;L</th></tr></thead><tbody>` +
-       rows.map(p => `<tr><td>${esc(p.tsym || p.symbol)}${p.product ? ` <span class="tf">${esc(p.product)}</span>` : ""}</td>` +
+       rows.map(p => `<tr><td><a data-chart="${esc(p.tsym || p.symbol)}" title="Open chart">${esc(p.tsym || p.symbol)}</a>` +
+         `${p.product ? ` <span class="tf">${esc(p.product)}</span>` : ""}</td>` +
          `<td class="num">${p.net_qty}</td><td class="num">${px(p.avg)}</td><td class="num">${px(p.ltp)}</td><td class="num">${money(p.pnl)}</td></tr>`).join("") +
        `</tbody></table>`);
-  placePnlPanel();
 }
 function togglePnlPanel(show = !pnlOpen) {
   pnlOpen = show;
@@ -1483,12 +1480,10 @@ function togglePnlPanel(show = !pnlOpen) {
 document.getElementById("sbar").addEventListener("click", e => {
   if (e.target.closest(".sseg.pnl")) togglePnlPanel();
 });
-document.addEventListener("click", e => {
-  if (pnlOpen && !e.target.closest("#pnlPanel") && !e.target.closest(".sseg.pnl")) togglePnlPanel(false);
+pnlPanel.addEventListener("click", e => { if (e.target.closest(".pclose")) togglePnlPanel(false); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && pnlOpen && !document.querySelector("dialog[open]")) togglePnlPanel(false);
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && pnlOpen) togglePnlPanel(false); });
-window.addEventListener("resize", placePnlPanel);
-window.addEventListener("scroll", placePnlPanel, { passive: true });
 
 function tickStatus() {
   const m = META?.markets.find(x => x.code === market);
