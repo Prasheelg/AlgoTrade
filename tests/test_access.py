@@ -113,3 +113,91 @@ def test_kill_switch_needs_no_login(c, monkeypatch):
 def test_cookie_secret_kept_in_data_dir():
     first = access._secret()
     assert access._secret() == first and (config.DATA_DIR / ".web_secret").exists()
+
+
+# ---- Cloudflare Access (a Cloudflare Tunnel on your own domain) ----
+import time as _time
+
+import jwt as _jwt
+from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
+
+TEAM, AUD, ME = "myteam.cloudflareaccess.com", "aud-tag-123", "me@example.com"
+_KEY = _rsa.generate_private_key(public_exponent=65537, key_size=2048)
+_OTHER_KEY = _rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+def cf_token(email=ME, aud=AUD, iss=f"https://{TEAM}", exp_in=600, key=_KEY):
+    now = int(_time.time())
+    return _jwt.encode({"email": email, "aud": [aud], "iss": iss, "iat": now, "exp": now + exp_in},
+                       key, algorithm="RS256", headers={"kid": "k1"})
+
+
+def cf_headers(token=None):
+    """As cloudflared proxies a request that passed Cloudflare Access."""
+    return {"Cf-Access-Jwt-Assertion": token or cf_token(), "Cf-Connecting-Ip": "203.0.113.9",
+            "Cf-Ray": "abc-BOM", "X-Forwarded-For": "203.0.113.9"}
+
+
+@pytest.fixture
+def cf(monkeypatch):
+    """Cloudflare Access configured; the team's public key is _KEY's (no network)."""
+    monkeypatch.setattr(config, "CF_ACCESS_TEAM_DOMAIN", TEAM)
+    monkeypatch.setattr(config, "CF_ACCESS_AUD", [AUD])
+    monkeypatch.setattr(config, "CF_ACCESS_EMAILS", [ME])
+
+    class Jwks:
+        def get_signing_key_from_jwt(self, token):
+            return type("K", (), {"key": _KEY.public_key()})()
+    monkeypatch.setattr(access, "_jwk_client", lambda: Jwks())
+
+
+def test_cloudflare_requests_are_never_local(c):
+    """cloudflared connects from 127.0.0.1: even with only one Cloudflare header it must not pass as this PC."""
+    for h in ({"Cf-Ray": "abc"}, {"Cf-Connecting-Ip": "203.0.113.9"}, {"Cf-Access-Jwt-Assertion": "x"}):
+        assert get(c, "/api/trading", addr="127.0.0.1", headers=h).status_code == 401, h
+
+
+def test_logged_in_cloudflare_device_can_trade(c, cf, monkeypatch):
+    placed = []
+    monkeypatch.setattr(manual, "buy_stock", lambda *a: placed.append(a) or {"order_id": "X1"})
+    h = cf_headers()
+    login(c, addr="127.0.0.1", headers=h)
+    st = get(c, "/api/access", "127.0.0.1", h).get_json()
+    assert st["can_trade"] is True and st["device"] == f"{ME} via Cloudflare"
+    r = post(c, "/api/stocks/buy", {"symbol": "TCS", "qty": 1, "price": 3000}, "127.0.0.1", h)
+    assert r.status_code == 200 and placed
+
+
+def test_cloudflare_without_pin_login_cannot_trade(c, cf):
+    assert post(c, "/api/stocks/buy", {"symbol": "TCS", "qty": 1}, "127.0.0.1", cf_headers()).status_code == 401
+
+
+@pytest.mark.parametrize("token", [
+    "not-a-jwt",
+    cf_token(key=_OTHER_KEY),                       # signed by someone else
+    cf_token(aud="another-app"),                    # token for a different Access app
+    cf_token(iss="https://evil.cloudflareaccess.com"),
+    cf_token(exp_in=-60),                           # expired
+    cf_token(email="stranger@example.com"),         # passed Access, but not an allowed email
+], ids=["garbage", "wrong-key", "wrong-aud", "wrong-issuer", "expired", "email-not-allowed"])
+def test_bad_cloudflare_tokens_can_only_look(c, cf, token):
+    h = cf_headers(token)
+    login(c, addr="127.0.0.1", headers=h)
+    st = get(c, "/api/access", "127.0.0.1", h).get_json()
+    assert st["logged_in"] is True and st["can_trade"] is False
+    r = post(c, "/api/orders/cancel", {"order_id": "1"}, "127.0.0.1", h)
+    assert r.status_code == 403
+
+
+def test_cloudflare_token_must_come_through_cloudflared_on_this_machine(c, cf):
+    """A valid token replayed straight at the dashboard from elsewhere doesn't count."""
+    h = cf_headers()
+    login(c, addr=LAN, headers=h)
+    assert get(c, "/api/access", LAN, h).get_json()["can_trade"] is False
+
+
+def test_cloudflare_not_configured_means_look_only(c, cf, monkeypatch):
+    monkeypatch.setattr(config, "CF_ACCESS_AUD", [])
+    h = cf_headers()
+    login(c, addr="127.0.0.1", headers=h)
+    assert get(c, "/api/access", "127.0.0.1", h).get_json()["can_trade"] is False

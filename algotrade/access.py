@@ -6,6 +6,10 @@
 - Real orders (buy, sell, cancel, modify, Auto-trade ON) need this PC, or a logged-in device on your Tailscale
   network: reached through `tailscale serve` (which proxies from 127.0.0.1 and adds the Tailscale-User-Login
   header) or directly on a Tailscale address (100.64.0.0/10). A logged-in device on the open LAN can only look.
+- Or a logged-in device that came through Cloudflare Access (a Cloudflare Tunnel on your own domain): cloudflared
+  proxies from 127.0.0.1, and Cloudflare adds a signed token (Cf-Access-Jwt-Assertion) after you pass its login.
+  The token's signature (your team's public keys), audience, issuer, expiry and email (CF_ACCESS_EMAILS) are all
+  checked; a forged or copied header fails. Anything that came through Cloudflare is never treated as this PC.
 - Switching Auto-trade OFF works from anywhere, so trading can always be stopped.
 Sessions are signed cookies (30 days). Changing DASHBOARD_PIN logs every device out."""
 import hashlib
@@ -51,10 +55,48 @@ def _pin_tag() -> str:
 
 
 def is_local() -> bool:
-    """A request typed into this PC's browser: loopback and not forwarded by a proxy (tailscale serve)."""
+    """A request typed into this PC's browser: loopback and not forwarded by a proxy (tailscale serve, cloudflared)."""
     h = request.headers
     return (request.remote_addr in LOCAL_ADDRS and "X-Forwarded-For" not in h
-            and "Tailscale-User-Login" not in h)
+            and "Tailscale-User-Login" not in h and not any(k in h for k in CLOUDFLARE_HEADERS))
+
+
+# Cloudflare's edge adds these to every request; a visitor can't remove them
+CLOUDFLARE_HEADERS = ("Cf-Connecting-Ip", "Cf-Ray", "Cf-Access-Jwt-Assertion")
+_jwks = {"team": None, "client": None}
+
+
+def _jwk_client():
+    """Fetches (and caches for an hour) the public keys Cloudflare Access signs its tokens with."""
+    import jwt
+    team = config.CF_ACCESS_TEAM_DOMAIN
+    if _jwks["team"] != team:
+        _jwks.update(team=team, client=jwt.PyJWKClient(f"https://{team}/cdn-cgi/access/certs",
+                                                       cache_jwk_set=True, lifespan=3600))
+    return _jwks["client"]
+
+
+def cloudflare_user() -> str | None:
+    """The email of a visitor who passed Cloudflare Access, if the request carries a valid token for an allowed
+    email and arrived through cloudflared on this machine; else None."""
+    token = request.headers.get("Cf-Access-Jwt-Assertion")
+    team = config.CF_ACCESS_TEAM_DOMAIN
+    if not (token and team and config.CF_ACCESS_AUD and config.CF_ACCESS_EMAILS) \
+            or request.remote_addr not in LOCAL_ADDRS:
+        return None
+    try:
+        import jwt
+        key = _jwk_client().get_signing_key_from_jwt(token).key
+        claims = jwt.decode(token, key, algorithms=["RS256"], audience=config.CF_ACCESS_AUD,
+                            issuer=f"https://{team}", options={"require": ["exp", "iat", "aud", "iss"]})
+    except Exception as exc:
+        log.warning("Rejected a Cloudflare Access token: %s", exc)
+        return None
+    email = str(claims.get("email", "")).lower()
+    if email not in config.CF_ACCESS_EMAILS:
+        log.warning("Cloudflare Access token for %s, who isn't in CF_ACCESS_EMAILS", email or "no email")
+        return None
+    return email
 
 
 def via_tailscale() -> bool:
@@ -75,11 +117,11 @@ def logged_in() -> bool:
 
 
 def can_trade() -> bool:
-    return is_local() or (logged_in() and via_tailscale())
+    return is_local() or (logged_in() and (via_tailscale() or cloudflare_user() is not None))
 
 
-TRADE_REFUSED = ("Orders can only be placed from this PC, or from your phone app over Tailscale "
-                 "(logged in). See README > Phone app.")
+TRADE_REFUSED = ("Orders can only be placed from this PC, or from a logged-in device over Tailscale or "
+                 "Cloudflare Access. See README > Phone app.")
 
 
 def who() -> str:
@@ -87,7 +129,12 @@ def who() -> str:
     if is_local():
         return "this PC"
     user = request.headers.get("Tailscale-User-Login")
-    return f"{user} via Tailscale" if user else str(request.remote_addr)
+    if user:
+        return f"{user} via Tailscale"
+    cf = cloudflare_user()
+    if cf:
+        return f"{cf} via Cloudflare"
+    return request.headers.get("Cf-Connecting-Ip") or str(request.remote_addr)
 
 
 def status() -> dict:

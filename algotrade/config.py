@@ -24,6 +24,11 @@ KOTAK_MPIN = _get("KOTAK_MPIN", "")
 KOTAK_TOTP_SECRET = _get("KOTAK_TOTP_SECRET", "")   # base32 secret behind the TOTP QR code
 # Dashboard login for other devices (phone app); this PC needs none. Empty = only this PC can open it.
 DASHBOARD_PIN = _get("DASHBOARD_PIN", "")
+# Cloudflare Access in front of a Cloudflare Tunnel: a logged-in device whose request carries a valid Access token
+# for one of these emails may trade, like one on Tailscale. Empty = Cloudflare visitors can only look.
+CF_ACCESS_TEAM_DOMAIN = _get("CF_ACCESS_TEAM_DOMAIN", "").strip().removeprefix("https://").rstrip("/")
+CF_ACCESS_AUD = [a.strip() for a in _get("CF_ACCESS_AUD", "").split(",") if a.strip()]
+CF_ACCESS_EMAILS = [e.strip().lower() for e in _get("CF_ACCESS_EMAILS", "").split(",") if e.strip()]
 # Hard cap on automatic orders (India). Trading itself is switched on / off on the dashboard (off by default).
 MAX_ORDER_VALUE = float(_get("MAX_ORDER_VALUE", "10000"))   # ₹ per order
 # Intraday Auto-trade: BUY signals on 5m-1h become intraday (MIS) trades, no new entries after INTRADAY_LAST_ENTRY,
