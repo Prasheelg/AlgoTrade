@@ -97,7 +97,7 @@ def market_scan(code: str) -> dict:
     return {k: v for k, v in kw.items() if v is not None}
 
 
-MARKET_SCAN = {code: market_scan(code) for code in ("IN", "US")}
+MARKET_SCAN = {code: market_scan(code) for code in ("IN", "US", "MCX")}
 
 # Risk model
 ATR_SL_MULT = 1.5          # stop-loss = entry -/+ 1.5 * ATR
@@ -118,6 +118,10 @@ US_UNIVERSE = _get("US_UNIVERSE", "SP100")
 US_CAPITAL = float(_get("US_CAPITAL", "10000"))
 US_MIN_PRICE = 5.0         # dollars
 US_MIN_AVG_TURNOVER = 2e7  # avg 20d turnover < $20M
+
+# MCX commodity futures (dashboard MCX tab; alerts only, see mcx.py). Lots are sized to risk RISK_PER_TRADE_PCT
+# of this capital per trade
+MCX_CAPITAL = float(_get("MCX_CAPITAL", "") or CAPITAL)
 
 DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)

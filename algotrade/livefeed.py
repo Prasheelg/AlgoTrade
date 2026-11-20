@@ -27,6 +27,7 @@ STALL_SEC = 60          # no message this long while the NSE is open and an inde
                         # every second) = a frozen socket (it stays "open" but sends nothing): reconnect
 
 _ticks: dict[str, dict] = {}        # "segment|token" -> quote in the REST shape (see _scrip / _index)
+_listeners: list = []               # fn(key, quote) called on every stored update (e.g. the MCX bar recorder)
 _want: dict[str, float] = {}        # "segment|token" -> monotonic time it was last asked for
 _subscribed: set[str] = set()
 _lock = threading.Lock()
@@ -150,6 +151,17 @@ def on_message(m) -> None:
     _state["messages"] += 1
     _state["last_mono"] = time.monotonic()
     _state["last_at"] = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+    for fn in list(_listeners):
+        try:
+            fn(k, q)
+        except Exception:
+            log.exception("Live feed listener failed")
+
+
+def add_listener(fn) -> None:
+    """Call fn(key, quote) on every price update the stream stores (once per function)."""
+    if fn not in _listeners:
+        _listeners.append(fn)
 
 
 def stalled(now: float | None = None, market_open: bool | None = None) -> bool:

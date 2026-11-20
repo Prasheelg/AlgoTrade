@@ -16,7 +16,7 @@ for _k in ("UNIVERSE", "SCAN_INTERVAL_MIN", "SCAN_TIMEFRAMES", "TIMEFRAME", "MIN
            "ALLOW_SHORTS", "STRATEGIES", "FILTERS", "US_UNIVERSE", "US_CAPITAL",
            "STRATEGIES_IN", "MIN_SCORE_IN", "FILTERS_IN", "STRATEGIES_US", "MIN_SCORE_US", "FILTERS_US",
            "BROKERAGE", "DP_CHARGE", "SLIPPAGE_BPS", "US_BROKERAGE", "US_SLIPPAGE_BPS",
-           "MAX_ORDER_VALUE"):
+           "MAX_ORDER_VALUE", "MCX_CAPITAL", "STRATEGIES_MCX", "MIN_SCORE_MCX", "FILTERS_MCX"):
     os.environ.pop(_k, None)
 os.environ["OPTIONS_AUTO_TRADE"] = "false"  # on by default in the app; tests that need it turn it on themselves
 os.environ["OPTIONS_MAX_LOTS"] = "10"       # 1 by default in the app; the tests size multi-lot orders

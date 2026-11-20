@@ -1291,6 +1291,8 @@ def serve(host: str = "127.0.0.1", port: int = 8050) -> None:
     threading.Thread(target=runner.keep_alive_forever, name="scanner-keep-alive", daemon=True).start()
     from . import livefeed
     livefeed.start()
+    from . import mcx
+    mcx.start_recorder()      # MCX bars from the live feed (Kotak has no MCX price history)
     from . import orderbook
     orderbook.start_watch()
     from . import oiflow

@@ -85,7 +85,7 @@ def group_digits(v: float, decimals: int = 2, indian: bool = True) -> str:
 
 
 def money(v: float, mkt, decimals: int = 2) -> str:
-    return mkt.currency + group_digits(v, decimals, indian=mkt.code == "IN")
+    return mkt.currency + group_digits(v, decimals, indian=mkt.currency == "₹")
 
 
 TABLE_WIDTH = 34   # characters of a <pre> line that fit a phone screen without wrapping
@@ -146,6 +146,16 @@ def chart_link(mkt, sym: str) -> str:
     return f"<a href=\"https://www.tradingview.com/chart/?symbol={mkt.tv_prefix}{html.escape(sym)}\">📈 Chart</a>"
 
 
+def _mcx_contract(symbol: str) -> str:
+    """The futures contract the MCX signal is on ("CRUDEOIL18DEC26FUT"), or "" if the list can't be loaded."""
+    try:
+        from . import mcx
+        c = mcx.front(symbol)
+        return c["tsym"] if c else ""
+    except Exception:
+        return ""
+
+
 def format_signal(sig) -> str:
     mkt = markets.get(sig.market)
     flag = "" if mkt.code == "IN" else f"{mkt.flag} "
@@ -156,13 +166,32 @@ def format_signal(sig) -> str:
     stars = f"  {'⭐' * sig.score}" if sig.score else ""
     lines = [f"{flag}{'🟢' if sig.side == 'BUY' else '🔴'} <b>{sig.side} · {sym}</b>{stars}",
              f"<i>{tf} · {order}</i>", ""]
+    if mkt.code == "MCX":
+        lines[0] += f"  <i>{html.escape(_mcx_contract(sig.symbol))}</i>"
     # One target: the trade (and Auto-trade's order) closes there
-    lines.append(_levels([
+    levels = [
         ("Entry", money(sig.entry, mkt), ""),
         ("Stop", money(sig.stop_loss, mkt), _pct(sig.stop_loss, sig.entry)),
         ("Target", money(sig.targets[0], mkt), _pct(sig.targets[0], sig.entry)),
-    ], extra=[["Qty", f"{sig.qty:,}", ""],
-              ["Risk", money(sig.qty * risk, mkt, 0), f"{config.TARGET_R_MULTIPLES[0]:g}R"]]))
+    ]
+    if mkt.code == "MCX":     # futures: lots, each worth point_value rupees per rupee of price
+        lot_risk = sig.extra.get("lot_risk") or 0
+        extra = [["Lots", f"{sig.qty:,}", f"lot {sig.extra.get('lot', '?')}"],
+                 ["Risk", money(sig.qty * lot_risk if sig.qty else lot_risk, mkt, 0),
+                  "per lot" if not sig.qty else f"{config.TARGET_R_MULTIPLES[0]:g}R"]]
+    else:
+        extra = [["Qty", f"{sig.qty:,}", ""],
+                 ["Risk", money(sig.qty * risk, mkt, 0), f"{config.TARGET_R_MULTIPLES[0]:g}R"]]
+    lines.append(_levels(levels, extra=extra))
+    if mkt.code == "MCX":
+        if not sig.qty and sig.extra.get("lot_risk"):
+            pct = sig.extra["lot_risk"] / mkt.capital * 100 if mkt.capital else 0
+            lines.append(f"\n⚠️ One lot risks {money(sig.extra['lot_risk'], mkt, 0)} ({pct:.1f}% of capital), "
+                         f"more than the {config.RISK_PER_TRADE_PCT:g}% per trade")
+        from . import mcx
+        src = sig.extra.get("data", "mcx")
+        lines.append(("ℹ️ " if src != "mcx" else "") + f"<i>Prices: {html.escape(mcx.SOURCE_TEXT.get(src, src))}"
+                     " · alert only, no orders</i>")
     if sig.entry_type != "market":
         bars = config.ENTRY_VALID_BARS
         unit = "sessions" if sig.timeframe == "1d" else "bars, today only"

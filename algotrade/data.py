@@ -17,7 +17,11 @@ def fetch_ohlcv(symbols: list[str], timeframe: str = "1d", period: str | None = 
                 batch_size: int = 50, market: str = "IN", stop=None) -> dict[str, pd.DataFrame]:
     """Download OHLCV for many symbols. Returns {symbol: DataFrame[Open,High,Low,Close,Volume]}
     with naive timestamps in the market's exchange timezone. stop(), if given, is called before each batch
-    and may raise to abandon the download (a batch itself can't be interrupted)."""
+    and may raise to abandon the download (a batch itself can't be interrupted). MCX: recorded MCX bars and
+    the world-market proxy (mcx.fetch_ohlcv); Yahoo has no MCX prices."""
+    if markets.get(market).code == "MCX":
+        from . import mcx
+        return mcx.fetch_ohlcv(symbols, timeframe, stop=stop)
     tz = markets.get(market).tz
     period = period or PERIOD_FOR.get(timeframe, "1y")
     out: dict[str, pd.DataFrame] = {}

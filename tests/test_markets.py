@@ -63,7 +63,7 @@ def test_get():
     assert markets.get("us") is US and markets.get("In") is IN
     with pytest.raises(ValueError) as e:
         markets.get("jp")
-    assert str(e.value) == "Unknown market JP; use one of IN, US"
+    assert str(e.value) == "Unknown market JP; use one of IN, US, MCX"
 
 
 def test_market_fields():
@@ -71,7 +71,7 @@ def test_market_fields():
         ("IN", "India", "₹", "en-IN", "Asia/Kolkata", "NSE:", "^NSEI")
     assert (US.code, US.currency, US.tz, US.tv_prefix, US.index_symbol) == \
         ("US", "$", "America/New_York", "", "^GSPC")
-    assert markets.DEFAULT == "IN" and list(markets.MARKETS) == ["IN", "US"]
+    assert markets.DEFAULT == "IN" and list(markets.MARKETS) == ["IN", "US", "MCX"]
 
 
 def test_market_is_frozen():

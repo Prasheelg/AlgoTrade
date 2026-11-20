@@ -64,7 +64,7 @@ def test_signals_live_source_only_for_india_with_kotak_key(client, monkeypatch):
 def test_signals_unknown_market_400(client):
     r = client.get("/api/signals?market=XX")
     assert r.status_code == 400
-    assert r.get_json() == {"error": "Unknown market XX; use one of IN, US"}
+    assert r.get_json() == {"error": "Unknown market XX; use one of IN, US, MCX"}
 
 
 def test_signals_market_filter_and_enrich(client):
@@ -117,7 +117,9 @@ def test_meta_shape(client):
         {"code": "IN", "name": "India", "tz": "Asia/Kolkata", "session": ["09:15", "15:30"],
          "scan_window": ["09:00", "15:30"]},
         {"code": "US", "name": "US", "tz": "America/New_York", "session": ["09:30", "16:00"],
-         "scan_window": ["09:30", "16:00"]}]
+         "scan_window": ["09:30", "16:00"]},
+        {"code": "MCX", "name": "MCX", "tz": "Asia/Kolkata", "session": ["09:00", "23:55"],
+         "scan_window": ["09:00", "23:55"]}]
     assert m["defaults"] == {"timeframe": "1d", "min_score": 2}
     assert m["scan"] == {"interval_min": 15, "timeframes": ["1d"]}
 

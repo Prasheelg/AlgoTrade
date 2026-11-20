@@ -146,8 +146,9 @@ def evaluate(symbol: str, df: pd.DataFrame, i: int = -1, min_score: int | None =
     reasons = votes[side]
     if score[side] < min_score or score["SELL" if side == "BUY" else "BUY"] >= score[side]:
         return None
-    if side == "SELL" and not (config.ALLOW_SHORTS or (mkt.code == "IN" and config.OPTIONS_AUTO_TRADE)):
-        return None   # India SELL signals buy puts when options Auto-trade is on
+    if side == "SELL" and not (config.ALLOW_SHORTS or (mkt.code == "IN" and config.OPTIONS_AUTO_TRADE)
+                               or mkt.code == "MCX"):
+        return None   # India SELL signals buy puts when options Auto-trade is on; futures can be sold short
     if filters and not passes_filters(r, side, filters, index):
         return None
 
@@ -169,8 +170,17 @@ def evaluate(symbol: str, df: pd.DataFrame, i: int = -1, min_score: int | None =
         return None
     sl = entry - sign * risk
     targets = [round(entry + sign * risk * m, 2) for m in config.TARGET_R_MULTIPLES]
-    qty = int((mkt.capital * config.RISK_PER_TRADE_PCT / 100) // risk)
-    qty = min(qty, int(mkt.capital // entry))  # never exceed capital
+    extra = {}
+    if mkt.code == "MCX":
+        # Futures: whole lots, sized so the stop risks RISK_PER_TRADE_PCT of capital (0 = even one lot risks more)
+        from . import mcx
+        lot = mcx.lot_size(symbol)
+        point = mcx.point_value(symbol, lot)
+        qty = int((mkt.capital * config.RISK_PER_TRADE_PCT / 100) // (risk * point)) if point else 0
+        extra = {"lot": lot, "point_value": point, "lot_risk": round(risk * point, 2)}
+    else:
+        qty = int((mkt.capital * config.RISK_PER_TRADE_PCT / 100) // risk)
+        qty = min(qty, int(mkt.capital // entry))  # never exceed capital
 
     return Signal(
         symbol=symbol, side=side, entry=round(entry, 2), stop_loss=round(sl, 2),
@@ -178,7 +188,7 @@ def evaluate(symbol: str, df: pd.DataFrame, i: int = -1, min_score: int | None =
         rsi=round(float(r["RSI"]), 1), adx=round(float(r["ADX"]), 1),
         vol_ratio=round(float(r["Volume"] / r["VOL_AVG20"]), 2) if r["VOL_AVG20"] else 0.0,
         bar_time=df.index[i], timeframe=timeframe, market=mkt.code,
-        entry_type=entry_type, ref_price=round(close, 2),
+        entry_type=entry_type, ref_price=round(close, 2), extra=extra,
     )
 
 
@@ -238,8 +248,10 @@ def fill_missing_days(data: dict[str, pd.DataFrame], index_close: pd.Series | No
 
 
 def fetch_index(timeframe: str, market: str, period: str | None = None) -> pd.Series | None:
-    """Close of the market's index on this timeframe, or None if it can't be downloaded."""
+    """Close of the market's index on this timeframe, or None if it can't be downloaded (or the market has none)."""
     sym = markets.get(market).index_symbol
+    if not sym:
+        return None
     df = fetch_ohlcv([sym], timeframe, period=period, market=market).get(sym)
     if df is None:
         log.warning("No %s index data; market filters are skipped", sym)
@@ -281,10 +293,13 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
             sig = evaluate(sym, add_all(df, index_close), min_score=min_score, strategies=strategies,
                            timeframe=timeframe, market=market, filters=filters)
             if sig:
+                source = getattr(data[sym], "attrs", {}).get("source")
+                if source:                            # MCX: recorded prices, or the world-market proxy
+                    sig.extra["data"] = source
                 signals.append(sig)
         except Exception as exc:
             log.warning("Error evaluating %s: %s", sym, exc)
-    if signals and "events" in (filters or []):
+    if signals and "events" in (filters or []) and market != "MCX":   # results / dividends: stocks only
         from . import events
         kept = []
         for sig in signals:

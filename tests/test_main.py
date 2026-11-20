@@ -252,7 +252,8 @@ def test_cli_once_uses_per_market_settings(cli, monkeypatch):
     monkeypatch.setattr(main, "scan_and_alert", saa)
     cli("--once")
     assert saa.calls == [((), {"market": "IN", "timeframe": "1d", "send": False, **IN_SCAN}),
-                         ((), {"market": "US", "timeframe": "1d", "send": False, **DEFAULT_KW})]
+                         ((), {"market": "US", "timeframe": "1d", "send": False, **DEFAULT_KW}),
+                         ((), {"market": "MCX", "timeframe": "1d", "send": False, **DEFAULT_KW})]
 
 
 def test_cli_dry_run_uses_per_market_settings(cli, monkeypatch):
@@ -318,7 +319,7 @@ def test_cli_default_runs_loop(cli, monkeypatch):
     rec = Recorder(None)
     monkeypatch.setattr(main, "run_loop", rec)
     cli()
-    assert rec.calls == [((["IN", "US"],), {})]
+    assert rec.calls == [((["IN", "US", "MCX"],), {})]
     cli("--market", "US")
     assert rec.calls[-1] == ((["US"],), {})
 

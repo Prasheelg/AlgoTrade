@@ -1446,22 +1446,22 @@ const COLS = [
   ["current", "LTP / Exit", 1], ["pnl_pct", "P&L", 1], [null, "SL → Entry → Target"],
   ["score", "Strategies"], [null, ""],
 ];
-const FLAGS = { IN: "₹", US: "$" };
+const FLAGS = { IN: "₹", US: "$", MCX: "🛢" };
 const PHONE = matchMedia("(max-width: 640px)");  // phone layout (matches the CSS breakpoint)  // currency badge on the market switch
 
 const ORDER_TEXT = { limit: "limit", stop: "stop" };
 let data = [], tab = "pending", sortKey = "bar_time", sortDir = -1;
-// Selected market ("IN" / "US"); each market has its own signals, scan settings and scan status
+// Selected market ("IN" / "US" / "MCX"); each market has its own signals, scan settings and scan status
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-let market = store.get("market") === "US" ? "US" : "IN";
+let market = ["US", "MCX"].includes(store.get("market")) ? store.get("market") : "IN";
 let view = "signals";  // "signals" or "performance"
 // A link like #US/active opens that market and tab; #IN/performance opens the performance view
 {
   const [m, t] = location.hash.slice(1).split("/");
-  if (m === "IN" || m === "US") market = m;
+  if (["IN", "US", "MCX"].includes(m)) market = m;
   if (TABS.some(x => x[0] === t)) tab = t;
   if (["performance", "portfolio", "options", "watchlist", "chart"].includes(t)) view = t;
   else if (!t && ["performance", "portfolio", "options", "watchlist", "chart"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
@@ -1598,7 +1598,7 @@ function renderTable() {
   const clr = document.getElementById("clearTab");
   clr.hidden = !rows.length;
   clr.textContent = tab === "all" ? `Clear all ${rows.length}` : `Clear ${rows.length} ${tab}`;
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: market === "IN" ? "Asia/Kolkata" : "America/New_York" });
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: META?.markets.find(x => x.code === market)?.tz || (market === "US" ? "America/New_York" : "Asia/Kolkata") });
   const dayText = d => !d ? "" : d.slice(0, 10) === today ? "Today"
     : new Date(d.slice(0, 10) + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   document.getElementById("rows").innerHTML = rows.map(s => {
@@ -1919,7 +1919,7 @@ function renderNotice() {
 }
 
 function renderMarkets() {
-  document.getElementById("markets").innerHTML = (META?.markets ?? [{ code: "IN", name: "India" }, { code: "US", name: "US" }])
+  document.getElementById("markets").innerHTML = (META?.markets ?? [{ code: "IN", name: "India" }, { code: "US", name: "US" }, { code: "MCX", name: "MCX" }])
     .map(m => `<button type="button" data-market="${m.code}" class="${m.code === market ? "on" : ""}">` +
       `<span class="flag">${FLAGS[m.code] ?? ""}</span>${esc(m.name)}` +
       (scanStat[m.code]?.running ? `<span class="busy" title="Scan running"></span>`

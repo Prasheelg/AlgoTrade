@@ -23,8 +23,21 @@ Credentials and settings go in `.env` (see `.env.example`).
 | `run.bat --backtest --market IN --symbols NIFTY100` | Backtest the strategy, before and after costs (trades saved to `data/backtest_trades.csv`, US to `backtest_trades_US.csv`) |
 | `run.bat --ml-test --market IN` | Walk-forward test of the AI signal filter (see Meta-labeling test); 10 years of daily bars, about 20 min per 100 symbols |
 
-Add `--market IN` or `--market US` to any command to limit it to one market; by default both are scanned.
-`--symbols` needs `--market`.
+Add `--market IN`, `--market US` or `--market MCX` to any command to limit it to one market; by default all are
+scanned. `--symbols` needs `--market IN` or `US`.
+
+### MCX commodities (alerts only)
+The **MCX** tab scans the liquid commodity futures (Crude Oil, Natural Gas, Gold, Silver, Copper) 09:00–23:55 IST
+on every timeframe except backtests, with the same strategies, scan panel and Telegram alerts. It never places
+orders. Each alert names the front-month contract (rolled 3 days before expiry), sizes **whole lots** so the stop
+risks `RISK_PER_TRADE_PCT` of `MCX_CAPITAL` (default `CAPITAL`; Gold counts ×100: quoted per 10 g, traded in
+kg), and says when one lot alone risks more. Futures alerts can be SELLs.
+
+Kotak gives live MCX prices but no MCX price history (and Yahoo has none), so the dashboard **records 5-minute
+bars** from Kotak's live stream while it runs (`mcx_bars` in `signals.db`, backed up with it). Until a timeframe
+has 260 recorded bars, the bars before recording began come from the world contract on Yahoo (NYMEX / COMEX)
+converted with USD/INR and scaled to MCX; such alerts say their prices are estimated. Roughly: 5m/15m are fully
+MCX after 1–4 trading days, 1h after about three weeks, daily after about a year.
 
 ## Strategy
 A signal is sent when at least `MIN_SCORE` of these agree on a direction:

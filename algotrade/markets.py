@@ -1,4 +1,4 @@
-"""Per-market settings: India (NSE) and US (NYSE / Nasdaq)."""
+"""Per-market settings: India (NSE), US (NYSE / Nasdaq) and MCX (Indian commodity futures, alerts only)."""
 from dataclasses import dataclass
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
@@ -20,7 +20,7 @@ class Market:
     min_turnover: float  # skip illiquid stocks (20-day average daily turnover)
     tv_prefix: str       # TradingView exchange prefix
     session: tuple[time, time]  # regular trading hours, exchange time
-    index_symbol: str           # Yahoo ticker of the benchmark index (market filters)
+    index_symbol: str           # Yahoo ticker of the benchmark index (market filters); "" = none
     scan_from: time | None = None  # the continuous scanner starts this early (None = at the open)
 
     def now(self) -> datetime:
@@ -52,6 +52,9 @@ MARKETS = {
     "US": Market("US", "US", "🇺🇸", "$", "en-US", "America/New_York", config.US_UNIVERSE,
                  config.US_CAPITAL, config.US_MIN_PRICE, config.US_MIN_AVG_TURNOVER, "",
                  (time(9, 30), time(16, 0)), "^GSPC"),
+    # Futures: no price / turnover floors (a handful of liquid contracts) and no index (trend / RS filters off)
+    "MCX": Market("MCX", "MCX", "🛢", "₹", "en-IN", "Asia/Kolkata", "MCX", config.MCX_CAPITAL, 0.0, 0.0, "MCX:",
+                  (time(9, 0), time(23, 55)), ""),
 }
 DEFAULT = "IN"
 

@@ -334,8 +334,8 @@ def main() -> None:
     p.add_argument("--port", type=int, default=8050, help="dashboard port")
     p.add_argument("--host", default="127.0.0.1",
                    help="dashboard address (default: this PC only); for the phone app use tailscale serve, see README > Phone app")
-    p.add_argument("--market", choices=["IN", "US", "ALL"], default="ALL", type=str.upper,
-                   help="market to scan / backtest: IN, US or all (default: all)")
+    p.add_argument("--market", choices=["IN", "US", "MCX", "ALL"], default="ALL", type=str.upper,
+                   help="market to scan / backtest: IN, US, MCX or all (default: all)")
     p.add_argument("--symbols", help="override universe, e.g. NIFTY50, SP500 or 'RELIANCE,TCS' (needs --market)")
     args = p.parse_args()
     from algotrade import settings
@@ -345,6 +345,8 @@ def main() -> None:
     if args.symbols:
         if len(codes) > 1:
             p.error("--symbols needs --market IN or --market US")
+        if codes[0] == "MCX":
+            p.error("--symbols isn't used for MCX: it scans the commodities in algotrade/mcx.py")
         if codes[0] == "US":
             config.US_UNIVERSE = args.symbols
         else:
@@ -358,10 +360,14 @@ def main() -> None:
     elif args.ui:
         from algotrade import web
         web.serve(host=args.host, port=args.port)
+    elif (args.ml_test or args.backtest) and codes == ["MCX"]:
+        p.error("MCX can't be backtested: there is no MCX price history to test on (see algotrade/mcx.py)")
     elif args.ml_test:
+        codes = [c for c in codes if c != "MCX"]     # all markets: those with price history
         for code in codes:
             run_ml_test(code, args.symbols)
     elif args.backtest:
+        codes = [c for c in codes if c != "MCX"]
         for code in codes:
             run_backtest(code, args.symbols)
     elif args.once or args.dry_run:

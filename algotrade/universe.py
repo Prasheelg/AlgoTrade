@@ -93,7 +93,11 @@ def sectors() -> dict[str, str]:
 
 
 def get_universe(spec: str | None = None, market: str = "IN") -> list[str]:
-    """Return a list of symbols as the exchange writes them (NSE: without .NS suffix)."""
+    """Return a list of symbols as the exchange writes them (NSE: without .NS suffix; MCX: the commodity)."""
+    if market == "MCX":
+        from . import mcx
+        return list(mcx.COMMODITIES) if not spec or spec.upper() == "MCX" else \
+            [s.strip().upper() for s in spec.split(",") if s.strip().upper() in mcx.COMMODITIES]
     spec = (spec or (config.US_UNIVERSE if market == "US" else config.UNIVERSE)).strip()
     key = spec.upper().replace(" ", "").replace("&", "")
     if market == "US" and key in US_INDEX_PAGE:
