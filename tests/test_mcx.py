@@ -215,3 +215,17 @@ def test_mcx_never_auto_trades():
     # main.run_scan hands new signals to Auto-trade only for India
     src = open(main.__file__, encoding="utf-8").read()
     assert 'if code == "IN" and (new := [' in src
+
+
+def test_scanner_starts_with_every_market(monkeypatch):
+    """The scanner's startup message names each market's universe and hours (it crashed on MCX once)."""
+    import main
+    from algotrade import runner
+    sent = []
+    monkeypatch.setattr(telegram_bot, "send_message", lambda text: sent.append(text) or True)
+    monkeypatch.setattr(main._quit, "is_set", lambda: True)        # announce, then leave the loop at once
+    main._loop(list(markets.MARKETS))
+    assert runner.market_on("MCX")
+    text = sent[0]
+    assert "MCX: CRUDEOIL, NATURALGAS, GOLD, SILVER, COPPER" in text and "09:00" in text and "23:55 IST" in text
+    assert "India:" in text and "US: off" in text

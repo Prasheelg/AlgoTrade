@@ -24,7 +24,7 @@ from algotrade import config, markets, state, telegram_bot, tracker
 from algotrade.scanner import ScanStopped, request_stop, scan, scan_and_alert, set_status
 from algotrade.universe import get_universe
 
-TZ_LABEL = {"IN": "IST", "US": "ET"}
+TZ_LABEL = {"IN": "IST", "US": "ET", "MCX": "IST"}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
@@ -33,6 +33,9 @@ _quit = threading.Event()   # set when the dashboard switches the scanner off (r
 
 
 def universe_of(code: str) -> str:
+    if code == "MCX":
+        from algotrade import mcx
+        return ", ".join(mcx.COMMODITIES)
     return config.US_UNIVERSE if code == "US" else config.UNIVERSE
 
 
@@ -198,7 +201,7 @@ def _loop(codes: list[str]) -> None:
         if not runner.market_on(code):
             lines.append(f"{m.flag} {m.name}: off (switched off on the dashboard)")
             continue
-        lines.append(f"{m.flag} {m.name}: {universe_of(code)} · {start}–{end} {TZ_LABEL[code]}\n   {scan_settings(code)}")
+        lines.append(f"{m.flag} {m.name}: {universe_of(code)} · {start}–{end} {TZ_LABEL.get(code, m.tz)}\n   {scan_settings(code)}")
     telegram_bot.send_message(
         "🤖 <b>Scanner started</b>\n" + "\n".join(lines) +
         f"\nTF: {', '.join(config.SCAN_TIMEFRAMES)} · every {config.SCAN_INTERVAL_MIN} min")
@@ -224,7 +227,7 @@ def _loop(codes: list[str]) -> None:
                     tracker.update_all(market=code)
                     run_scan(code)
                 else:
-                    log.info("%s market closed (%s %s); waiting", m.name, now.strftime("%a %H:%M"), TZ_LABEL[code])
+                    log.info("%s market closed (%s %s); waiting", m.name, now.strftime("%a %H:%M"), TZ_LABEL.get(code, m.tz))
                     # One end-of-day scan after close for next-day swing setups
                     if m.is_after_close(now) and summary_sent_for.get(code) != now.date():
                         # header once per date; a failed scan is retried next loop without re-sending it
