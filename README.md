@@ -474,6 +474,26 @@ never needs the PIN.
 The PC has to be on with the dashboard running; otherwise the app shows "Can't reach AlgoTrade". Moving the
 dashboard to a cloud server later removes that need.
 
+### Android app (APK)
+`android/` is a small native app (`com.algotrade.dashboard`) that opens the dashboard on your server full
+screen. The server still does all the checks (PIN login, Cloudflare Access, who may trade); the app only:
+- asks for the dashboard's address the first time (your Cloudflare domain, e.g. `https://algotrade.example.com`;
+  an `http://` address works but gets a warning, since the PIN would travel unencrypted). Long-press the app icon >
+  *Change server* to change it later; the "Can't reach AlgoTrade" screen has the same button;
+- keeps the login cookies (PIN session and Cloudflare Access), so you stay logged in;
+- shows the dashboard's confirm / alert boxes as real dialogs, so every order is confirmed as on the PC;
+- saves downloads (the tax Excel) to *Downloads*; links that leave the dashboard (TradingView) open in the browser.
+
+Cloudflare Access: log in with the **email one-time PIN**. Google sign-in refuses to run inside apps (that's a
+Google rule), so if your Access app only offers Google, add *One-time PIN* as a login method in Zero Trust.
+Alerts still come by Telegram (in-app web push doesn't work inside an Android app).
+
+Build (Android SDK and a JDK 17+ needed): `cd android` then `gradlew assembleRelease`; the APK is
+`android/app/build/outputs/apk/release/app-release.apk`. Install it on the phone (allow *Install unknown apps*
+for whichever app you open it from). The release key is `android/algotrade-release.jks` with its passwords in
+`android/keystore.properties`. Neither is committed, so **back both up**: an update only installs over the app if it
+is signed with the same key. Raise `versionCode` in `android/app/build.gradle.kts` for each new release.
+
 ## Tests
 ```
 .venv\Scripts\pip install -r requirements-dev.txt

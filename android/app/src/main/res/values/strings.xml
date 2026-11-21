@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AlgoTrade</string>
+    <string name="change_server">Change server address</string>
+    <string name="change_server_short">Change server</string>
+    <string name="setup_title">Connect to AlgoTrade</string>
+    <string name="setup_body">Enter the address of your AlgoTrade dashboard: the same one you open in a browser (your Cloudflare domain, or the server\'s address).</string>
+    <string name="setup_hint">https://algotrade.example.com</string>
+    <string name="setup_http_warning">This address isn\'t encrypted (http). Your PIN and your orders would cross the internet in plain text. Use the https address if you have one.</string>
+    <string name="connect">Connect</string>
+    <string name="cancel">Cancel</string>
+    <string name="error_title">Can\'t reach AlgoTrade</string>
+    <string name="retry">Retry</string>
+    <string name="bad_url">Enter a web address, like https://algotrade.example.com</string>
+    <string name="download_started">Downloading %1$s</string>
+    <string name="download_failed">Couldn\'t start the download</string>
+    <string name="no_app_for_link">No app can open this link</string>
+</resources>
