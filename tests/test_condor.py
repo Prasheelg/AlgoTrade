@@ -304,3 +304,18 @@ def test_skip_dates_roundtrip():
     assert condor.skip_dates() == ["2026-02-01", "2026-12-05"]
     with pytest.raises(ValueError):
         condor.set_skip_dates(["5 Dec"])
+
+
+def test_index_quotes_matches_kotaks_other_spelling(monkeypatch):
+    """Kotak answers "INDIA VIX" as "India VIX"; the quote must still come back under the name asked for."""
+    from algotrade import kotak
+
+    class Neo:
+        def quotes(self, instrument_tokens, quote_type):
+            return [{"exchange_token": "India VIX", "ltp": "17.32", "ohlc": {"close": "16.11"}}]
+
+    monkeypatch.setattr(kotak, "enabled", lambda: True)
+    monkeypatch.setattr(kotak, "_neo", lambda: Neo())
+    monkeypatch.setattr(kotak.livefeed, "lookup", lambda seg, names: {})
+    assert kotak.index_quotes(["INDIA VIX"]) == {"INDIA VIX": {"ltp": 17.32, "prev_close": 16.11}}
+    assert condor.vix_quote() == {"now": 17.32, "prev": 16.11}

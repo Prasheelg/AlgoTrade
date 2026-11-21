@@ -204,10 +204,12 @@ def index_quotes(names: list[str]) -> dict[str, dict]:
             res += more
     except Exception as exc:
         log.warning("Kotak index quotes failed (%s)", exc)
+    # Kotak may answer under another spelling than asked ("INDIA VIX" comes back as "India VIX")
+    asked = {n.lower(): n for n in names}
     out = {}
     for q in res:
-        name, prev = str(q.get("exchange_token")), (q.get("ohlc") or {}).get("close")
-        if name in names and q.get("ltp") not in (None, ""):
+        name, prev = asked.get(str(q.get("exchange_token")).lower()), (q.get("ohlc") or {}).get("close")
+        if name and q.get("ltp") not in (None, ""):
             out[name] = {"ltp": float(q["ltp"]), "prev_close": float(prev) if prev not in (None, "") else None}
     return out
 

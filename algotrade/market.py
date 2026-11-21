@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 CACHE_SEC = 30
 LIVE_CACHE_SEC = 0.2   # while the live stream is connected (quotes come from memory)
 FLOWS_SEC = 1800
-MAIN = ["Nifty 50", "Nifty Bank", "Nifty Next 50", "NIFTY MIDCAP 100", "NIFTY SMLCAP 100", "India VIX"]  # Kotak's name for it
+MAIN = ["Nifty 50", "Nifty Bank", "Nifty Next 50", "NIFTY MIDCAP 100", "NIFTY SMLCAP 100", "INDIA VIX"]
 SECTORS = ["Nifty IT", "Nifty Bank", "Nifty Fin Service", "Nifty Auto", "Nifty Pharma", "Nifty FMCG", "Nifty Metal",
            "Nifty Energy", "Nifty Realty", "Nifty PSU Bank", "Nifty Media", "Nifty Infra"]
 TOP = 6
