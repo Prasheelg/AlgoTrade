@@ -63,6 +63,30 @@ MODES = ("off", "paper", "live")
 MODE_KEY = "condor_mode"
 TRADING_KEY = "condor_trading"   # the condor's own Auto-trade switch (not broker.TRADING_KEY)
 
+# Rules that can be switched off on the dashboard (all on by default): key -> (group, name, what it does)
+RULES = {
+    "event": ("Entry filters", "Event days", "No trade on a date in the event-day list"),
+    "vix_rise": ("Entry filters", "VIX rise ≤ 5%", "Skip the day if India VIX is up more than 5% on the day"),
+    "ivp": ("Entry filters", "IV percentile 30–85", "Trade only when India VIX's 252-day percentile is 30 to 85"),
+    "oi_unwind": ("Entry filters", "OI walls not unwinding", "No entry if a wall's OI fell 2%+ since the open"),
+    "pop": ("Entry filters", "POP > 75%", "Entry and every roll need a probability of profit above 75%"),
+    "vix_band": ("Entry filters", "VIX 11–20 (check)", "Logged and alerted only; never blocks"),
+    "hv10": ("Entry filters", "VIX above HV10 (check)", "Logged only; never blocks"),
+    "cand_delta": ("Strike candidates", "0.16 delta", "The call / put nearest 0.16 delta"),
+    "cand_sd": ("Strike candidates", "1SD level", "Spot ± 1SD"),
+    "cand_wall": ("Strike candidates", "OI wall", "Most call OI above / put OI below spot within ±2SD"),
+    "roll_out": ("Management", "Roll out", "Roll a side out when its 1SD level is 25+ pts past the short"),
+    "roll_in": ("Management", "Roll in", "Roll a side in when its short is 75+ pts beyond its 1SD level, for a net credit"),
+    "roll_wall": ("Management", "Roll when a wall moves", "Roll a side out when its OI wall moves past the short"),
+    "late_exit": ("Management", "Close a threatened side after 14:30", "No rolls after 14:30: a threatened side is closed instead"),
+    "loss_cap": ("Management", "Daily loss cap", "Close everything when the day's P&L reaches −CONDOR_LOSS_CAP"),
+}
+CANDIDATES = ("cand_delta", "cand_sd", "cand_wall")
+LOCKED = ("NIFTY weekly expiry day only", "1 lot, 50-point wings", "Entry 09:45–10:15", "1SD: A vs B cross-check",
+          "Strikes in the chain with two-sided quotes", "Wings bought first, shorts closed first",
+          "Square-off from 15:00, all closed by 15:15")
+RULES_KEY = "condor_rules"
+
 WAITING, OPEN, SKIPPED, CLOSED, STOPPED, FAILED = "WAITING", "OPEN", "SKIPPED", "CLOSED", "STOPPED", "FAILED"
 FINAL = (SKIPPED, CLOSED, STOPPED, FAILED)
 
@@ -157,12 +181,13 @@ def round_down(x: float, step: float = STEP) -> float:
 
 
 def pick_strikes(spot: float, sd: float, d_call: float | None, d_put: float | None,
-                 call_wall: float | None, put_wall: float | None) -> dict:
-    """The farthest of the three candidates per side, rounded outward, and which candidate won."""
-    calls = {"delta": d_call, "1SD": spot + sd, "OI wall": call_wall}
-    puts = {"delta": d_put, "1SD": spot - sd, "OI wall": put_wall}
-    calls = {k: v for k, v in calls.items() if v is not None}
-    puts = {k: v for k, v in puts.items() if v is not None}
+                 call_wall: float | None, put_wall: float | None, use_sd: bool = True) -> dict:
+    """The farthest of the candidates per side, rounded outward, and which candidate won. A candidate passed as
+    None (or the 1SD level with use_sd=False) is left out; with none left the 1SD level is used."""
+    calls = {"delta": d_call, "1SD": spot + sd if use_sd else None, "OI wall": call_wall}
+    puts = {"delta": d_put, "1SD": spot - sd if use_sd else None, "OI wall": put_wall}
+    calls = {k: v for k, v in calls.items() if v is not None} or {"1SD": spot + sd}
+    puts = {k: v for k, v in puts.items() if v is not None} or {"1SD": spot - sd}
     c_by = max(calls, key=lambda k: calls[k])
     p_by = min(puts, key=lambda k: puts[k])
     sc, sp = round_up(calls[c_by]), round_down(puts[p_by])
@@ -224,16 +249,21 @@ def _mid(leg: dict | None) -> float | None:
     return leg.get("ltp")
 
 
-def _check(rule: str, ok: bool | None, value: str, limit: str, hard: bool, data: bool = False) -> dict:
-    """ok None = no data. data=True marks a hard check that fails only for missing data (retried, not a skip)."""
-    return {"rule": rule, "ok": ok, "value": value, "limit": limit, "hard": hard, "data": data}
+def _check(rule: str, ok: bool | None, value: str, limit: str, hard: bool, data: bool = False,
+           key: str | None = None) -> dict:
+    """ok None = no data. data=True marks a hard check that fails only for missing data (retried, not a skip).
+    key: the RULES entry that can switch it off (None = locked)."""
+    return {"rule": rule, "ok": ok, "value": value, "limit": limit, "hard": hard, "data": data, "key": key,
+            "on": True}
 
 
 def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | None = None,
-             skip_dates: list[str] | None = None, filters: bool = True) -> dict:
+             skip_dates: list[str] | None = None, filters: bool = True, rules: dict | None = None) -> dict:
     """The whole rulebook on one market snapshot (pure). snap: {"spot", "expiry" (iso), "lot", "rows":
     [{"strike", "ce": {tsym, bid, ask, ltp, oi, oi_open}, "pe": {...}}]}; vix: {"now", "prev"};
-    hist: {"vix": [daily closes], "nifty": [daily closes]}. filters=False skips the day / VIX rules (rolls)."""
+    hist: {"vix": [daily closes], "nifty": [daily closes]}. filters=False skips the day / VIX rules (rolls).
+    rules: {RULES key: bool}; a rule that is off is still shown, but never blocks (all on when omitted)."""
+    on = {k: True for k in RULES} | (rules or {})
     spot, rows = snap["spot"], sorted(snap["rows"], key=lambda r: r["strike"])
     expiry = date.fromisoformat(snap["expiry"])
     mins = trading_minutes_to(expiry, now)
@@ -241,28 +271,28 @@ def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | No
     checks: list[dict] = []
     out = {"as_of": now.isoformat(timespec="seconds"), "expiry": snap["expiry"], "spot": spot,
            "zero_dte": expiry == now.date(), "minutes_left": round(mins, 1), "lot": snap.get("lot"),
-           "checks": checks, "ok": False, "blockers": [], "legs": [], "sd": None}
+           "checks": checks, "ok": False, "blockers": [], "legs": [], "sd": None, "rules": on}
 
     if filters:
         day = now.date().isoformat()
         checks.append(_check("Expiry day (0DTE)", out["zero_dte"], snap["expiry"], "today", True))
         skip = day in (skip_dates or [])
-        checks.append(_check("Not an event day", not skip, "in skip list" if skip else "no", "skip list", True))
+        checks.append(_check("Not an event day", not skip, "in skip list" if skip else "no", "skip list", True, key="event"))
         v_now, v_prev = (vix or {}).get("now"), (vix or {}).get("prev")
         chg = (v_now - v_prev) / v_prev * 100 if v_now and v_prev else None
         out["vix"] = {"now": v_now, "prev": v_prev, "change_pct": chg}
         checks.append(_check("India VIX 11-20", (VIX_BAND[0] <= v_now <= VIX_BAND[1]) if v_now else None,
-                             f"{v_now:.2f}" if v_now else "no data", "11-20", False))
+                             f"{v_now:.2f}" if v_now else "no data", "11-20", False, key="vix_band"))
         checks.append(_check("VIX rise ≤ 5%", (chg <= VIX_RISE_MAX) if chg is not None else None,
-                             f"{chg:+.2f}%" if chg is not None else "no data", "≤ +5%", True, data=chg is None))
+                             f"{chg:+.2f}%" if chg is not None else "no data", "≤ +5%", True, data=chg is None, key="vix_rise"))
         p = ivp(v_now, (hist or {}).get("vix") or [])
         out["ivp"] = p
         checks.append(_check("IV percentile 30-85", (IVP_BAND[0] <= p <= IVP_BAND[1]) if p is not None else None,
-                             f"{p:.0f}" if p is not None else "no data", "30-85", True, data=p is None))
+                             f"{p:.0f}" if p is not None else "no data", "30-85", True, data=p is None, key="ivp"))
         hv = hv10((hist or {}).get("nifty") or [])
         out["hv10"] = hv
         checks.append(_check("VIX above HV10", (v_now > hv) if v_now and hv else None,
-                             f"{v_now:.2f} vs {hv:.2f}" if v_now and hv else "no data", "VIX > HV10", False))
+                             f"{v_now:.2f} vs {hv:.2f}" if v_now and hv else "no data", "VIX > HV10", False, key="hv10"))
 
     # 1SD: ATM IVs on the rulebook's clock, A vs B
     atm = min(rows, key=lambda r: abs(r["strike"] - spot)) if rows else None
@@ -303,9 +333,11 @@ def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | No
     if filters:
         checks.append(_check("OI walls not unwinding", not unwinding,
                              ", ".join(f"{s} wall falling" for s in unwinding) or
-                             ("no OI from the open yet" if no_open else "holding"), "OI ≥ open − 2%", True))
-    pk = pick_strikes(spot, one, d_call, d_put, (walls.get("call") or {}).get("strike"),
-                      (walls.get("put") or {}).get("strike"))
+                             ("no OI from the open yet" if no_open else "holding"), "OI ≥ open − 2%", True,
+                             key="oi_unwind"))
+    pk = pick_strikes(spot, one, d_call if on["cand_delta"] else None, d_put if on["cand_delta"] else None,
+                      (walls.get("call") or {}).get("strike") if on["cand_wall"] else None,
+                      (walls.get("put") or {}).get("strike") if on["cand_wall"] else None, use_sd=on["cand_sd"])
     out["candidates"] = {"call": {"delta": d_call, "sd": spot + one, "wall": (walls.get("call") or {}).get("strike"),
                                   "by": pk["call_by"], "strike": pk["short_call"]},
                          "put": {"delta": d_put, "sd": spot - one, "wall": (walls.get("put") or {}).get("strike"),
@@ -338,12 +370,14 @@ def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | No
     out.update(credit=round(credit, 2), qty=qty, pop=p, max_profit=round(credit * qty, 2),
                max_loss=round((WING - credit) * qty, 2),
                breakevens=[round(pk["short_put"] - credit, 2), round(pk["short_call"] + credit, 2)])
-    checks.append(_check("POP > 75%", p > POP_MIN, f"{p * 100:.1f}%", "> 75%", True))
+    checks.append(_check("POP > 75%", p > POP_MIN, f"{p * 100:.1f}%", "> 75%", True, key="pop"))
     return _finish(out)
 
 
-def _finish(out: dict) -> dict:
-    failed = [c for c in out["checks"] if c["hard"] and c["ok"] is not True
+def _finish(out: dict, rules: dict | None = None) -> dict:
+    for c in out["checks"]:
+        c["on"] = not c["key"] or out["rules"].get(c["key"], True)
+    failed = [c for c in out["checks"] if c["on"] and c["hard"] and c["ok"] is not True
               and not (c["ok"] is None and not c["data"])]
     out["blockers"] = [c["rule"] for c in failed]
     out["data_only"] = bool(failed) and all(c["data"] for c in failed)
@@ -452,7 +486,7 @@ def plan_now(now: datetime | None = None, expiry: str | None = None) -> dict:
         hist = history(now)
     except Exception as exc:
         log.warning("VIX / Nifty history unavailable: %s", exc)
-    return evaluate(snapshot(exp, now), now, vix, hist, skip_dates())
+    return evaluate(snapshot(exp, now), now, vix, hist, skip_dates(), rules=get_rules())
 
 
 # ---- storage ----------------------------------------------------------------------------------------------
@@ -549,6 +583,31 @@ def pnl(day: str, marks: dict) -> dict:
     open_val = sum(p["qty"] * marks[t] for t, p in pos.items() if marks.get(t) is not None)
     return {"cash": round(cash, 2), "open_value": round(open_val, 2), "charges": round(charges, 2),
             "total": round(cash + open_val - charges, 2), "unmarked": unmarked}
+
+
+def get_rules() -> dict:
+    """{RULES key: on}; every rule is on unless switched off on the dashboard."""
+    st, _ = state.get_setting(RULES_KEY, {})
+    return {k: bool(st.get(k, True)) for k in RULES}
+
+
+def set_rules(changes: dict, by: str) -> dict:
+    """Switch rules on / off. At least one strike candidate must stay on."""
+    bad = [k for k in changes if k not in RULES]
+    if bad:
+        raise ValueError(f"Unknown rule: {', '.join(bad)}")
+    if any(not isinstance(v, bool) for v in changes.values()):
+        raise ValueError("Each rule is true (on) or false (off)")
+    new = get_rules() | changes
+    if not any(new[k] for k in CANDIDATES):
+        raise ValueError("Keep at least one strike candidate (0.16 delta, 1SD level or OI wall) on")
+    old = get_rules()
+    state.set_setting(RULES_KEY, new)
+    diff = [f"{RULES[k][1]} {'ON' if v else 'OFF'}" for k, v in changes.items() if old[k] != v]
+    if diff:
+        _log(_nse().now().date().isoformat(), "mode", f"Rules changed by {by}: {', '.join(diff)}", notify=True,
+             mode=get_mode())
+    return new
 
 
 def get_mode() -> str:
@@ -735,7 +794,7 @@ def _precheck(day: str, exp: str, mode: str, now: datetime) -> None:
         return
     _mem["plan"] = p
     day_rules = ("Expiry day (0DTE)", "Not an event day", "VIX rise ≤ 5%", "IV percentile 30-85")
-    bad = [c for c in p["checks"] if c["rule"] in day_rules and c["ok"] is False]
+    bad = [c for c in p["checks"] if c["rule"] in day_rules and c["ok"] is False and c["on"]]
     text = " · ".join(f"{'✅' if c['ok'] else ('⚠️' if not c['hard'] else '❌') if c['ok'] is False else '…'} "
                       f"{c['rule']}: {c['value']}" for c in p["checks"] if c["rule"] in day_rules
                       or c["rule"] in ("India VIX 11-20", "VIX above HV10"))
@@ -814,7 +873,7 @@ def _manage(day: str, rec: dict, pos: dict, now: datetime) -> None:
     pl = pnl(day, marks)
     _mem.update(pnl=pl, marks=marks, pnl_at=now.isoformat(timespec="seconds"))
     cap = config.CONDOR_LOSS_CAP
-    if not pl["unmarked"] and pl["total"] <= -cap:
+    if get_rules()["loss_cap"] and not pl["unmarked"] and pl["total"] <= -cap:
         _log(day, "cap", f"Daily loss cap hit: P&L ₹{pl['total']:,.0f} ≤ −₹{cap:,.0f}; closing everything",
              pl, notify=True, mode=mode)
         _exit_all(day, mode, STOPPED, f"Loss cap (₹{pl['total']:,.0f})", now)
@@ -834,7 +893,8 @@ def _manage(day: str, rec: dict, pos: dict, now: datetime) -> None:
 
 def _retarget(day: str, rec: dict, pos: dict, mode: str, now: datetime) -> None:
     exp = rec.get("expiry") or today_expiry(now)
-    p = evaluate(snapshot(exp, now), now, filters=False)
+    rules = get_rules()
+    p = evaluate(snapshot(exp, now), now, filters=False, rules=rules)
     _mem["plan"] = p
     if not p.get("sd") or not p["sd"].get("sd") or not p.get("targets"):
         return
@@ -845,21 +905,27 @@ def _retarget(day: str, rec: dict, pos: dict, mode: str, now: datetime) -> None:
         short = next((v["strike"] for v in legs.values() if v["qty"] < 0), None)
         if short is None:
             continue
-        sig = roll_signal(opt, short, spot, one)
-        why = None
-        if sig == "out":
-            lvl = spot + one if opt == "CE" else spot - one
-            why = f"1SD level {lvl:.0f} is {abs(lvl - short):.0f} pts past the {short:.0f} {opt}"
+        level = roll_signal(opt, short, spot, one)
+        lvl = spot + one if opt == "CE" else spot - one
         wall = (walls.get(side) or {}).get("strike")
-        if sig is None and wall is not None and (wall > short if opt == "CE" else wall < short):
+        wall_past = wall is not None and (wall > short if opt == "CE" else wall < short)
+        threat = (f"1SD level {lvl:.0f} is {abs(lvl - short):.0f} pts past the {short:.0f} {opt}" if level == "out"
+                  else f"{side} OI wall moved to {wall:.0f}, past the {short:.0f} {opt}" if wall_past and rules["roll_wall"]
+                  else None)
+        if now.time() >= ROLL_UNTIL:
+            if threat and rules["late_exit"]:
+                _exit_side(day, mode, opt, f"after 14:30, {threat}")
+            continue
+        sig, why = None, None
+        if level == "out" and rules["roll_out"]:
+            sig, why = "out", threat
+        elif wall_past and rules["roll_wall"]:
             sig, why = "out", f"{side} OI wall moved to {wall:.0f}, past the {short:.0f} {opt}"
+        elif level == "in" and rules["roll_in"]:
+            sig = "in"
         if sig is None:
             continue
         new_short = tg["short_call" if opt == "CE" else "short_put"]
-        if now.time() >= ROLL_UNTIL:
-            if sig == "out":
-                _exit_side(day, mode, opt, f"after 14:30, {why}")
-            continue
         if new_short == short:
             continue
         last = rec.get("last_roll_at")
@@ -899,7 +965,7 @@ def _roll(day: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str
     if sig == "in" and roll_cash <= 0:
         _log(day, "roll", f"{opt} inward roll skipped: it would not bring a net credit (₹{roll_cash:,.0f})", info)
         return
-    if pp <= POP_MIN:
+    if pp <= POP_MIN and get_rules()["pop"]:
         if sig == "out":
             _log(day, "roll", f"{opt} roll out can't meet POP > 75% ({pp * 100:.1f}%): closing that side",
                  info, notify=True, mode=mode)
@@ -1044,6 +1110,9 @@ def status() -> dict:
             "legs": legs, "pnl": pnl(day, marks) if (pos or fills(day)) else None,
             "fills": fills(day), "log": day_log(day), "plan": _mem["plan"], "history": hist,
             "skip_dates": skip_dates(),
+            "rule_settings": [{"key": k, "group": g, "name": n, "desc": d.replace("CONDOR_LOSS_CAP", f"₹{config.CONDOR_LOSS_CAP:,.0f}"),
+                               "on": v} for (k, (g, n, d)), v in zip(RULES.items(), get_rules().values())],
+            "locked_rules": list(LOCKED),
             "rules": {"loss_cap": config.CONDOR_LOSS_CAP, "lots": LOTS, "wing": WING, "entry": "09:45-10:15",
                       "roll_until": "14:30", "exit": "15:00-15:15", "pop_min": POP_MIN * 100,
                       "out_buffer": OUT_BUFFER, "in_buffer": IN_BUFFER, "cooldown_min": COOLDOWN_MIN,

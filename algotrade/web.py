@@ -633,6 +633,22 @@ def api_condor_close():
         return jsonify({"error": str(exc)}), 502
 
 
+@app.post("/api/condor/rules")
+def api_condor_rules():
+    """Switch condor rules on / off: {"rules": {"pop": false, ...}}. Needs a device that may trade."""
+    from . import condor
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    changes = (request.get_json(silent=True) or {}).get("rules")
+    if not isinstance(changes, dict):
+        return jsonify({"error": "Send {\"rules\": {\"<rule>\": true | false}}"}), 400
+    try:
+        condor.set_rules(changes, by=f"dashboard ({access.who()})")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(condor.status())
+
+
 @app.post("/api/condor/exit")
 def api_condor_exit():
     from . import condor

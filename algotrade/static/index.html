@@ -503,6 +503,16 @@
   .cd-chk .t { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-left: 4px; }
   .cd-chk.ok i { color: var(--up); } .cd-chk.bad i { color: var(--down); } .cd-chk.bad { background: var(--down-bg); }
   .cd-chk.warn i { color: var(--warn); } .cd-chk.na i { color: var(--muted); }
+  .cd-chk.off { opacity: .55; } .cd-chk.off .r { text-decoration: line-through; } .cd-chk.off i { color: var(--muted); }
+  .cd-rset { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 14px 18px; }
+  .cd-rg h5 { margin: 4px 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .cd-rule { display: flex; gap: 10px; align-items: flex-start; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+  .cd-rule:hover { background: var(--panel-2); }
+  .cd-rule b { display: block; font-size: 13px; font-weight: 600; } .cd-rule small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .cd-rule.off b { color: var(--muted); text-decoration: line-through; }
+  .cd-rule .switch { margin-top: 1px; } .cd-rule.locked { cursor: default; opacity: .75; }
+  .cd-lock { width: 32px; text-align: center; font-size: 12px; }
+  #cdRulesOff.down { color: var(--down); }
   .cd-fold { border: 1px solid var(--line); border-radius: 10px; }
   .cd-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 11px 14px; font-weight: 600; font-size: 13.5px; }
   .cd-fold > summary::-webkit-details-marker { display: none; }
@@ -1490,6 +1500,8 @@
       <details class="cd-fold"><summary><span>Past expiry days</span><span class="n" id="cdHistN">0</span></summary>
         <div class="tablewrap"><table class="cd-hist"><thead><tr><th>Day</th><th>Mode</th><th>Result</th>
           <th class="num">Rolls</th><th class="num">Charges</th><th class="num">Net P&amp;L</th></tr></thead><tbody id="cdHist"></tbody></table></div></details>
+      <details class="cd-fold" id="cdRulesBox"><summary><span>Rule settings</span><span class="n" id="cdRulesN"></span><span class="cd-last" id="cdRulesOff"></span></summary>
+        <div class="cd-rset" id="cdRset"></div></details>
       <details class="cd-fold"><summary><span>Event days &amp; rules</span><span class="n" id="cdSkipN">0</span></summary>
         <div class="cd-skip"><textarea id="cdSkip" rows="3" placeholder="No trade on these days. One date per line, YYYY-MM-DD: RBI policy, Budget, election results..."></textarea>
           <button type="button" class="btn" id="cdSkipSave">Save event days</button></div>
@@ -3313,9 +3325,9 @@ function cdChecks(p) {
     : p.ok ? `<span class="cd-tag ok">Ready · every hard rule passes</span>` : `<span class="cd-tag bad">Blocked</span>`;
   const blockers = (p.blockers || []).filter(b => p.zero_dte || b !== "Expiry day (0DTE)");
   const chips = (p.checks || []).map(c => {
-    const cls = c.ok === true ? "ok" : c.ok === false ? (c.hard ? "bad" : "warn") : "na";
-    const ic = { ok: "✓", bad: "✗", warn: "!", na: "…" }[cls];
-    return `<div class="cd-chk ${cls}" title="Needs: ${esc(c.limit)}"><i>${ic}</i><span class="r">${esc(c.rule)}<span class="t">${c.hard ? "hard" : "check"}</span></span><span class="val">${esc(c.value)}</span></div>`;
+    const cls = c.on === false ? "off" : c.ok === true ? "ok" : c.ok === false ? (c.hard ? "bad" : "warn") : "na";
+    const ic = { ok: "✓", bad: "✗", warn: "!", na: "…", off: "–" }[cls];
+    return `<div class="cd-chk ${cls}" title="${c.on === false ? "Switched off in Rule settings: shown, never blocks" : `Needs: ${esc(c.limit)}`}"><i>${ic}</i><span class="r">${esc(c.rule)}<span class="t">${c.on === false ? "off" : c.hard ? "hard" : "check"}</span></span><span class="val">${esc(c.value)}</span></div>`;
   }).join("");
   const w = Math.max((optEl("cdCard").clientWidth || 900) - 60, 280);
   const by = c => c ? `${cdNum(c.strike)} <span class="hint">by ${esc(c.by)}</span>` : "–";
@@ -3400,6 +3412,17 @@ function renderCondor() {
     <td class="num">${h.charges != null ? "₹" + cdNum(h.charges) : "–"}</td><td class="num ${h.pnl > 0 ? "up" : h.pnl < 0 ? "down" : ""}">${cdInr(h.pnl)}</td></tr>`).join("")
     : `<tr><td colspan="6" class="flat">No expiry days yet</td></tr>`;
   optEl("cdSkipN").textContent = j.skip_dates.length;
+  const rs = j.rule_settings || [], off = rs.filter(x => !x.on);
+  optEl("cdRulesN").textContent = `${rs.length - off.length}/${rs.length} on`;
+  optEl("cdRulesOff").textContent = off.length ? `off: ${off.map(x => x.name).join(", ")}` : "all on";
+  optEl("cdRulesOff").classList.toggle("down", off.length > 0);
+  if (!optEl("cdRset").contains(document.activeElement)) {
+    const groups = [...new Set(rs.map(x => x.group))];
+    optEl("cdRset").innerHTML = groups.map(g => `<div class="cd-rg"><h5>${esc(g)}</h5>${rs.filter(x => x.group === g).map(x =>
+      `<label class="cd-rule${x.on ? "" : " off"}"><span class="switch"><input type="checkbox" data-rule="${esc(x.key)}"${x.on ? " checked" : ""}></span>
+        <span><b>${esc(x.name)}</b><small>${esc(x.desc)}</small></span></label>`).join("")}</div>`).join("") +
+      `<div class="cd-rg"><h5>Locked</h5>${(j.locked_rules || []).map(x => `<div class="cd-rule locked"><span class="cd-lock">🔒</span><span><b>${esc(x)}</b></span></div>`).join("")}</div>`;
+  }
   if (!cd.skipDirty && document.activeElement !== optEl("cdSkip")) optEl("cdSkip").value = j.skip_dates.join("\n");
   const r = j.rules;
   optEl("cdRules").textContent = `Rules: 1 lot, ${r.wing}-pt wings; entry ${r.entry}; shorts at the farthest of ${r.delta} delta, 1SD and the OI wall; POP > ${r.pop_min}%; ` +
@@ -3448,6 +3471,17 @@ optEl("cdLegs").onclick = e => {
 optEl("cdExitBtn").onclick = async () => {
   if (!confirm("Close every condor leg now (shorts first, then wings)?")) return;
   try { cd.data = await optJson("/api/condor/exit", { method: "POST" }); renderCondor(); } catch (err) { alert(err.message); }
+};
+optEl("cdRset").onchange = async e => {
+  const k = e.target.dataset.rule; if (!k) return;
+  const on = e.target.checked;
+  if (!on && k === "loss_cap" && !confirm("Switch OFF the daily loss cap?\n\nWith rolls allowed, the cap is the only limit on a trending day's loss.")) {
+    e.target.checked = true; return;
+  }
+  try {
+    cd.data = await optJson("/api/condor/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rules: { [k]: on } }) });
+    e.target.blur(); renderCondor();
+  } catch (err) { e.target.checked = !on; alert(err.message); }
 };
 optEl("cdSkip").oninput = () => { cd.skipDirty = true; };
 optEl("cdSkipSave").onclick = async () => {

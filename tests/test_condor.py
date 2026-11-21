@@ -380,3 +380,66 @@ def test_entry_prices_average_and_reset():
     c._record_fill(day, "paper", "NIFTY26150CE", "CE", 26150.0, "BUY", 65, 2.0, None, "t")
     avg = c.entry_prices(day)
     assert avg == {"NIFTY26100CE": 3.0, "NIFTY26150CE": 2.0}     # short closed, then re-opened long at 3
+
+
+def test_rules_off_never_block():
+    now = at(10, 0)
+    snap = make_snap(25800, 0.173, now)
+    rise = {"now": 17.32, "prev": 16.11}                                     # +7.5%
+    p = condor.evaluate(snap, now, rise, HIST, [], rules={"vix_rise": False})
+    chk = next(c for c in p["checks"] if c["rule"] == "VIX rise ≤ 5%")
+    assert chk["ok"] is False and chk["on"] is False and "VIX rise ≤ 5%" not in p["blockers"] and p["ok"]
+    p = condor.evaluate(snap, now, VIX, HIST, [EXP.isoformat()], rules={"event": False})
+    assert p["ok"]
+    p = condor.evaluate(make_snap(25800, 0.173, now, unwinding=True), now, VIX, HIST, [], rules={"oi_unwind": False})
+    assert p["ok"]
+
+
+def test_candidate_switches_change_the_strikes():
+    now = at(10, 0)
+    snap = make_snap(25800, 0.173, now, call_wall=26300, put_wall=25300)      # walls far out
+    with_wall = condor.evaluate(snap, now, VIX, HIST, [])
+    assert with_wall["targets"]["short_call"] == 26300 and with_wall["targets"]["call_by"] == "OI wall"
+    no_wall = condor.evaluate(snap, now, VIX, HIST, [], rules={"cand_wall": False})
+    assert no_wall["targets"]["short_call"] < 26300 and no_wall["targets"]["call_by"] in ("delta", "1SD")
+    only_delta = condor.evaluate(snap, now, VIX, HIST, [], rules={"cand_wall": False, "cand_sd": False})
+    assert only_delta["targets"]["call_by"] == "delta"
+
+
+def test_set_rules(monkeypatch):
+    monkeypatch.setattr(condor.telegram_bot, "send_message", lambda *a, **k: None)
+    assert all(condor.get_rules().values())                                   # all on by default
+    condor.set_rules({"pop": False, "roll_in": False}, "test")
+    r = condor.get_rules()
+    assert r["pop"] is False and r["roll_in"] is False and r["loss_cap"] is True
+    with pytest.raises(ValueError):
+        condor.set_rules({"cand_delta": False, "cand_sd": False, "cand_wall": False}, "test")
+    with pytest.raises(ValueError):
+        condor.set_rules({"nope": False}, "test")
+    st = condor.status()
+    assert {x["key"]: x["on"] for x in st["rule_settings"]}["pop"] is False and st["locked_rules"]
+
+
+def test_roll_out_off_holds_the_position(mkt):
+    day = EXP.isoformat()
+    run(mkt, 9, 20)
+    run(mkt, 9, 46)
+    first = shorts(day)
+    condor.set_rules({"roll_out": False, "roll_wall": False}, "test")
+    mkt.spot = first["CE"] - 120                                              # would roll out with the rule on
+    run(mkt, 10, 40)
+    assert shorts(day) == first and condor.get_day(day)["rolls"] in (0, None)
+
+
+def test_loss_cap_off_keeps_the_position(mkt):
+    day = EXP.isoformat()
+    run(mkt, 9, 20)
+    run(mkt, 9, 46)
+    condor.set_rules({"loss_cap": False}, "test")
+    sc = shorts(day)["CE"]
+    tsym = f"NIFTY{int(sc)}CE"
+    mkt.override[tsym] = {"tsym": tsym, "bid": 90.0, "ask": 90.1, "ltp": 90.0}
+    mkt.now = at(11, 0)
+    condor._mem["retarget_at"] = 1e18
+    condor.tick(mkt.now)
+    assert condor.get_day(day)["status"] == condor.OPEN and condor.position(day)

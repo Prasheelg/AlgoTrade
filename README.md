@@ -373,6 +373,14 @@ NIFTY's weekly expiry day: 1 lot (65), 50-point wings, nothing on other days.
   can't be closed alone, as its short would be uncovered. **Close all legs** exits everything (shorts first).
   These need a device that may trade, close in the position's own mode (paper or live), and are posted to Telegram;
   the engine keeps managing whatever is left.
+- **Rule settings** (folded section in the tab): a switch for each rule that can be turned off, all **on** by
+  default. Entry filters: event days, VIX rise, IV percentile, OI walls not unwinding, POP > 75%, and the two
+  checks (VIX 11–20, VIX above HV10). Strike candidates: 0.16 delta, 1SD level, OI wall (at least one stays on).
+  Management: roll out, roll in, roll when a wall moves, close a threatened side after 14:30, daily loss cap
+  (asks to confirm before it goes off). A rule that is off is still shown in the rule check, struck through, but
+  never blocks or acts. Locked (always on): expiry day only, 1 lot with 50-pt wings, entry 09:45–10:15, 1SD A vs B,
+  strikes in the chain with two-sided quotes, wings first / shorts closed first, the 15:00–15:15 square-off.
+  Changes need a device that may trade and are posted to Telegram.
 - **Event days:** the list at the bottom of the tab (`data/condor_skip.json`); add RBI policy, Budget, election
   results and the like each month.
 - Every decision (checks, A / B, which candidate won each strike, credit, POP, rolls with reason and cash,
