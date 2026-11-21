@@ -67,7 +67,7 @@ WAITING, OPEN, SKIPPED, CLOSED, STOPPED, FAILED = "WAITING", "OPEN", "SKIPPED", 
 FINAL = (SKIPPED, CLOSED, STOPPED, FAILED)
 
 _lock = threading.RLock()
-_mem = {"plan": None, "pnl": None, "marks": {}, "pnl_at": None, "retarget_at": 0.0, "entry_try": 0.0,
+_mem = {"plan": None, "pnl": None, "marks": {}, "quotes": {}, "pnl_at": None, "retarget_at": 0.0, "entry_try": 0.0,
         "exit_warned": None, "thread": None}
 
 
@@ -513,6 +513,23 @@ def fills(day: str) -> list[dict]:
         return [dict(r) for r in con.execute("SELECT * FROM condor_fills WHERE day = ? ORDER BY id", (day,))]
 
 
+def entry_prices(day: str) -> dict:
+    """Average price of each open leg's current quantity (fills that added to it since it was last flat)."""
+    run: dict = {}
+    for f in fills(day):
+        q, avg = run.get(f["tsym"], (0, 0.0))
+        d = f["qty"] if f["action"] == "BUY" else -f["qty"]
+        if q == 0 or (q > 0) == (d > 0):            # opening or adding: weighted average
+            n = q + d
+            avg = (abs(q) * avg + abs(d) * f["price"]) / abs(n) if n else 0.0
+            q = n
+        else:                                        # reducing: the average stays; crossing zero restarts it
+            n = q + d
+            avg, q = (avg, n) if n == 0 or (n > 0) == (q > 0) else (f["price"], n)
+        run[f["tsym"]] = (q, avg)
+    return {t: round(a, 2) for t, (q, a) in run.items() if q}
+
+
 def position(day: str) -> dict:
     """Open legs: tsym -> {"qty" (signed: + long, - short), "opt", "strike"}."""
     pos: dict = {}
@@ -778,7 +795,7 @@ def _summary(p: dict) -> dict:
 
 
 def _marks(pos: dict) -> dict:
-    """Mid prices (or last) of the open legs."""
+    """Mid prices (or last) of the open legs; their full quotes are kept for the dashboard."""
     out = {}
     for t in pos:
         try:
@@ -786,6 +803,7 @@ def _marks(pos: dict) -> dict:
         except Exception as exc:
             log.debug("Quote for %s failed: %s", t, exc)
             continue
+        _mem["quotes"][t] = {k: q.get(k) for k in ("bid", "ask", "ltp")}
         out[t] = (q["bid"] + q["ask"]) / 2 if q.get("bid") and q.get("ask") else q.get("ltp")
     return out
 
@@ -905,15 +923,16 @@ def _roll(day: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str
                       f"({why}) · cash ₹{roll_cash:,.0f} · POP {pp * 100:.1f}%", info, notify=True, mode=mode)
 
 
-def _exit_side(day: str, mode: str, opt: str, why: str) -> None:
+def _exit_side(day: str, mode: str, opt: str, why: str) -> bool:
     pos = position(day)
     target = {t: v["qty"] for t, v in pos.items() if v["opt"] != opt}
     try:
         _trade_to(day, mode, target, f"exit {opt}")
     except Exception as exc:
         _log(day, "error", f"Closing the {opt} side failed ({exc}); retrying", notify=True, mode=mode)
-        return
+        return False
     _log(day, "exit", f"Closed the {opt} side: {why}", notify=True, mode=mode)
+    return True
 
 
 def _flatten(day: str, mode: str, why: str) -> bool:
@@ -956,6 +975,51 @@ def exit_now(by: str) -> dict:
         return status()
 
 
+def close_side(opt: str, by: str) -> dict:
+    """Close one side (its short bought back first, then its wing sold) now (dashboard button)."""
+    opt = str(opt).upper()
+    if opt not in ("CE", "PE"):
+        raise ValueError("Side must be CE (calls) or PE (puts)")
+    with _lock:
+        now = _nse().now()
+        day = now.date().isoformat()
+        rec = get_day(day) or {}
+        if not _side_legs(position(day), opt):
+            raise ValueError(f"No open {opt} legs")
+        mode = rec.get("mode") or get_mode()
+        if not _exit_side(day, mode, opt, f"closed by hand ({by})"):
+            raise RuntimeError(f"Closing the {opt} side failed; see Today's decisions")
+        if not position(day):
+            _close_day(day, CLOSED, f"Closed by hand ({by})", now)
+        return status()
+
+
+def close_leg(tsym: str, by: str) -> dict:
+    """Buy back one short leg now. A wing can't be closed on its own: its short would be left uncovered."""
+    with _lock:
+        now = _nse().now()
+        day = now.date().isoformat()
+        rec = get_day(day) or {}
+        pos = position(day)
+        leg = pos.get(tsym)
+        if not leg:
+            raise ValueError(f"{tsym} isn't an open condor leg")
+        if leg["qty"] > 0:
+            raise ValueError("A wing can't be closed on its own: its short would be left uncovered. "
+                             "Close the short first, or the whole side.")
+        mode = rec.get("mode") or get_mode()
+        target = {t: v["qty"] for t, v in pos.items() if t != tsym}
+        try:
+            _trade_to(day, mode, target, "close leg")
+        except Exception as exc:
+            _log(day, "error", f"Buying back {tsym} failed ({exc})", notify=True, mode=mode)
+            raise RuntimeError(f"Buying back {tsym} failed: {exc}") from exc
+        _log(day, "exit", f"Bought back {tsym} by hand ({by})", notify=True, mode=mode)
+        if not position(day):
+            _close_day(day, CLOSED, f"Closed by hand ({by})", now)
+        return status()
+
+
 # ---- dashboard --------------------------------------------------------------------------------------------
 
 def status() -> dict:
@@ -964,7 +1028,14 @@ def status() -> dict:
     rec = get_day(day)
     pos = position(day)
     marks = _mem["marks"] if pos else {}
-    legs = [{"tsym": t, **v, "mark": marks.get(t)} for t, v in sorted(pos.items(), key=lambda kv: kv[1]["strike"])]
+    if pos and not marks:                       # outside the engine's loop (e.g. market closed): read them now
+        marks = _marks(pos)
+    avg = entry_prices(day)
+    legs = []
+    for t, v in sorted(pos.items(), key=lambda kv: (kv[1]["opt"] != "PE", kv[1]["strike"])):
+        q, m, a = _mem["quotes"].get(t) or {}, marks.get(t), avg.get(t)
+        legs.append({"tsym": t, **v, "avg": a, "mark": m, "bid": q.get("bid"), "ask": q.get("ask"),
+                     "ltp": q.get("ltp"), "pnl": round((m - a) * v["qty"], 2) if m is not None and a else None})
     with _conn() as con:
         hist = [dict(r) for r in con.execute(
             "SELECT day, mode, status, reason, rolls, pnl, charges FROM condor_days ORDER BY day DESC LIMIT 40")]

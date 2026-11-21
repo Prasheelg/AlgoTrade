@@ -186,6 +186,12 @@ def mkt(monkeypatch):
     monkeypatch.setattr(condor, "today_expiry", lambda now: EXP.isoformat() if now.date() == EXP else None)
     monkeypatch.setattr(condor, "next_expiry", lambda now: EXP.isoformat())
     monkeypatch.setattr(condor, "_quote", m.quote)
+    real = condor.markets.get("IN")
+
+    class Clock:                                   # the NSE on the test's clock
+        now = staticmethod(lambda: m.now)
+        is_open = staticmethod(lambda now=None: real.is_open(now or m.now))
+    monkeypatch.setattr(condor, "_nse", lambda: Clock)
     monkeypatch.setattr(condor.fno, "contract", lambda t: {"opt": t[-2:], "strike": float(t[5:-2]), "tick": 0.05})
     sent = []
     monkeypatch.setattr(condor.telegram_bot, "send_message", lambda text, *a, **k: sent.append(text))
@@ -332,3 +338,45 @@ def test_condor_trading_switch(monkeypatch):
     condor.set_trading(False, "test")
     assert condor.trading_enabled() is False and logins == [True]         # OFF needs no login
     assert condor.status()["trading_enabled"] is False
+
+
+def test_live_position_and_closing_by_hand(mkt):
+    day = EXP.isoformat()
+    run(mkt, 9, 20)
+    run(mkt, 9, 46)
+    st = condor.status()
+    assert len(st["legs"]) == 4
+    for g in st["legs"]:
+        assert g["avg"] and g["mark"] is not None and g["bid"] is not None and g["pnl"] is not None
+    short_put = next(g for g in st["legs"] if g["opt"] == "PE" and g["qty"] < 0)
+    wing_call = next(g for g in st["legs"] if g["opt"] == "CE" and g["qty"] > 0)
+    assert short_put["avg"] == condor.fills(day)[2]["price"] or short_put["avg"] > 0
+
+    with pytest.raises(ValueError, match="wing can't be closed"):
+        condor.close_leg(wing_call["tsym"], "test")
+    condor.close_leg(short_put["tsym"], "test")              # buy back the short put; its wing stays
+    pos = condor.position(day)
+    assert short_put["tsym"] not in pos and len(pos) == 3
+    assert condor.fills(day)[-1]["action"] == "BUY"
+
+    condor.close_side("CE", "test")                         # short call first, then the call wing
+    pos = condor.position(day)
+    assert all(v["opt"] == "PE" and v["qty"] > 0 for v in pos.values())
+    assert [f["action"] for f in condor.fills(day)[-2:]] == ["BUY", "SELL"]
+    assert condor.get_day(day)["status"] == condor.OPEN
+
+    condor.close_side("PE", "test")                         # the last leg: the day is over
+    assert not condor.position(day) and condor.get_day(day)["status"] == condor.CLOSED
+    with pytest.raises(ValueError):
+        condor.close_side("PE", "test")
+
+
+def test_entry_prices_average_and_reset():
+    from algotrade import condor as c
+    day = "2026-11-24"
+    for action, qty, px in (("SELL", 65, 10.0), ("SELL", 65, 12.0), ("BUY", 65, 5.0), ("BUY", 65, 6.0),
+                            ("BUY", 65, 3.0)):
+        c._record_fill(day, "paper", "NIFTY26100CE", "CE", 26100.0, action, qty, px, None, "t")
+    c._record_fill(day, "paper", "NIFTY26150CE", "CE", 26150.0, "BUY", 65, 2.0, None, "t")
+    avg = c.entry_prices(day)
+    assert avg == {"NIFTY26100CE": 3.0, "NIFTY26150CE": 2.0}     # short closed, then re-opened long at 3

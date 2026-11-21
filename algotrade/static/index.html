@@ -447,6 +447,11 @@
   .cd-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .cd-head h3 { margin: 0; font-size: 16px; }
   .cd-auto { font-size: 13px; font-weight: 600; }
+  .cd-pos-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 18px; }
+  .cd-pos-head h4 { margin: 0; }
+  .cd-pos-head .right { margin-left: auto; display: flex; gap: 8px; }
+  .cd-pos tfoot td { border-top: 1px solid var(--line); }
+  .btn.sm { padding: 3px 10px; font-size: 12px; }
   .cd-head .right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
   .cd h4 { margin: 18px 0 8px; font-size: 13px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
   .cd-status { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
@@ -1408,8 +1413,15 @@
       </div>
       <div class="cd-status" id="cdStatus"></div>
       <div class="notice err" id="cdErr" hidden></div>
-      <div id="cdLegsWrap" hidden><h4>Open legs</h4><div class="tablewrap"><table><thead><tr><th>Leg</th><th>Contract</th>
-        <th class="num">Qty</th><th class="num">Mark</th></tr></thead><tbody id="cdLegs"></tbody></table></div></div>
+      <div id="cdLegsWrap" hidden>
+        <div class="cd-pos-head"><h4>Live position</h4><span class="hint" id="cdPosAt"></span>
+          <div class="right"><button type="button" class="btn" id="cdClosePE">Close put side</button>
+            <button type="button" class="btn" id="cdCloseCE">Close call side</button></div></div>
+        <div class="tablewrap"><table class="cd-pos"><thead><tr><th>Leg</th><th>Contract</th><th class="num">Qty</th>
+          <th class="num">Entry</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mark</th><th class="num">P&amp;L</th><th></th></tr></thead>
+          <tbody id="cdLegs"></tbody><tfoot id="cdLegsFoot"></tfoot></table></div>
+        <p class="hint">Mark = mid of bid and ask (last price when there's no quote). P&amp;L per leg is before charges; the
+          day P&amp;L above includes closed legs and charges. A wing can't be closed alone (its short would be uncovered).</p></div>
       <div id="cdPlan"></div>
       <h4>Today's decisions</h4><div class="cd-log" id="cdLog"></div>
       <h4>Past expiry days</h4><div class="tablewrap"><table><thead><tr><th>Day</th><th>Mode</th><th>Result</th>
@@ -3247,8 +3259,18 @@ function renderCondor() {
       <div class="bar"><i style="width:${(loss * 100).toFixed(1)}%"></i></div></div>`;
   optEl("cdExitBtn").hidden = !j.legs.length;
   optEl("cdLegsWrap").hidden = !j.legs.length;
-  optEl("cdLegs").innerHTML = j.legs.map(g => `<tr><td>${g.qty < 0 ? "Short" : "Long"} ${g.opt}</td><td>${esc(g.tsym)}</td>
-    <td class="num">${g.qty}</td><td class="num">${cdNum(g.mark, 2)}</td></tr>`).join("");
+  const sides = new Set(j.legs.map(g => g.opt));
+  optEl("cdCloseCE").hidden = !sides.has("CE");
+  optEl("cdClosePE").hidden = !sides.has("PE");
+  optEl("cdPosAt").textContent = j.legs.length ? `${j.today?.mode === "live" ? "LIVE · real Kotak positions" : "Paper"} · ${(j.now || "").slice(11, 19)}` : "";
+  optEl("cdLegs").innerHTML = j.legs.map(g => `<tr><td><b>${g.qty < 0 ? "Short" : "Long"}</b> ${cdNum(g.strike)} ${g.opt}</td><td>${esc(g.tsym)}</td>
+    <td class="num">${g.qty > 0 ? "+" : ""}${g.qty}</td><td class="num">${cdNum(g.avg, 2)}</td><td class="num">${cdNum(g.bid, 2)}</td>
+    <td class="num">${cdNum(g.ask, 2)}</td><td class="num">${cdNum(g.mark, 2)}</td>
+    <td class="num ${g.pnl > 0 ? "up" : g.pnl < 0 ? "down" : ""}">${g.pnl == null ? "–" : cdInr(g.pnl)}</td>
+    <td>${g.qty < 0 ? `<button type="button" class="btn sm danger" data-close-leg="${esc(g.tsym)}">Close</button>` : ""}</td></tr>`).join("");
+  const legPl = j.legs.reduce((a, g) => a + (g.pnl || 0), 0);
+  optEl("cdLegsFoot").innerHTML = j.legs.length ? `<tr><td colspan="7"><b>Open legs</b></td>
+    <td class="num ${legPl > 0 ? "up" : legPl < 0 ? "down" : ""}"><b>${cdInr(legPl)}</b></td><td></td></tr>` : "";
   optEl("cdPlan").innerHTML = cdChecks(cd.plan || j.plan);
   optEl("cdLog").innerHTML = j.log.length ? j.log.map(e => `<div class="${esc(e.kind)}"><time>${esc((e.at || "").slice(11, 19))}</time>${esc(e.text)}</div>`).join("")
     : `<span class="hint">Nothing yet today. On expiry days it checks the day filters after 09:15 and enters between 09:45 and 10:15.</span>`;
@@ -3288,6 +3310,19 @@ optEl("cdPlanBtn").onclick = async () => {
   catch (err) { optEl("cdErr").hidden = false; optEl("cdErr").textContent = err.message; }
   finally { b.disabled = false; b.textContent = "Check the rules now"; }
 };
+async function cdClose(body, ask) {
+  if (!confirm(ask)) return;
+  try {
+    cd.data = await optJson("/api/condor/close", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    renderCondor();
+  } catch (err) { alert(err.message); }
+}
+optEl("cdCloseCE").onclick = () => cdClose({ side: "CE" }, "Close the CALL side now?\n\nThe short call is bought back first, then the call wing is sold.");
+optEl("cdClosePE").onclick = () => cdClose({ side: "PE" }, "Close the PUT side now?\n\nThe short put is bought back first, then the put wing is sold.");
+optEl("cdLegs").onclick = e => {
+  const b = e.target.closest("button[data-close-leg]"); if (!b) return;
+  cdClose({ tsym: b.dataset.closeLeg }, `Buy back ${b.dataset.closeLeg} now?\n\nIts wing stays open (it only limits risk) until you close it or the 15:00 exit.`);
+};
 optEl("cdExitBtn").onclick = async () => {
   if (!confirm("Close every condor leg now (shorts first, then wings)?")) return;
   try { cd.data = await optJson("/api/condor/exit", { method: "POST" }); renderCondor(); } catch (err) { alert(err.message); }
@@ -3300,7 +3335,11 @@ optEl("cdSkipSave").onclick = async () => {
     cd.skipDirty = false; cdLoad();
   } catch (err) { alert(err.message); }
 };
-setInterval(() => { if (optTab === "condor" && !document.hidden && optEl("cdCard").offsetParent) cdLoad(); }, 5000);
+cd.tick = 0;   // every 2 s while a position is open, else every 6 s
+setInterval(() => {
+  if (optTab !== "condor" || document.hidden || !optEl("cdCard").offsetParent) return;
+  if (cd.data?.legs?.length || ++cd.tick % 3 === 0) cdLoad();
+}, 2000);
 
 async function oicLoad(quiet = false) {
   if (!oic.u || !oic.sel.size || oic.busy) return;

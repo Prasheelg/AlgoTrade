@@ -366,7 +366,13 @@ NIFTY's weekly expiry day: 1 lot (65), 50-point wings, nothing on other days.
   Auto-trade switch at the top, which doesn't affect the condor either way; switching it ON needs a device that may
   trade and a working Kotak login, OFF works from anywhere, and both are posted to Telegram. **Off** starts nothing
   new, but an open position is still managed to its exit. Leaving Off needs a device that may trade; Off works from
-  anywhere. **Close all legs** exits now.
+  anywhere.
+- **Live position** (shown while legs are open, refreshed every 2 s): each leg's entry price, bid, ask, mark (mid)
+  and P&L, with the open legs' total. **Close put side** / **Close call side** buy back that short and then sell
+  its wing; **Close** on a short leg buys back just that short (its wing stays until you close it or 15:00); a wing
+  can't be closed alone, as its short would be uncovered. **Close all legs** exits everything (shorts first).
+  These need a device that may trade, close in the position's own mode (paper or live), and are posted to Telegram;
+  the engine keeps managing whatever is left.
 - **Event days:** the list at the bottom of the tab (`data/condor_skip.json`); add RBI policy, Budget, election
   results and the like each month.
 - Every decision (checks, A / B, which candidate won each strike, credit, POP, rolls with reason and cash,

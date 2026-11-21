@@ -615,6 +615,24 @@ def api_condor_trading():
     return jsonify(condor.status())
 
 
+@app.post("/api/condor/close")
+def api_condor_close():
+    """Close one side ({"side": "CE" | "PE"}) or buy back one short leg ({"tsym": ...})."""
+    from . import condor
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    b = request.get_json(silent=True) or {}
+    by = f"dashboard ({access.who()})"
+    try:
+        if b.get("tsym"):
+            return jsonify(condor.close_leg(str(b["tsym"]), by))
+        return jsonify(condor.close_side(str(b.get("side", "")), by))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
 @app.post("/api/condor/exit")
 def api_condor_exit():
     from . import condor
