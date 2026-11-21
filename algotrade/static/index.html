@@ -446,6 +446,7 @@
   /* 0DTE condor */
   .cd-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .cd-head h3 { margin: 0; font-size: 16px; }
+  .cd-auto { font-size: 13px; font-weight: 600; }
   .cd-head .right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
   .cd h4 { margin: 18px 0 8px; font-size: 13px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
   .cd-status { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
@@ -1401,6 +1402,7 @@
         <h3>Nifty 0DTE short iron condor</h3>
         <div class="seg" id="cdMode" role="group" aria-label="Condor mode">
           <button type="button" data-v="off">Off</button><button type="button" data-v="paper">Paper</button><button type="button" data-v="live">Live</button></div>
+        <label class="switch cd-auto" title="The condor's own Auto-trade: Live mode opens and rolls trades only while this is on (separate from the Auto-trade switch at the top)"><input type="checkbox" id="cdAuto">Condor Auto-trade</label>
         <div class="right"><button type="button" class="btn" id="cdPlanBtn">Check the rules now</button>
           <button type="button" class="btn danger" id="cdExitBtn" hidden>Close all legs</button></div>
       </div>
@@ -3232,11 +3234,12 @@ function cdChecks(p) {
 function renderCondor() {
   const j = cd.data; if (!j) return;
   optEl("cdMode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === j.mode));
+  optEl("cdAuto").checked = !!j.trading_enabled;
   const t = j.today, pl = j.pnl, cap = j.rules.loss_cap;
   const loss = pl && pl.total < 0 ? Math.min(-pl.total / cap, 1) : 0;
   const exp = j.today_expiry ? `<b>Today</b> (${esc(j.today_expiry)})` : esc(j.next_expiry || "–");
   optEl("cdStatus").innerHTML = `
-    <div><span class="k">Mode</span><b>${j.mode === "live" ? `<span class="cd-bad">LIVE</span>${j.trading_enabled ? "" : ` <span class="cd-warn">(Auto-trade OFF: no new trades)</span>`}` : j.mode === "paper" ? "Paper (no orders)" : "Off"}</b></div>
+    <div><span class="k">Mode</span><b>${j.mode === "live" ? `<span class="cd-bad">LIVE</span>${j.trading_enabled ? " · Auto-trade ON" : ` <span class="cd-warn">(condor Auto-trade OFF: no new trades)</span>`}` : j.mode === "paper" ? "Paper (no orders)" : "Off"}</b></div>
     <div><span class="k">Next NIFTY expiry</span>${exp}</div>
     <div><span class="k">Today</span><b>${t ? esc(CD_STATUS[t.status] || t.status) : "–"}</b>${t && t.reason && t.status !== "OPEN" ? ` <span class="hint">${esc(t.reason)}</span>` : ""}${t && t.rolls ? ` · ${t.rolls} roll(s)` : ""}</div>
     <div class="cd-cap"><span class="k">Day P&amp;L vs loss cap −₹${cdNum(cap)}</span>
@@ -3257,18 +3260,27 @@ function renderCondor() {
   const r = j.rules;
   optEl("cdRules").textContent = `Rules: 1 lot, ${r.wing}-pt wings; entry ${r.entry}; shorts at the farthest of ${r.delta} delta, 1SD and the OI wall; POP > ${r.pop_min}%; ` +
     `VIX rise ≤ ${r.vix_rise_max}%, IVP ${r.ivp_band.join("-")} (hard), VIX ${r.vix_band.join("-")} and VIX > HV10 (checks); rolls out at ${r.out_buffer} pts, in at ${r.in_buffer} pts with a net credit, ` +
-    `${r.cooldown_min}-min cooldown, none after ${r.roll_until}; loss cap ₹${cdNum(r.loss_cap)}; square-off ${r.exit}. Paper fills at the bid / ask; Live places MIS orders and needs Auto-trade ON to open or roll.`;
+    `${r.cooldown_min}-min cooldown, none after ${r.roll_until}; loss cap ₹${cdNum(r.loss_cap)}; square-off ${r.exit}. Paper fills at the bid / ask; Live places MIS orders and opens or rolls only while Condor Auto-trade is ON (the Auto-trade switch at the top doesn't affect it).`;
 }
 
 optEl("cdMode").onclick = async e => {
   const b = e.target.closest("button[data-v]"); if (!b || !cd.data || b.dataset.v === cd.data.mode) return;
   const m = b.dataset.v;
   if (m === "live" && !confirm("Switch the 0DTE condor to LIVE?\n\nOn NIFTY expiry days it will place REAL orders on Kotak " +
-      "(1 lot, 4 legs, plus rolls) when the Auto-trade switch is ON. Run it in Paper for a few expiries first.")) return;
+      "(1 lot, 4 legs, plus rolls) while Condor Auto-trade is ON. Run it in Paper for a few expiries first.")) return;
   try {
     cd.data = await optJson("/api/condor/mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: m }) });
     renderCondor();
   } catch (err) { alert(err.message); }
+};
+optEl("cdAuto").onchange = async e => {
+  const on = e.target.checked;
+  if (on && !confirm("Switch Condor Auto-trade ON?\n\nIn Live mode the 0DTE condor will place REAL Kotak orders on NIFTY expiry days " +
+      "(entry, rolls, exits). In Paper mode it still places none.")) { e.target.checked = false; return; }
+  try {
+    cd.data = await optJson("/api/condor/trading", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: on }) });
+    renderCondor();
+  } catch (err) { e.target.checked = !on; alert(err.message); }
 };
 optEl("cdPlanBtn").onclick = async () => {
   const b = optEl("cdPlanBtn"); b.disabled = true; b.textContent = "Checking…";

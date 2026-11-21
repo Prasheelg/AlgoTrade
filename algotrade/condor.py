@@ -20,8 +20,8 @@ but never blocks):
   stops for the day (checked every few seconds). From 15:00 everything is squared off: shorts first, then wings.
 Orders: bought legs always before sold ones (wings first in, shorts first out), marketable limits off the best
 bid / ask, re-priced up to 4 times. Modes: "paper" (default: fills at the bid / ask, no orders), "live" (real
-MIS orders; also needs the Auto-trade switch ON to open or roll, never to close), "off" (nothing new; an open
-position is still managed to its exit). Every decision goes to the condor_log table and Telegram."""
+MIS orders; also needs the condor's own Auto-trade switch ON to open or roll, never to close; the dashboard's
+global Auto-trade switch doesn't affect it), "off" (nothing new; an open position is still managed to its exit). Every decision goes to the condor_log table and Telegram."""
 import json
 import logging
 import math
@@ -61,6 +61,7 @@ FILL_TRIES = 4
 PRODUCT = "MIS"
 MODES = ("off", "paper", "live")
 MODE_KEY = "condor_mode"
+TRADING_KEY = "condor_trading"   # the condor's own Auto-trade switch (not broker.TRADING_KEY)
 
 WAITING, OPEN, SKIPPED, CLOSED, STOPPED, FAILED = "WAITING", "OPEN", "SKIPPED", "CLOSED", "STOPPED", "FAILED"
 FINAL = (SKIPPED, CLOSED, STOPPED, FAILED)
@@ -549,6 +550,22 @@ def set_mode(mode: str, by: str) -> str:
     return mode
 
 
+def trading_enabled() -> bool:
+    """The condor's own Auto-trade switch: Live mode opens and rolls only while it is ON (off until switched on)."""
+    st, _ = state.get_setting(TRADING_KEY, {"enabled": False})
+    return bool(st.get("enabled"))
+
+
+def set_trading(enabled: bool, by: str) -> bool:
+    """Switch the condor's auto-trading. ON first proves the Kotak login works (raises BrokerError if not)."""
+    if enabled:
+        broker.login(force=True)
+    state.set_setting(TRADING_KEY, {"enabled": bool(enabled), "by": by})
+    day = _nse().now().date().isoformat()
+    _log(day, "mode", f"Condor Auto-trade {'ON' if enabled else 'OFF'} by {by}", notify=True, mode=get_mode())
+    return bool(enabled)
+
+
 # ---- orders -----------------------------------------------------------------------------------------------
 
 def _quote(tsym: str) -> dict:
@@ -731,9 +748,9 @@ def _try_entry(day: str, exp: str, mode: str, now: datetime) -> None:
         _save_day(day, status=SKIPPED, reason=why, entry=json.dumps(_summary(p)))
         _log(day, "skip", f"No trade today: {why}", _summary(p), notify=True, mode=mode)
         return
-    if mode == "live" and not broker.trading_enabled():
-        _save_day(day, status=SKIPPED, reason="Live mode but the Auto-trade switch is OFF")
-        _log(day, "skip", "Live mode but the Auto-trade switch is OFF: no trade", notify=True, mode=mode)
+    if mode == "live" and not trading_enabled():
+        _save_day(day, status=SKIPPED, reason="Live mode but the condor's Auto-trade switch is OFF")
+        _log(day, "skip", "Live mode but the condor's Auto-trade switch is OFF: no trade", notify=True, mode=mode)
         return
     s = _summary(p)
     try:
@@ -872,8 +889,8 @@ def _roll(day: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str
         else:
             _log(day, "roll", f"{opt} inward roll skipped: POP {pp * 100:.1f}% ≤ 75%", info)
         return
-    if mode == "live" and not broker.trading_enabled():
-        _log(day, "roll", f"{opt} roll {sig} needed but the Auto-trade switch is OFF: closing that side instead",
+    if mode == "live" and not trading_enabled():
+        _log(day, "roll", f"{opt} roll {sig} needed but the condor's Auto-trade switch is OFF: closing that side instead",
              info, notify=True, mode=mode)
         _exit_side(day, mode, opt, why)
         return
@@ -951,7 +968,7 @@ def status() -> dict:
     with _conn() as con:
         hist = [dict(r) for r in con.execute(
             "SELECT day, mode, status, reason, rolls, pnl, charges FROM condor_days ORDER BY day DESC LIMIT 40")]
-    return {"mode": get_mode(), "trading_enabled": broker.trading_enabled(), "now": now.isoformat(timespec="seconds"),
+    return {"mode": get_mode(), "trading_enabled": trading_enabled(), "now": now.isoformat(timespec="seconds"),
             "today": rec, "today_expiry": today_expiry(now), "next_expiry": next_expiry(now),
             "legs": legs, "pnl": pnl(day, marks) if (pos or fills(day)) else None,
             "fills": fills(day), "log": day_log(day), "plan": _mem["plan"], "history": hist,

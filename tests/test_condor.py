@@ -288,9 +288,10 @@ def test_off_mode_opens_nothing(mkt):
     assert not condor.position(EXP.isoformat())
 
 
-def test_live_mode_needs_the_trading_switch(mkt, monkeypatch):
+def test_live_mode_needs_the_condors_own_switch(mkt, monkeypatch):
     condor.set_mode("live", "test")
-    monkeypatch.setattr(condor.broker, "trading_enabled", lambda: False)
+    monkeypatch.setattr(condor.broker, "trading_enabled", lambda: True)    # the global switch doesn't count
+    assert condor.trading_enabled() is False                               # off until switched on
     day = EXP.isoformat()
     run(mkt, 9, 20)
     run(mkt, 9, 46)
@@ -319,3 +320,15 @@ def test_index_quotes_matches_kotaks_other_spelling(monkeypatch):
     monkeypatch.setattr(kotak.livefeed, "lookup", lambda seg, names: {})
     assert kotak.index_quotes(["INDIA VIX"]) == {"INDIA VIX": {"ltp": 17.32, "prev_close": 16.11}}
     assert condor.vix_quote() == {"now": 17.32, "prev": 16.11}
+
+
+def test_condor_trading_switch(monkeypatch):
+    logins = []
+    monkeypatch.setattr(condor.broker, "login", lambda force=False: logins.append(force))
+    monkeypatch.setattr(condor.telegram_bot, "send_message", lambda *a, **k: None)
+    assert condor.trading_enabled() is False
+    condor.set_trading(True, "test")
+    assert condor.trading_enabled() is True and logins == [True]          # ON proves the Kotak login
+    condor.set_trading(False, "test")
+    assert condor.trading_enabled() is False and logins == [True]         # OFF needs no login
+    assert condor.status()["trading_enabled"] is False

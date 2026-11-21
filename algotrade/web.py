@@ -598,6 +598,23 @@ def api_condor_mode():
     return jsonify(condor.status())
 
 
+@app.post("/api/condor/trading")
+def api_condor_trading():
+    """The condor's own Auto-trade switch. ON needs a device that may trade (and a working Kotak login); OFF works
+    from anywhere."""
+    from . import condor
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body.get("enabled"), bool):
+        return jsonify({"error": "Send {\"enabled\": true | false}"}), 400
+    if body["enabled"] and not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    try:
+        condor.set_trading(body["enabled"], by=f"dashboard ({access.who()})")
+    except broker.BrokerError as exc:
+        return jsonify({"error": f"Kotak login failed, the condor's Auto-trade stays off: {exc}"}), 502
+    return jsonify(condor.status())
+
+
 @app.post("/api/condor/exit")
 def api_condor_exit():
     from . import condor

@@ -361,9 +361,12 @@ NIFTY's weekly expiry day: 1 lot (65), 50-point wings, nothing on other days.
 - **Daily loss cap:** fills' cash + open legs at mid − charges ≤ −₹2,600 (`CONDOR_LOSS_CAP`) closes everything
   for the day (checked every 3 s). **From 15:00** all legs are squared off, shorts first, then wings.
 - **Modes** (top of the tab): **Paper** (default) fills at the bid / ask with no orders, so you can watch it for a
-  few expiries; **Live** places MIS marketable limits on Kotak (re-priced up to 4 times) and needs the Auto-trade
-  switch ON to open or roll (never to close); **Off** starts nothing new, but an open position is still managed
-  to its exit. Leaving Off needs a device that may trade; Off works from anywhere. **Close all legs** exits now.
+  few expiries; **Live** places MIS marketable limits on Kotak (re-priced up to 4 times) and opens or rolls only
+  while the tab's own **Condor Auto-trade** switch is ON (never needed to close). That switch is separate from the
+  Auto-trade switch at the top, which doesn't affect the condor either way; switching it ON needs a device that may
+  trade and a working Kotak login, OFF works from anywhere, and both are posted to Telegram. **Off** starts nothing
+  new, but an open position is still managed to its exit. Leaving Off needs a device that may trade; Off works from
+  anywhere. **Close all legs** exits now.
 - **Event days:** the list at the bottom of the tab (`data/condor_skip.json`); add RBI policy, Budget, election
   results and the like each month.
 - Every decision (checks, A / B, which candidate won each strike, credit, POP, rolls with reason and cash,
