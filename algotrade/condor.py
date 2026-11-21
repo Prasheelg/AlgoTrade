@@ -396,7 +396,7 @@ def snapshot(expiry: str, now: datetime) -> dict:
 def vix_quote() -> dict:
     """India VIX now and its previous close (Kotak)."""
     from . import kotak
-    q = kotak.index_quotes(["INDIA VIX"]).get("INDIA VIX") or {}
+    q = kotak.index_quotes(["India VIX"]).get("India VIX") or {}
     return {"now": q.get("ltp"), "prev": q.get("prev_close")}
 
 
