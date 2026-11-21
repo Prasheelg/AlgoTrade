@@ -469,10 +469,15 @@
   .cd-dot.STOPPED, .cd-dot.FAILED { background: var(--down); }
   .cd-box { border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
   .cd-live { border-color: var(--accent); }
+  .cd-pos-empty { display: flex; gap: 12px; align-items: flex-start; font-size: 13.5px; color: var(--ink-2); background: var(--panel-2); border-radius: 8px; padding: 12px 14px; }
+  .cd-pos-empty .hint { display: block; margin-top: 4px; }
+  .cd-empty-ic { font-size: 18px; color: var(--muted); line-height: 1.2; }
+  .cd-pos-empty[hidden], #cdPosTable[hidden], #cdPosNote[hidden] { display: none; }
   .cd-box-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
   .cd-box-h h4 { margin: 0; font-size: 14px; }
   .cd-box-h .right { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
   .cd-tag { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--neutral-bg); color: var(--ink-2); }
+  .cd-tag:empty { display: none; }
   .cd-tag.live { background: var(--down-bg); color: var(--down); } .cd-tag.ok { background: var(--up-bg); color: var(--up); }
   .cd-tag.bad { background: var(--down-bg); color: var(--down); } .cd-tag.warn { background: var(--warn-bg); color: var(--warn); }
   .cd-pos td { vertical-align: middle; }
@@ -1466,15 +1471,16 @@
       <div class="notice err" id="cdErr" hidden></div>
       <div class="cd-kpis" id="cdStatus"></div>
 
-      <div class="cd-box cd-live" id="cdLegsWrap" hidden>
+      <div class="cd-box" id="cdLegsWrap">
         <div class="cd-box-h"><h4>Live position</h4><span class="cd-tag" id="cdPosAt"></span>
           <div class="right"><button type="button" class="btn sm" id="cdClosePE">Close put side</button>
             <button type="button" class="btn sm" id="cdCloseCE">Close call side</button>
             <button type="button" class="btn sm danger" id="cdExitBtn" hidden>Close all legs</button></div></div>
-        <div class="tablewrap"><table class="cd-pos"><thead><tr><th>Leg</th><th class="num">Qty</th>
+        <div class="cd-pos-empty" id="cdPosEmpty"></div>
+        <div class="tablewrap" id="cdPosTable"><table class="cd-pos"><thead><tr><th>Leg</th><th class="num">Qty</th>
           <th class="num">Entry</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mark</th><th class="num">P&amp;L</th><th></th></tr></thead>
           <tbody id="cdLegs"></tbody><tfoot id="cdLegsFoot"></tfoot></table></div>
-        <p class="hint cd-note">Mark = mid of bid and ask. Leg P&amp;L is before charges; the day P&amp;L above includes closed legs
+        <p class="hint cd-note" id="cdPosNote">Mark = mid of bid and ask. Leg P&amp;L is before charges; the day P&amp;L above includes closed legs
           and charges. A wing can't be closed alone (its short would be uncovered).</p></div>
 
       <div id="cdPlan"></div>
@@ -3358,7 +3364,17 @@ function renderCondor() {
       <div class="d">${pl ? `charges ₹${cdNum(pl.charges)} · ` : ""}loss cap −₹${cdNum(cap)}</div></div>
     <div class="cd-kpi"><div class="k">Mode</div><div class="v ${j.mode === "live" ? "down" : ""}">${modeTxt}</div><div class="d">${modeSub}</div></div>`;
   const has = j.legs.length > 0, sides = new Set(j.legs.map(g => g.opt));
-  optEl("cdLegsWrap").hidden = !has;
+  optEl("cdLegsWrap").classList.toggle("cd-live", has);
+  optEl("cdPosTable").hidden = optEl("cdPosNote").hidden = !has;
+  optEl("cdPosEmpty").hidden = has;
+  if (!has) {
+    const why = st === "SKIPPED" ? `No trade today: ${esc(t.reason || "")}`
+      : st === "CLOSED" || st === "STOPPED" || st === "FAILED" ? `Today's position is closed (${esc(t.reason || CD_STATUS[st])}). Net P&L ${cdInr(t.pnl)}.`
+      : j.mode === "off" ? "The condor is Off, so it won't open a position. Pick Paper or Live above."
+      : j.today_expiry ? (st === "WAITING" ? `Waiting for the entry window (09:45–10:15). ${esc(t.reason || "")}` : "Today is an expiry day: it checks the rules after 09:15 and enters between 09:45 and 10:15 if every hard rule passes.")
+      : `No open position. The condor only trades on NIFTY expiry days: the next is <b>${esc(cdDay(exp || ""))}</b>${dn != null && dn > 0 ? ` (in ${dn} day${dn > 1 ? "s" : ""})` : ""}, entry 09:45–10:15 if every hard rule passes.`;
+    optEl("cdPosEmpty").innerHTML = `<span class="cd-empty-ic">◇</span><div>${why}<div class="hint">${j.mode === "paper" ? "Paper mode: the position will be simulated (no orders)." : j.mode === "live" ? (j.trading_enabled ? "Live mode: real Kotak orders." : "Live mode, but Condor Auto-trade is OFF: it won't open a position.") : ""} Its legs, prices, P&amp;L and close buttons appear here.</div></div>`;
+  }
   optEl("cdExitBtn").hidden = !has;
   optEl("cdCloseCE").hidden = !sides.has("CE");
   optEl("cdClosePE").hidden = !sides.has("PE");
