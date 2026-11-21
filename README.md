@@ -476,15 +476,17 @@ dashboard to a cloud server later removes that need.
 
 ### AWS server
 The dashboard (with its scanner) runs on an EC2 t3.small in Mumbai (`ap-south-1`, instance tag `algotrade`, Ubuntu
-24.04) on the Elastic IP **65.2.173.90**, so Kotak always sees the same address. Address:
-**https://65-2-173-90.sslip.io** (sslip.io turns the IP into a name, and Caddy gets a free Let's Encrypt certificate
-for it). Logging in needs `DASHBOARD_PIN`. Through this address devices can only look, because Caddy is an ordinary
-proxy: `access.py` allows orders only through Tailscale or Cloudflare Access. Put a Cloudflare Tunnel or Tailscale
-on the server to trade from the phone.
+24.04) on the Elastic IP **65.2.173.90**, so Kotak always sees the same address.
+- **https://algo.trendywork.in** (use this one): Cloudflare Access login (email one-time PIN), then
+  `DASHBOARD_PIN`. A Cloudflare Tunnel (`cloudflared` service on the server, hostname → `http://127.0.0.1:8050`)
+  carries it, so orders work from the phone.
+- https://65-2-173-90.sslip.io (backup): Caddy with a Let's Encrypt certificate, PIN login, look only (an ordinary
+  proxy, so `access.py` allows no orders through it).
 - SSH: `ssh algotrade-aws` (key `~/.ssh/algotrade-aws.pem`, entry in `~/.ssh/config`).
 - Service: `sudo systemctl status|restart algotrade`, logs `journalctl -u algotrade -f`; it starts on boot and
   restarts if it dies. Code in `~/AlgoTrade`, packages in `~/venv` (`aws_req.txt`), time zone Asia/Kolkata.
-- Caddy (`/etc/caddy/Caddyfile`) proxies 443 to 127.0.0.1:8050. Security group `algotrade-sg` opens 22, 80, 443.
+- Caddy (`/etc/caddy/Caddyfile`) proxies 443 to 127.0.0.1:8050; `sudo systemctl status cloudflared` for the tunnel.
+  Security group `algotrade-sg` opens 22, 80, 443.
 - Update the code from this PC: `git archive HEAD | ssh algotrade-aws "tar -x -C ~/AlgoTrade"` then
   `ssh algotrade-aws sudo systemctl restart algotrade`. `.env` and `data/` live on the server (never in git).
 - Run the dashboard on **one** machine only: the PC and the server together mean double scans, double Telegram
