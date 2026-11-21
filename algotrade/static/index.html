@@ -443,6 +443,30 @@
   .opt-spot .q-stats .lbl { font-size: 10.5px; }
   .opt-spot .q-stats b { font-size: 13.5px; font-weight: 600; }
   .opt-spot .q-stats small { color: var(--muted); font-size: 11px; margin-left: 2px; }
+  /* 0DTE condor */
+  .cd-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .cd-head h3 { margin: 0; font-size: 16px; }
+  .cd-head .right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .cd h4 { margin: 18px 0 8px; font-size: 13px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+  .cd-status { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
+  .cd-status .k { color: var(--muted); font-size: 12px; display: block; }
+  .cd-cap { flex: 1 1 220px; min-width: 200px; }
+  .cd-cap .bar { height: 8px; border-radius: 4px; background: var(--neutral-bg); overflow: hidden; margin-top: 4px; }
+  .cd-cap .bar i { display: block; height: 100%; background: var(--down); }
+  .cd-ok { color: var(--up); font-weight: 600; } .cd-bad { color: var(--down); font-weight: 600; } .cd-warn { color: var(--warn); font-weight: 600; }
+  .cd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .cd-grid > div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .cd-grid .hint { display: block; }
+  .cd-grid b { display: block; font-size: 16px; margin-top: 2px; }
+  .cd-log { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; }
+  .cd-log div { font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--panel-2); border-left: 3px solid var(--line); }
+  .cd-log div.entry, .cd-log div.exit { border-left-color: var(--up); } .cd-log div.roll { border-left-color: var(--accent); }
+  .cd-log div.cap, .cd-log div.error, .cd-log div.skip { border-left-color: var(--down); }
+  .cd-log time { color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .cd-skip { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+  .cd-skip textarea { flex: 1 1 260px; min-height: 64px; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: inherit; }
+  .cd-rules { margin-top: 14px; }
+  .btn.danger { color: var(--down); border-color: var(--down); }
   /* Strategy Builder sub-tabs */
   #optView > .opt-top { padding-bottom: 0; }
   .opt-tabs { display: flex; gap: 4px; margin: 14px -16px 0; padding: 0 12px; border-top: 1px solid var(--line-2); }
@@ -1301,6 +1325,7 @@
     <nav class="opt-tabs" id="optTabs" role="tablist" aria-label="Strategy Builder sections">
       <button type="button" data-ot="build" role="tab"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Builder &amp; chain</button>
       <button type="button" data-ot="oi" role="tab"><svg viewBox="0 0 24 24"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8"/></svg>OI change</button>
+      <button type="button" data-ot="condor" role="tab"><svg viewBox="0 0 24 24"><path d="M3 18h4l3-10h4l3 10h4"/></svg>0DTE Condor</button>
       <button type="button" data-ot="orders" role="tab"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Recent orders <span class="n" id="optRecentN">0</span></button>
     </nav></section>
     <div class="notice err" id="optErr" hidden></div>
@@ -1370,6 +1395,27 @@
           <button class="btn primary" type="button" id="sbGo" style="margin-left:auto">Place strategy</button>
         </div>
       </div>
+    </section>
+    <section class="card cd" id="cdCard" data-ot="condor" hidden>
+      <div class="cd-head">
+        <h3>Nifty 0DTE short iron condor</h3>
+        <div class="seg" id="cdMode" role="group" aria-label="Condor mode">
+          <button type="button" data-v="off">Off</button><button type="button" data-v="paper">Paper</button><button type="button" data-v="live">Live</button></div>
+        <div class="right"><button type="button" class="btn" id="cdPlanBtn">Check the rules now</button>
+          <button type="button" class="btn danger" id="cdExitBtn" hidden>Close all legs</button></div>
+      </div>
+      <div class="cd-status" id="cdStatus"></div>
+      <div class="notice err" id="cdErr" hidden></div>
+      <div id="cdLegsWrap" hidden><h4>Open legs</h4><div class="tablewrap"><table><thead><tr><th>Leg</th><th>Contract</th>
+        <th class="num">Qty</th><th class="num">Mark</th></tr></thead><tbody id="cdLegs"></tbody></table></div></div>
+      <div id="cdPlan"></div>
+      <h4>Today's decisions</h4><div class="cd-log" id="cdLog"></div>
+      <h4>Past expiry days</h4><div class="tablewrap"><table><thead><tr><th>Day</th><th>Mode</th><th>Result</th>
+        <th class="num">Rolls</th><th class="num">Charges</th><th class="num">Net P&amp;L</th></tr></thead><tbody id="cdHist"></tbody></table></div>
+      <h4>Event days (no trade)</h4>
+      <div class="cd-skip"><textarea id="cdSkip" rows="3" placeholder="One date per line, YYYY-MM-DD: RBI policy, Budget, election results..."></textarea>
+        <button type="button" class="btn" id="cdSkipSave">Save event days</button></div>
+      <p class="hint cd-rules" id="cdRules"></p>
     </section>
     <section class="card oic" id="oicCard" data-ot="oi">
       <div class="oic-head">
@@ -3122,7 +3168,7 @@ function oicMaybeLoad() { if (optTab === "oi" && Date.now() - oic.at > 30000) oi
 let optTab = "build";
 try { optTab = localStorage.getItem("optTab") || "build"; } catch (e) {}
 function setOptTab(t) {
-  if (!["build", "oi", "orders"].includes(t)) t = "build";
+  if (!["build", "oi", "condor", "orders"].includes(t)) t = "build";
   optTab = t;
   try { localStorage.setItem("optTab", t); } catch (e) {}
   optEl("optTabs").querySelectorAll("button").forEach(b => { const on = b.dataset.ot === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
@@ -3131,9 +3177,118 @@ function setOptTab(t) {
     else el.hidden = el.dataset.ot !== t;
   });
   if (t === "oi") { if (oic.data) renderOic(); if (Date.now() - oic.at > 30000) oicLoad(); }
+  if (t === "condor") cdLoad();
   if (t === "build" && sbRes) drawPayoff();
 }
 optEl("optTabs").onclick = e => { const b = e.target.closest("button[data-ot]"); if (b) setOptTab(b.dataset.ot); };
+
+// ---- Nifty 0DTE iron condor ----
+const cd = { data: null, busy: false, plan: null, skipDirty: false };
+const cdInr = v => v == null ? "–" : `${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+const cdNum = (v, d = 0) => v == null ? "–" : Number(v).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d });
+const CD_STATUS = { WAITING: "Waiting for 09:45", OPEN: "Position open", SKIPPED: "No trade today", CLOSED: "Closed",
+  STOPPED: "Stopped: loss cap", FAILED: "Failed" };
+
+async function cdLoad() {
+  if (cd.busy) return;
+  cd.busy = true;
+  try {
+    cd.data = await optJson("/api/condor");
+    optEl("cdErr").hidden = true;
+    renderCondor();
+  } catch (err) {
+    optEl("cdErr").hidden = false; optEl("cdErr").textContent = err.message;
+  } finally { cd.busy = false; }
+}
+
+function cdChecks(p) {
+  if (!p) return "";
+  const rows = (p.checks || []).map(c => {
+    const mark = c.ok === true ? `<span class="cd-ok">✓</span>` : c.ok === false ? (c.hard ? `<span class="cd-bad">✗</span>` : `<span class="cd-warn">!</span>`) : `<span class="flat">…</span>`;
+    return `<tr><td>${mark}</td><td>${esc(c.rule)}</td><td>${esc(c.value)}</td><td class="flat">${esc(c.limit)}</td><td class="flat">${c.hard ? "Hard" : "Check"}</td></tr>`;
+  }).join("");
+  const sd = p.sd || {}, cand = p.candidates || {};
+  const candRow = (name, c, wall) => !c ? "" : `<tr><td>${name}</td><td class="num">${cdNum(c.delta)}</td><td class="num">${cdNum(c.sd)}</td>
+    <td class="num">${cdNum(c.wall)}${wall && wall.unwinding ? ` <span class="cd-bad">falling</span>` : ""}</td><td class="num"><b>${cdNum(c.strike)}</b></td><td>${esc(c.by)}</td></tr>`;
+  const legs = (p.legs || []).map(g => `<tr><td>${esc(g.role)}</td><td>${g.action === "BUY" ? "Buy" : "Sell"} ${cdNum(g.strike)} ${g.opt}</td>
+    <td class="num">${cdNum(g.bid, 2)}</td><td class="num">${cdNum(g.ask, 2)}</td><td class="num">${cdNum(g.oi)}</td></tr>`).join("");
+  const verdict = p.ok ? `<span class="cd-ok">All hard rules pass</span>` : `<span class="cd-bad">Blocked: ${esc((p.blockers || []).join(", "))}</span>`;
+  return `<h4>Rules on live data · ${esc((p.as_of || "").slice(11, 16))} · expiry ${esc(p.expiry)}${p.zero_dte ? " (today)" : ""}</h4>
+    <div>${verdict}${p.zero_dte ? "" : ` <span class="hint">· not expiry day, shown for reference (${cdNum(p.minutes_left)} trading minutes to expiry)</span>`}</div>
+    <div class="cd-grid">
+      <div><span class="hint">Nifty</span><b>${cdNum(p.spot, 2)}</b></div>
+      <div><span class="hint">1SD to expiry</span><b>${cdNum(sd.sd)} pts (${esc(sd.used || "–")})</b><span class="hint">A ${cdNum(sd.a)} · B ${cdNum(sd.b)}${sd.gap_pct != null ? ` · gap ${cdNum(sd.gap_pct, 1)}%` : ""}</span></div>
+      <div><span class="hint">ATM IV (call / put)</span><b>${sd.iv_ce ? cdNum(sd.iv_ce * 100, 1) : "–"} / ${sd.iv_pe ? cdNum(sd.iv_pe * 100, 1) : "–"}%</b><span class="hint">straddle ${cdNum((sd.atm_ce || 0) + (sd.atm_pe || 0), 2)} at ${cdNum(sd.atm)}</span></div>
+      <div><span class="hint">Credit</span><b>${cdNum(p.credit, 2)}</b><span class="hint">max profit ${cdInr(p.max_profit)} · max loss ${cdInr(p.max_loss == null ? null : -p.max_loss)}</span></div>
+      <div><span class="hint">POP</span><b>${p.pop != null ? cdNum(p.pop * 100, 1) + "%" : "–"}</b><span class="hint">breakevens ${(p.breakevens || []).map(x => cdNum(x)).join(" / ") || "–"}</span></div>
+      <div><span class="hint">India VIX · IVP · HV10</span><b>${cdNum(p.vix?.now, 2)} · ${cdNum(p.ivp)} · ${cdNum(p.hv10, 1)}</b><span class="hint">VIX ${p.vix?.change_pct != null ? (p.vix.change_pct >= 0 ? "+" : "") + cdNum(p.vix.change_pct, 2) + "%" : "–"} on the day</span></div>
+    </div>
+    <div class="tablewrap"><table><thead><tr><th></th><th>Rule</th><th>Now</th><th>Needs</th><th>Type</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${cand.call ? `<h4>Strike candidates (farthest wins)</h4><div class="tablewrap"><table><thead><tr><th>Side</th><th class="num">0.16Δ</th><th class="num">1SD level</th><th class="num">OI wall</th><th class="num">Short strike</th><th>Won by</th></tr></thead>
+      <tbody>${candRow("Call", cand.call, p.walls?.call)}${candRow("Put", cand.put, p.walls?.put)}</tbody></table></div>` : ""}
+    ${legs ? `<h4>The four legs</h4><div class="tablewrap"><table><thead><tr><th>Leg</th><th>Order</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">OI</th></tr></thead><tbody>${legs}</tbody></table></div>` : ""}`;
+}
+
+function renderCondor() {
+  const j = cd.data; if (!j) return;
+  optEl("cdMode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === j.mode));
+  const t = j.today, pl = j.pnl, cap = j.rules.loss_cap;
+  const loss = pl && pl.total < 0 ? Math.min(-pl.total / cap, 1) : 0;
+  const exp = j.today_expiry ? `<b>Today</b> (${esc(j.today_expiry)})` : esc(j.next_expiry || "–");
+  optEl("cdStatus").innerHTML = `
+    <div><span class="k">Mode</span><b>${j.mode === "live" ? `<span class="cd-bad">LIVE</span>${j.trading_enabled ? "" : ` <span class="cd-warn">(Auto-trade OFF: no new trades)</span>`}` : j.mode === "paper" ? "Paper (no orders)" : "Off"}</b></div>
+    <div><span class="k">Next NIFTY expiry</span>${exp}</div>
+    <div><span class="k">Today</span><b>${t ? esc(CD_STATUS[t.status] || t.status) : "–"}</b>${t && t.reason && t.status !== "OPEN" ? ` <span class="hint">${esc(t.reason)}</span>` : ""}${t && t.rolls ? ` · ${t.rolls} roll(s)` : ""}</div>
+    <div class="cd-cap"><span class="k">Day P&amp;L vs loss cap −₹${cdNum(cap)}</span>
+      <b class="${pl && pl.total >= 0 ? "up" : pl ? "down" : ""}">${pl ? cdInr(pl.total) : "–"}</b>${pl ? ` <span class="hint">charges ₹${cdNum(pl.charges)}</span>` : ""}
+      <div class="bar"><i style="width:${(loss * 100).toFixed(1)}%"></i></div></div>`;
+  optEl("cdExitBtn").hidden = !j.legs.length;
+  optEl("cdLegsWrap").hidden = !j.legs.length;
+  optEl("cdLegs").innerHTML = j.legs.map(g => `<tr><td>${g.qty < 0 ? "Short" : "Long"} ${g.opt}</td><td>${esc(g.tsym)}</td>
+    <td class="num">${g.qty}</td><td class="num">${cdNum(g.mark, 2)}</td></tr>`).join("");
+  optEl("cdPlan").innerHTML = cdChecks(cd.plan || j.plan);
+  optEl("cdLog").innerHTML = j.log.length ? j.log.map(e => `<div class="${esc(e.kind)}"><time>${esc((e.at || "").slice(11, 19))}</time>${esc(e.text)}</div>`).join("")
+    : `<span class="hint">Nothing yet today. On expiry days it checks the day filters after 09:15 and enters between 09:45 and 10:15.</span>`;
+  optEl("cdHist").innerHTML = j.history.length ? j.history.map(h => `<tr><td>${esc(h.day)}</td><td>${esc(h.mode || "")}</td>
+    <td>${esc(CD_STATUS[h.status] || h.status || "")}${h.reason ? `<div class="sub flat">${esc(h.reason)}</div>` : ""}</td><td class="num">${h.rolls || 0}</td>
+    <td class="num">${h.charges != null ? "₹" + cdNum(h.charges) : "–"}</td><td class="num ${h.pnl > 0 ? "up" : h.pnl < 0 ? "down" : ""}">${cdInr(h.pnl)}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="flat">No expiry days yet</td></tr>`;
+  if (!cd.skipDirty && document.activeElement !== optEl("cdSkip")) optEl("cdSkip").value = j.skip_dates.join("\n");
+  const r = j.rules;
+  optEl("cdRules").textContent = `Rules: 1 lot, ${r.wing}-pt wings; entry ${r.entry}; shorts at the farthest of ${r.delta} delta, 1SD and the OI wall; POP > ${r.pop_min}%; ` +
+    `VIX rise ≤ ${r.vix_rise_max}%, IVP ${r.ivp_band.join("-")} (hard), VIX ${r.vix_band.join("-")} and VIX > HV10 (checks); rolls out at ${r.out_buffer} pts, in at ${r.in_buffer} pts with a net credit, ` +
+    `${r.cooldown_min}-min cooldown, none after ${r.roll_until}; loss cap ₹${cdNum(r.loss_cap)}; square-off ${r.exit}. Paper fills at the bid / ask; Live places MIS orders and needs Auto-trade ON to open or roll.`;
+}
+
+optEl("cdMode").onclick = async e => {
+  const b = e.target.closest("button[data-v]"); if (!b || !cd.data || b.dataset.v === cd.data.mode) return;
+  const m = b.dataset.v;
+  if (m === "live" && !confirm("Switch the 0DTE condor to LIVE?\n\nOn NIFTY expiry days it will place REAL orders on Kotak " +
+      "(1 lot, 4 legs, plus rolls) when the Auto-trade switch is ON. Run it in Paper for a few expiries first.")) return;
+  try {
+    cd.data = await optJson("/api/condor/mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: m }) });
+    renderCondor();
+  } catch (err) { alert(err.message); }
+};
+optEl("cdPlanBtn").onclick = async () => {
+  const b = optEl("cdPlanBtn"); b.disabled = true; b.textContent = "Checking…";
+  try { cd.plan = await optJson("/api/condor/plan", { method: "POST" }); renderCondor(); }
+  catch (err) { optEl("cdErr").hidden = false; optEl("cdErr").textContent = err.message; }
+  finally { b.disabled = false; b.textContent = "Check the rules now"; }
+};
+optEl("cdExitBtn").onclick = async () => {
+  if (!confirm("Close every condor leg now (shorts first, then wings)?")) return;
+  try { cd.data = await optJson("/api/condor/exit", { method: "POST" }); renderCondor(); } catch (err) { alert(err.message); }
+};
+optEl("cdSkip").oninput = () => { cd.skipDirty = true; };
+optEl("cdSkipSave").onclick = async () => {
+  const dates = optEl("cdSkip").value.split(/[\s,]+/).filter(Boolean);
+  try {
+    await optJson("/api/condor/skipdates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dates }) });
+    cd.skipDirty = false; cdLoad();
+  } catch (err) { alert(err.message); }
+};
+setInterval(() => { if (optTab === "condor" && !document.hidden && optEl("cdCard").offsetParent) cdLoad(); }, 5000);
 
 async function oicLoad(quiet = false) {
   if (!oic.u || !oic.sel.size || oic.busy) return;

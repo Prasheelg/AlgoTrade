@@ -143,6 +143,15 @@ def start() -> None:
         _state["thread"].start()
 
 
+def oi_at_open(tsym: str, day: str) -> float | None:
+    """A contract's OI at the first minute recorded on `day` (the open, for NIFTY's nearest expiry), or None."""
+    with _lock:
+        if _hist["day"] != day:
+            return None
+        series = _hist["oi"].get(tsym) or {}
+        return series[min(series)] if series else None
+
+
 def _at(series: dict, stamp: str):
     """The value recorded at or just before `stamp` ("HH:MM"), or None."""
     best = None

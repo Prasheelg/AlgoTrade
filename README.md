@@ -341,6 +341,38 @@ margin can differ.
 Option trading needs the F&O segment activated on the Kotak account; otherwise Kotak rejects the order and the
 reason is shown. Contracts come from Kotak's F&O scrip master, downloaded once a day (`data/kotak_nse_fo_*.csv`).
 
+### 0DTE iron condor (algo)
+Strategy Builder › **0DTE Condor** runs the *Nifty 0DTE Short Iron Condor* rulebook (`algotrade/condor.py`) on
+NIFTY's weekly expiry day: 1 lot (65), 50-point wings, nothing on other days.
+- **Day filters** (checked after 09:15, again at entry): expiry day, not an event day, India VIX up no more than
+  5% on the day, VIX IV percentile over 252 days between 30 and 85. Logged checks that never block: VIX 11–20,
+  VIX above HV10 (Nifty's 10-day realised volatility). VIX history and Nifty closes come from Yahoo once a day.
+- **Entry 09:45–10:15.** 1SD to expiry: A = spot × IV_avg × √(minutes left ÷ 375 ÷ 252), with IV_avg the mean of
+  the ATM call and put IV, against B = ATM straddle × 1.25; A if within 10% of B, else B. The IVs are solved on
+  that same trading-minute clock, so A and B normally agree; a big gap means stale prices, and B is used.
+- **Strikes:** short call = the farthest of the 0.16-delta call, spot + 1SD and the call OI wall (most call OI
+  above spot within ±2SD), rounded up to 50; the put side mirrors it, rounded down. No entry if a wall's OI has
+  fallen more than 2% since the open (unwinding). POP > 75% at the prices it would trade at (sell at the bid,
+  buy at the ask). Wings are bought first, then the shorts are sold.
+- **Management, every minute:** a side rolls **out** when its 1SD level is 25+ points past the short strike (or
+  its OI wall moved past it), and **in** when the short is 75+ points beyond the level and the roll brings in a
+  net credit. Each roll uses the full entry rule and needs POP > 75%; otherwise a threatened side is closed. At
+  least 10 minutes between rolls, none after 14:30 (a threatened side is closed instead).
+- **Daily loss cap:** fills' cash + open legs at mid − charges ≤ −₹2,600 (`CONDOR_LOSS_CAP`) closes everything
+  for the day (checked every 3 s). **From 15:00** all legs are squared off, shorts first, then wings.
+- **Modes** (top of the tab): **Paper** (default) fills at the bid / ask with no orders, so you can watch it for a
+  few expiries; **Live** places MIS marketable limits on Kotak (re-priced up to 4 times) and needs the Auto-trade
+  switch ON to open or roll (never to close); **Off** starts nothing new, but an open position is still managed
+  to its exit. Leaving Off needs a device that may trade; Off works from anywhere. **Close all legs** exits now.
+- **Event days:** the list at the bottom of the tab (`data/condor_skip.json`); add RBI policy, Budget, election
+  results and the like each month.
+- Every decision (checks, A / B, which candidate won each strike, credit, POP, rolls with reason and cash,
+  charges, net P&L) is logged per day and posted to Telegram; **Check the rules now** runs the whole rulebook on
+  live data on any day, against the nearest expiry, without trading.
+Before Live: Kotak must have the server's static IP whitelisted, and SEBI's retail algo rules may need the
+strategy registered with Kotak (low order rates usually fall under regular API use). Charges (about ₹150–250 per
+round trip, more with rolls) are a large share of a ₹300–700 credit.
+
 ### Watchlist, market overview and price alerts
 **Market today** (first tab of Watchlist): NIFTY 50, Bank, Next 50, Midcap, Smallcap and India VIX; sector indices
 ranked by today's move; NIFTY 100 breadth (up / down), the average move per industry, the top gainers and losers;

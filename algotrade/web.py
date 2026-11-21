@@ -561,6 +561,68 @@ def api_trading_set():
     return jsonify(st)
 
 
+# ---- Nifty 0DTE iron condor (condor.py) ---------------------------------------------------------
+
+@app.get("/api/condor")
+def api_condor():
+    from . import condor
+    try:
+        return jsonify(condor.status())
+    except Exception as exc:
+        log.exception("Condor status failed")
+        return jsonify({"error": f"Condor status unavailable: {exc}"}), 502
+
+
+@app.post("/api/condor/plan")
+def api_condor_plan():
+    """The rulebook on live data now (nearest expiry); nothing is traded."""
+    from . import condor
+    try:
+        return jsonify(condor.plan_now())
+    except Exception as exc:
+        log.exception("Condor plan failed")
+        return jsonify({"error": f"Plan unavailable: {exc}"}), 502
+
+
+@app.post("/api/condor/mode")
+def api_condor_mode():
+    """Off / Paper / Live. Live (and leaving Off) needs a device that may trade; Off works from anywhere."""
+    from . import condor
+    mode = str((request.get_json(silent=True) or {}).get("mode", "")).lower()
+    if mode != "off" and not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    try:
+        condor.set_mode(mode, by=f"dashboard ({access.who()})")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(condor.status())
+
+
+@app.post("/api/condor/exit")
+def api_condor_exit():
+    from . import condor
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    try:
+        return jsonify(condor.exit_now(by=f"dashboard ({access.who()})"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.post("/api/condor/skipdates")
+def api_condor_skipdates():
+    from . import condor
+    if not access.can_trade():
+        return jsonify({"error": access.TRADE_REFUSED}), 403
+    dates = (request.get_json(silent=True) or {}).get("dates")
+    if not isinstance(dates, list):
+        return jsonify({"error": "Send {\"dates\": [\"YYYY-MM-DD\", ...]}"}), 400
+    try:
+        return jsonify({"skip_dates": condor.set_skip_dates(dates)})
+    except ValueError as exc:
+        return jsonify({"error": f"Bad date: {exc}"}), 400
+
+
 @app.post("/api/refresh")
 def api_refresh():
     mkt = _market()
@@ -1297,6 +1359,8 @@ def serve(host: str = "127.0.0.1", port: int = 8050) -> None:
     orderbook.start_watch()
     from . import oiflow
     oiflow.start()
+    from . import condor
+    condor.start()            # Nifty 0DTE iron condor (paper by default)
     log.info("Dashboard running at http://%s:%d", host, port)
     # Flask logs every request; the page polls constantly, so keep only warnings and errors
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
