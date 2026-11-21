@@ -507,20 +507,15 @@ The PC has to be on with the dashboard running; otherwise the app shows "Can't r
 dashboard to a cloud server later removes that need.
 
 ### AWS server
-The dashboard (with its scanner) runs on an EC2 t3.small in Mumbai (`ap-south-1`, instance tag `algotrade`, Ubuntu
-24.04) on the Elastic IP **65.2.173.90**, so Kotak always sees the same address.
-- **https://algo.trendywork.in** (use this one): Cloudflare Access login (email one-time PIN), then
-  `DASHBOARD_PIN`. A Cloudflare Tunnel (`cloudflared` service on the server, hostname → `http://127.0.0.1:8050`)
-  carries it, so orders work from the phone.
-- https://65-2-173-90.sslip.io (backup): Caddy with a Let's Encrypt certificate, PIN login, look only (an ordinary
-  proxy, so `access.py` allows no orders through it).
-- SSH: `ssh algotrade-aws` (key `~/.ssh/algotrade-aws.pem`, entry in `~/.ssh/config`).
-- Service: `sudo systemctl status|restart algotrade`, logs `journalctl -u algotrade -f`; it starts on boot and
-  restarts if it dies. Code in `~/AlgoTrade`, packages in `~/venv` (`aws_req.txt`), time zone Asia/Kolkata.
-- Caddy (`/etc/caddy/Caddyfile`) proxies 443 to 127.0.0.1:8050; `sudo systemctl status cloudflared` for the tunnel.
-  Security group `algotrade-sg` opens 22, 80, 443.
-- Update the code from this PC: `git archive HEAD | ssh algotrade-aws "tar -x -C ~/AlgoTrade"` then
-  `ssh algotrade-aws sudo systemctl restart algotrade`. `.env` and `data/` live on the server (never in git).
+The dashboard (with its scanner) runs on an EC2 server named `AlgoTrade` in Mumbai (`ap-south-1`) on the Elastic
+IP **65.2.173.90**, so Kotak always sees the same address. It is managed from `G:\Prasheel\Projects\aws`:
+**Start AlgoTrade.bat** starts (or launches) it and opens the dashboard, **Stop AlgoTrade.bat** stops it, and
+`--fresh` replaces it with a new server (backed up to S3 first). A new server clones this repo from GitHub, gets the
+`.env` files and the Cloudflare Tunnel from that folder, and runs `algotrade`, `nr7-trader` and `cloudflared` as services.
+- **https://algo.trendywork.in**: Cloudflare Access login (email one-time PIN), then `DASHBOARD_PIN`; orders work
+  from the phone, since requests carry the Cloudflare Access token.
+- SSH: `ssh -i G:\Prasheel\Projects\aws\algotrade-key.pem ubuntu@65.2.173.90` (or `python manage_app.py status|logs`).
+- Update the running server after a push: `cd ~/AlgoTrade && git pull && sudo systemctl restart algotrade`.
 - Run the dashboard on **one** machine only: the PC and the server together mean double scans, double Telegram
   alerts and, with Auto-trade on, double orders.
 
