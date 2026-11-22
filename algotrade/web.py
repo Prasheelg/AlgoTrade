@@ -561,13 +561,24 @@ def api_trading_set():
     return jsonify(st)
 
 
-# ---- Nifty 0DTE iron condor (condor.py) ---------------------------------------------------------
+# ---- 0DTE iron condor on NIFTY / BANKNIFTY / SENSEX (condor.py) ---------------------------------
+# Every call names its index: ?und=BANKNIFTY on GET, {"und": "SENSEX"} in a POST body (NIFTY when left out).
+
+def _cond_und() -> str:
+    from . import condor
+    raw = request.args.get("und") or (request.get_json(silent=True) or {}).get("und")
+    return condor._und(raw)
+
 
 @app.get("/api/condor")
 def api_condor():
     from . import condor
     try:
-        return jsonify(condor.status())
+        u = _cond_und()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    try:
+        return jsonify(condor.status(u))
     except Exception as exc:
         log.exception("Condor status failed")
         return jsonify({"error": f"Condor status unavailable: {exc}"}), 502
@@ -578,7 +589,7 @@ def api_condor_plan():
     """The rulebook on live data now (nearest expiry); nothing is traded."""
     from . import condor
     try:
-        return jsonify(condor.plan_now())
+        return jsonify(condor.plan_now(u=_cond_und()))
     except Exception as exc:
         log.exception("Condor plan failed")
         return jsonify({"error": f"Plan unavailable: {exc}"}), 502
@@ -592,10 +603,11 @@ def api_condor_mode():
     if mode != "off" and not access.can_trade():
         return jsonify({"error": access.TRADE_REFUSED}), 403
     try:
-        condor.set_mode(mode, by=f"dashboard ({access.who()})")
+        u = _cond_und()
+        condor.set_mode(mode, by=f"dashboard ({access.who()})", u=u)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify(condor.status())
+    return jsonify(condor.status(u))
 
 
 @app.post("/api/condor/trading")
@@ -609,10 +621,13 @@ def api_condor_trading():
     if body["enabled"] and not access.can_trade():
         return jsonify({"error": access.TRADE_REFUSED}), 403
     try:
-        condor.set_trading(body["enabled"], by=f"dashboard ({access.who()})")
+        u = _cond_und()
+        condor.set_trading(body["enabled"], by=f"dashboard ({access.who()})", u=u)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     except broker.BrokerError as exc:
         return jsonify({"error": f"Kotak login failed, the condor's Auto-trade stays off: {exc}"}), 502
-    return jsonify(condor.status())
+    return jsonify(condor.status(u))
 
 
 @app.post("/api/condor/close")
@@ -624,9 +639,10 @@ def api_condor_close():
     b = request.get_json(silent=True) or {}
     by = f"dashboard ({access.who()})"
     try:
+        u = _cond_und()
         if b.get("tsym"):
-            return jsonify(condor.close_leg(str(b["tsym"]), by))
-        return jsonify(condor.close_side(str(b.get("side", "")), by))
+            return jsonify(condor.close_leg(str(b["tsym"]), by, u))
+        return jsonify(condor.close_side(str(b.get("side", "")), by, u))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:
@@ -643,10 +659,11 @@ def api_condor_rules():
     if not isinstance(changes, dict):
         return jsonify({"error": "Send {\"rules\": {\"<rule>\": true | false}}"}), 400
     try:
-        condor.set_rules(changes, by=f"dashboard ({access.who()})")
+        u = _cond_und()
+        condor.set_rules(changes, by=f"dashboard ({access.who()})", u=u)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify(condor.status())
+    return jsonify(condor.status(u))
 
 
 @app.post("/api/condor/exit")
@@ -655,7 +672,7 @@ def api_condor_exit():
     if not access.can_trade():
         return jsonify({"error": access.TRADE_REFUSED}), 403
     try:
-        return jsonify(condor.exit_now(by=f"dashboard ({access.who()})"))
+        return jsonify(condor.exit_now(by=f"dashboard ({access.who()})", u=_cond_und()))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -1411,7 +1428,7 @@ def serve(host: str = "127.0.0.1", port: int = 8050) -> None:
     from . import oiflow
     oiflow.start()
     from . import condor
-    condor.start()            # Nifty 0DTE iron condor (paper by default)
+    condor.start()            # 0DTE iron condor on NIFTY, BANKNIFTY and SENSEX (paper by default)
     log.info("Dashboard running at http://%s:%d", host, port)
     # Flask logs every request; the page polls constantly, so keep only warnings and errors
     logging.getLogger("werkzeug").setLevel(logging.WARNING)

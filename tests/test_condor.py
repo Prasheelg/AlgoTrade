@@ -180,11 +180,12 @@ class Market:
 @pytest.fixture
 def mkt(monkeypatch):
     m = Market()
-    monkeypatch.setattr(condor, "snapshot", lambda exp, now: m.snap(exp, now))
+    monkeypatch.setattr(condor, "snapshot", lambda exp, now, u="NIFTY": m.snap(exp, now))
     monkeypatch.setattr(condor, "vix_quote", lambda: dict(VIX))
     monkeypatch.setattr(condor, "history", lambda now: HIST)
-    monkeypatch.setattr(condor, "today_expiry", lambda now: EXP.isoformat() if now.date() == EXP else None)
-    monkeypatch.setattr(condor, "next_expiry", lambda now: EXP.isoformat())
+    monkeypatch.setattr(condor, "today_expiry",
+                        lambda now, u="NIFTY": EXP.isoformat() if now.date() == EXP and u == "NIFTY" else None)
+    monkeypatch.setattr(condor, "next_expiry", lambda now, u="NIFTY": EXP.isoformat())
     monkeypatch.setattr(condor, "_quote", m.quote)
     real = condor.markets.get("IN")
 
@@ -196,15 +197,14 @@ def mkt(monkeypatch):
     sent = []
     monkeypatch.setattr(condor.telegram_bot, "send_message", lambda text, *a, **k: sent.append(text))
     m.sent = sent
-    condor._mem.update(plan=None, pnl=None, marks={}, retarget_at=0.0, entry_try=0.0, exit_warned=None)
+    condor._mem["books"].clear()
     condor.set_mode("paper", "test")
     return m
 
 
 def run(m, h, mi, d=EXP):
     m.now = at(h, mi, d)
-    condor._mem["retarget_at"] = 0.0
-    condor._mem["entry_try"] = 0.0
+    condor._book("NIFTY").update(retarget_at=0.0, entry_try=0.0)
     condor.tick(m.now)
 
 
@@ -263,7 +263,7 @@ def test_loss_cap_closes_everything(mkt):
     tsym = f"NIFTY{int(sc)}CE"
     mkt.override[tsym] = {"tsym": tsym, "bid": 90.0, "ask": 90.1, "ltp": 90.0}   # short call blows up
     mkt.now = at(11, 0)
-    condor._mem["retarget_at"] = 1e18                     # loss check only, no re-target
+    condor._book("NIFTY")["retarget_at"] = 1e18                     # loss check only, no re-target
     condor.tick(mkt.now)
     rec = condor.get_day(day)
     assert rec["status"] == condor.STOPPED and not condor.position(day)
@@ -376,8 +376,8 @@ def test_entry_prices_average_and_reset():
     day = "2026-11-24"
     for action, qty, px in (("SELL", 65, 10.0), ("SELL", 65, 12.0), ("BUY", 65, 5.0), ("BUY", 65, 6.0),
                             ("BUY", 65, 3.0)):
-        c._record_fill(day, "paper", "NIFTY26100CE", "CE", 26100.0, action, qty, px, None, "t")
-    c._record_fill(day, "paper", "NIFTY26150CE", "CE", 26150.0, "BUY", 65, 2.0, None, "t")
+        c._record_fill(day, "NIFTY", "paper", "NIFTY26100CE", "CE", 26100.0, action, qty, px, None, "t")
+    c._record_fill(day, "NIFTY", "paper", "NIFTY26150CE", "CE", 26150.0, "BUY", 65, 2.0, None, "t")
     avg = c.entry_prices(day)
     assert avg == {"NIFTY26100CE": 3.0, "NIFTY26150CE": 2.0}     # short closed, then re-opened long at 3
 
@@ -440,6 +440,86 @@ def test_loss_cap_off_keeps_the_position(mkt):
     tsym = f"NIFTY{int(sc)}CE"
     mkt.override[tsym] = {"tsym": tsym, "bid": 90.0, "ask": 90.1, "ltp": 90.0}
     mkt.now = at(11, 0)
-    condor._mem["retarget_at"] = 1e18
+    condor._book("NIFTY")["retarget_at"] = 1e18
     condor.tick(mkt.now)
     assert condor.get_day(day)["status"] == condor.OPEN and condor.position(day)
+
+
+# ---- BANKNIFTY and SENSEX books ---------------------------------------------------------------------------
+
+def index_snap(u, spot, iv, now, lo, hi, step, lot):
+    t = condor.years(condor.trading_minutes_to(EXP, now))
+    rows = []
+    for k in range(lo, hi + step, step):
+        row = {"strike": float(k)}
+        for opt in ("CE", "PE"):
+            px = max(strategy.bs_price(opt, spot, k, t, iv, 0.0), 0.05)
+            row[opt.lower()] = {"tsym": f"{u}{k}{opt}", "bid": round(max(px - 0.05, 0.05), 2), "ask": round(px + 0.05, 2),
+                                "ltp": round(px, 2), "oi": 1e6, "oi_open": 1e6}
+        rows.append(row)
+    return {"underlying": u, "spot": spot, "expiry": EXP.isoformat(), "lot": lot, "rows": rows}
+
+
+@pytest.mark.parametrize("u,spot,step,wing,lot", [("BANKNIFTY", 59050.0, 100, 100, 30), ("SENSEX", 84020.0, 100, 200, 20)])
+def test_other_indices_use_their_own_step_and_wing(u, spot, step, wing, lot):
+    now = at(10, 0)
+    snap = index_snap(u, spot, 0.16, now, int(spot * 0.9) // step * step, int(spot * 1.1) // step * step, step, lot)
+    hist = {"vix": HIST["vix"], "index": [spot * (1 + 0.004 * (i % 3)) for i in range(11)]}
+    p = condor.evaluate(snap, now, VIX, hist, [])
+    tg = p["targets"]
+    assert p["underlying"] == u and tg["short_call"] % step == 0 and tg["short_put"] % step == 0
+    assert tg["long_call"] - tg["short_call"] == wing and tg["short_put"] - tg["long_put"] == wing
+    assert p["qty"] == lot and p["max_loss"] == pytest.approx((wing - p["credit"]) * lot)
+    assert all(g["tsym"].startswith(u) for g in p["legs"]) and p["hv10"] is not None
+
+
+def test_books_are_independent(monkeypatch):
+    monkeypatch.setattr(condor.telegram_bot, "send_message", lambda *a, **k: None)
+    monkeypatch.setattr(condor, "today_expiry", lambda now, u="NIFTY": None)
+    monkeypatch.setattr(condor, "next_expiry", lambda now, u="NIFTY": None)
+    condor.set_mode("off", "test", u="BANKNIFTY")
+    condor.set_rules({"pop": False}, "test", u="SENSEX")
+    assert condor.get_mode() == "paper" and condor.get_mode("BANKNIFTY") == "off" and condor.get_mode("SENSEX") == "paper"
+    assert condor.get_rules()["pop"] and not condor.get_rules("SENSEX")["pop"]
+    day = "2026-11-26"
+    condor._record_fill(day, "SENSEX", "paper", "SENSEX84000CE", "CE", 84000.0, "SELL", 20, 50.0, None, "t")
+    assert condor.position(day, "SENSEX") and not condor.position(day) and not condor.position(day, "BANKNIFTY")
+    assert condor.loss_cap("NIFTY") == 2600 and condor.loss_cap("BANKNIFTY") == 2400 and condor.loss_cap("SENSEX") == 3200
+    st = condor.status("BANKNIFTY")
+    assert st["underlying"] == "BANKNIFTY" and st["mode"] == "off" and st["rules"]["wing"] == 100
+    assert [b["underlying"] for b in st["books"]] == ["NIFTY", "BANKNIFTY", "SENSEX"]
+    assert "1 lot, 100-point wings" in st["locked_rules"]
+    with pytest.raises(ValueError):
+        condor.status("FINNIFTY")
+
+
+def test_nifty_only_tables_are_migrated():
+    from algotrade import state
+    con = state._conn()
+    con.execute("CREATE TABLE condor_days (day TEXT PRIMARY KEY, mode TEXT, status TEXT, reason TEXT, expiry TEXT, "
+                "entry_at TEXT, exit_at TEXT, last_roll_at TEXT, rolls INTEGER DEFAULT 0, entry TEXT, pnl REAL, "
+                "charges REAL, updated_at TEXT)")
+    con.execute("INSERT INTO condor_days (day, mode, status, pnl) VALUES ('2026-11-17', 'paper', 'CLOSED', 812.5)")
+    con.execute("CREATE TABLE condor_fills (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT, at TEXT, mode TEXT, "
+                "tsym TEXT, opt TEXT, strike REAL, action TEXT, qty INTEGER, price REAL, charges REAL, order_id TEXT, "
+                "why TEXT)")
+    con.execute("INSERT INTO condor_fills (day, tsym, opt, strike, action, qty, price) "
+                "VALUES ('2026-11-17', 'NIFTY26000CE', 'CE', 26000, 'SELL', 65, 10)")
+    con.commit()
+    rec = condor.get_day("2026-11-17")
+    assert rec["status"] == "CLOSED" and rec["pnl"] == 812.5 and rec["und"] == "NIFTY"
+    assert condor.get_day("2026-11-17", "SENSEX") is None
+    assert condor.position("2026-11-17") and not condor.position("2026-11-17", "BANKNIFTY")
+
+
+def test_bse_scrip_master_parses_sensex_options():
+    from algotrade import fno
+    head = "pSymbol,pExchSeg,pInstType,pSymbolName,pTrdSymbol,pOptionType,dTickSize ,lLotSize,dStrikePrice;,pExpiryDate"
+    rows = ["1134407,bse_fo,IO,SENSEX,SENSEX26N2675900PE,PE,5,20,7.59e+06,1795717799",
+            "1134408,bse_fo,IO,BANKEX,BANKEX26N2660000CE,CE,5,30,6.0e+06,1795717799",
+            "1134409,bse_fo,SO,RELIANCE,RELIANCE26N1500CE,CE,5,500,1.5e+05,1795717799"]
+    df = fno.parse_bse_master("\n".join([head, *rows]))
+    assert list(df["tsym"]) == ["SENSEX26N2675900PE"]
+    r = df.iloc[0]
+    assert r["strike"] == 75900 and r["lot"] == 20 and r["tick"] == 0.05 and str(r["expiry"]) == "2026-11-26"
+    assert fno.segment_of(r.to_dict()) == "bse_fo" and fno.segment_of({}) == "nse_fo"

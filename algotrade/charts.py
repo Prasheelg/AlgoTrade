@@ -51,7 +51,7 @@ def resolve(name: str, market: str = "IN") -> dict:
         exp = pd.Timestamp(c["expiry"]).strftime("%d %b")
         sym = c["tsym"]
         return {"kind": "option", "symbol": sym, "label": f"{c['underlying']} {c['strike']:g} {c['opt']} · exp {exp}",
-                "kotak": f"{fno.SEGMENT}|{c['token']}", "lot": int(c["lot"])}
+                "kotak": f"{fno.segment_of(c)}|{c['token']}", "lot": int(c["lot"])}
     name = name.strip()
     if _kotak_index(name):   # any other index Kotak quotes, by its Kotak name ("Nifty IT", "INDIA VIX")
         return {"kind": "index", "symbol": name, "label": name, "kotak": f"nse_cm|{name}"}

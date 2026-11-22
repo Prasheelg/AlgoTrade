@@ -445,6 +445,18 @@
   .opt-spot .q-stats small { color: var(--muted); font-size: 11px; margin-left: 2px; }
   /* 0DTE condor */
   .cd { padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .cd-unds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .cd-und { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; min-width: 0;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; cursor: pointer; color: var(--ink); font: inherit; }
+  .cd-und:hover { border-color: var(--muted); }
+  .cd-und.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--panel); }
+  .cd-und .nm { display: flex; align-items: center; gap: 7px; font-weight: 650; font-size: 14px; }
+  .cd-und .nm .cd-dot { margin-right: 0; vertical-align: 0; }
+  .cd-und .ex { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .cd-und .cd-sb { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .cd-und .cd-sb b { font-weight: 600; }
+  .cd-und .cd-sb .live { color: var(--down); } .cd-und .cd-sb .paper { color: var(--accent); }
+  @media (max-width: 560px) { .cd-und { padding: 8px 9px; } .cd-und .ex { display: none; } }
   .cd-top { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
   .cd-title h3 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
   .cd-title .hint { display: block; margin-top: 2px; }
@@ -1468,13 +1480,14 @@
       </div>
     </section>
     <section class="card cd" id="cdCard" data-ot="condor" hidden>
+      <div class="cd-unds" id="cdUnds" role="tablist" aria-label="Index"></div>
       <header class="cd-top">
-        <div class="cd-title"><h3>Nifty 0DTE iron condor</h3>
-          <span class="hint">NIFTY weekly expiry only · 1 lot · 50-pt wings · runs by the rulebook</span></div>
+        <div class="cd-title"><h3 id="cdTitle">Nifty 0DTE iron condor</h3>
+          <span class="hint" id="cdSub">NIFTY weekly expiry only · 1 lot · 50-pt wings · runs by the rulebook</span></div>
         <div class="cd-ctl">
           <div class="cd-ctl-g"><span class="lbl">Mode</span><div class="seg" id="cdMode" role="group" aria-label="Condor mode">
             <button type="button" data-v="off">Off</button><button type="button" data-v="paper">Paper</button><button type="button" data-v="live">Live</button></div></div>
-          <label class="switch cd-auto" title="The condor's own Auto-trade: Live mode opens and rolls trades only while this is on (separate from the Auto-trade switch at the top)"><input type="checkbox" id="cdAuto"><span>Condor Auto-trade</span></label>
+          <label class="switch cd-auto" title="This index's own condor Auto-trade: Live mode opens and rolls trades only while this is on (separate from the Auto-trade switch at the top and from the other indices)"><input type="checkbox" id="cdAuto"><span id="cdAutoLbl">Condor Auto-trade</span></label>
           <button type="button" class="btn" id="cdPlanBtn">Check the rules now</button>
         </div>
       </header>
@@ -1501,8 +1514,8 @@
         <div class="tablewrap"><table class="cd-hist"><thead><tr><th>Day</th><th>Mode</th><th>Result</th>
           <th class="num">Rolls</th><th class="num">Charges</th><th class="num">Net P&amp;L</th></tr></thead><tbody id="cdHist"></tbody></table></div></details>
       <details class="cd-fold" id="cdRulesBox"><summary><span>Rule settings</span><span class="n" id="cdRulesN"></span><span class="cd-last" id="cdRulesOff"></span></summary>
-        <div class="cd-rset" id="cdRset"></div></details>
-      <details class="cd-fold"><summary><span>Event days &amp; rules</span><span class="n" id="cdSkipN">0</span></summary>
+        <p class="hint cd-note" id="cdRsetNote"></p><div class="cd-rset" id="cdRset"></div></details>
+      <details class="cd-fold"><summary><span>Event days &amp; rules</span><span class="cd-last">event days apply to every index</span><span class="n" id="cdSkipN">0</span></summary>
         <div class="cd-skip"><textarea id="cdSkip" rows="3" placeholder="No trade on these days. One date per line, YYYY-MM-DD: RBI policy, Budget, election results..."></textarea>
           <button type="button" class="btn" id="cdSkipSave">Save event days</button></div>
         <p class="hint cd-rules" id="cdRules"></p></details>
@@ -3272,8 +3285,12 @@ function setOptTab(t) {
 }
 optEl("optTabs").onclick = e => { const b = e.target.closest("button[data-ot]"); if (b) setOptTab(b.dataset.ot); };
 
-// ---- Nifty 0DTE iron condor ----
-const cd = { data: null, busy: false, plan: null, skipDirty: false };
+// ---- 0DTE iron condor: NIFTY, BANKNIFTY and SENSEX, each its own book ----
+const CD_UNDS = { NIFTY: "Nifty", BANKNIFTY: "Bank Nifty", SENSEX: "Sensex" };
+const cd = { data: null, busy: false, plan: null, skipDirty: false, u: "NIFTY" };
+try { const v = localStorage.getItem("cdUnd"); if (CD_UNDS[v]) cd.u = v; } catch (e) {}
+const cdPost = (path, body) => optJson(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(body || {}), und: cd.u }) });
+const cdName = () => CD_UNDS[cd.u] || cd.u;
 const cdInr = v => v == null ? "–" : `${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const cdNum = (v, d = 0) => v == null ? "–" : Number(v).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d });
 const CD_STATUS = { WAITING: "Waiting for 09:45", OPEN: "Position open", SKIPPED: "No trade today", CLOSED: "Closed",
@@ -3282,8 +3299,11 @@ const CD_STATUS = { WAITING: "Waiting for 09:45", OPEN: "Position open", SKIPPED
 async function cdLoad() {
   if (cd.busy) return;
   cd.busy = true;
+  const u = cd.u;
   try {
-    cd.data = await optJson("/api/condor");
+    const j = await optJson(`/api/condor?und=${encodeURIComponent(u)}`);
+    if (u !== cd.u) return;                     // the index was switched meanwhile
+    cd.data = j;
     optEl("cdErr").hidden = true;
     renderCondor();
   } catch (err) {
@@ -3299,7 +3319,8 @@ function cdLadder(p, w) {
   const t = p.targets, sd = p.sd?.sd, s = p.spot;
   if (!t || !sd || !s) return "";
   const be = p.breakevens || [];
-  const lo = Math.min(t.long_put, s - sd) - 70, hi = Math.max(t.long_call, s + sd) + 70;
+  const padPts = 1.4 * (t.long_call - t.short_call || 50);
+  const lo = Math.min(t.long_put, s - sd) - padPts, hi = Math.max(t.long_call, s + sd) + padPts;
   const narrow = w < 560, H = narrow ? 104 : 132, pad = 18, X = v => pad + (v - lo) / (hi - lo) * (w - 2 * pad), y = 62;
   const f = v => Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   let g = "";
@@ -3308,14 +3329,14 @@ function cdLadder(p, w) {
   for (const [v, lab] of [[s - sd, "−1SD"], [s + sd, "+1SD"]])
     g += `<line x1="${X(v)}" x2="${X(v)}" y1="22" y2="${y + 24}" stroke="var(--warn)" stroke-dasharray="4 3"/>` +
       (narrow ? `<text x="${X(v)}" y="${y + 38}" text-anchor="middle" class="sub">${lab}</text>` : `<text x="${X(v)}" y="16" text-anchor="middle" class="sub">${lab} ${f(v)}</text>`);
-  g += `<line x1="${X(s)}" x2="${X(s)}" y1="22" y2="${y + 24}" stroke="var(--accent)" stroke-width="2"/><text x="${X(s)}" y="16" text-anchor="middle" style="fill:var(--accent)">Nifty ${f(s)}</text>`;
+  g += `<line x1="${X(s)}" x2="${X(s)}" y1="22" y2="${y + 24}" stroke="var(--accent)" stroke-width="2"/><text x="${X(s)}" y="16" text-anchor="middle" style="fill:var(--accent)">${esc(CD_UNDS[p.underlying] || p.underlying || "Spot")} ${f(s)}</text>`;
   for (const [k, opt] of [[t.long_put, "PE"], [t.long_call, "CE"]])
     g += `<circle cx="${X(k)}" cy="${y}" r="6" fill="var(--panel)" stroke="var(--up)" stroke-width="2.5"/>${narrow ? "" : `<text x="${X(k)}" y="${y - 14}" text-anchor="middle" class="sub">buy ${f(k)}</text>`}`;
   for (const [k, opt] of [[t.short_put, "PE"], [t.short_call, "CE"]])
     g += `<circle cx="${X(k)}" cy="${y}" r="7" fill="var(--down)"/><text x="${X(k)}" y="${narrow ? y - 14 : y + 24}" text-anchor="middle">${narrow ? f(k) : `sell ${f(k)} ${opt}`}</text>`;
   if (be.length === 2 && !narrow) for (const v of be)
     g += `<text x="${X(v)}" y="${y + 42}" text-anchor="middle" class="sub">BE ${f(v)}</text>`;
-  return `<svg class="cd-ladder" viewBox="0 0 ${w} ${H}" style="height:${H}px" role="img" aria-label="Condor strikes against Nifty and its 1SD range">${g}</svg>`;
+  return `<svg class="cd-ladder" viewBox="0 0 ${w} ${H}" style="height:${H}px" role="img" aria-label="Condor strikes against the index and its 1SD range">${g}</svg>`;
 }
 
 function cdChecks(p) {
@@ -3343,7 +3364,7 @@ function cdChecks(p) {
       <div><span class="k">1SD to expiry</span><b>${cdNum(sd.sd)} pts</b><span class="d">uses ${esc(sd.used || "–")} · A ${cdNum(sd.a)} / B ${cdNum(sd.b)}</span></div>
       <div><span class="k">ATM IV call / put</span><b>${sd.iv_ce ? cdNum(sd.iv_ce * 100, 1) : "–"} / ${sd.iv_pe ? cdNum(sd.iv_pe * 100, 1) : "–"}%</b><span class="d">straddle ${cdNum((sd.atm_ce || 0) + (sd.atm_pe || 0), 2)} at ${cdNum(sd.atm)}</span></div>
       <div><span class="k">Credit</span><b>${cdNum(p.credit, 2)}</b><span class="d">${p.credit != null ? `max profit ${cdInr(p.max_profit)}` : "needs live bids / asks"}</span></div>
-      <div><span class="k">Max loss</span><b>${p.max_loss != null ? cdInr(-p.max_loss) : "–"}</b><span class="d">(50 − credit) × ${cdNum(p.qty || p.lot)}</span></div>
+      <div><span class="k">Max loss</span><b>${p.max_loss != null ? cdInr(-p.max_loss) : "–"}</b><span class="d">(${cdNum(p.targets ? p.targets.long_call - p.targets.short_call : cd.data?.rules?.wing)} − credit) × ${cdNum(p.qty || p.lot)}</span></div>
       <div><span class="k">POP</span><b class="${p.pop > 0.75 ? "up" : p.pop != null ? "down" : ""}">${p.pop != null ? cdNum(p.pop * 100, 1) + "%" : "–"}</b><span class="d">needs > 75%</span></div>
       <div><span class="k">India VIX · IVP · HV10</span><b>${cdNum(p.vix?.now, 2)} · ${cdNum(p.ivp)} · ${cdNum(p.hv10, 1)}</b><span class="d">VIX ${p.vix?.change_pct != null ? (p.vix.change_pct >= 0 ? "+" : "") + cdNum(p.vix.change_pct, 2) + "%" : "–"} today</span></div>
     </div>
@@ -3355,21 +3376,39 @@ function cdChecks(p) {
     </div></div>`;
 }
 
+function cdUnds(j) {
+  optEl("cdUnds").innerHTML = (j.books || []).map(b => {
+    const exp = b.today_expiry || b.next_expiry, dn = exp ? cdDaysTo(exp) : null;
+    const when = b.today_expiry ? "<b>expiry today</b>" : exp ? `next ${esc(cdDay(exp).replace(/^\w+,?\s*/, ""))}${dn != null && dn > 0 && dn < 8 ? ` (${dn}d)` : ""}` : "no expiry listed";
+    const mode = b.mode === "live" ? `<b class="live">Live${b.trading_enabled ? "" : " (switch off)"}</b>` : b.mode === "paper" ? `<b class="paper">Paper</b>` : "Off";
+    const st = b.legs ? `<b class="${b.pnl > 0 ? "up" : b.pnl < 0 ? "down" : ""}">open ${cdInr(b.pnl)}</b>` : b.status ? esc(CD_STATUS[b.status] || b.status) : when;
+    return `<button type="button" role="tab" class="cd-und${b.underlying === cd.u ? " on" : ""}" data-u="${esc(b.underlying)}" aria-selected="${b.underlying === cd.u}">
+      <span class="nm">${b.legs ? `<span class="cd-dot OPEN"></span>` : ""}${esc(b.name)}<span class="ex">${esc(b.underlying)}</span></span>
+      <span class="cd-sb">${mode}</span><span class="cd-sb">${st}</span></button>`;
+  }).join("");
+}
+
 function renderCondor() {
   const j = cd.data; if (!j) return;
+  cdUnds(j);
+  const r0 = j.rules || {};
+  optEl("cdTitle").textContent = `${j.name || cdName()} 0DTE iron condor`;
+  optEl("cdSub").textContent = `${j.underlying} ${r0.expiry || ""} expiry (${r0.exchange || "NSE"}) only · 1 lot · ${r0.wing}-pt wings · runs by the rulebook`;
+  optEl("cdAutoLbl").textContent = `${j.underlying} Auto-trade`;
+  optEl("cdRsetNote").textContent = `These switches are for ${j.underlying} only; each index keeps its own.`;
   optEl("cdMode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === j.mode));
   optEl("cdAuto").checked = !!j.trading_enabled;
   const t = j.today, pl = j.pnl, cap = j.rules.loss_cap, st = t?.status;
   const used = pl && pl.total < 0 ? Math.min(-pl.total / cap, 1) : 0;
   const exp = j.today_expiry || j.next_expiry, dn = exp ? cdDaysTo(exp) : null;
   const modeTxt = j.mode === "live" ? (j.trading_enabled ? "Live · Auto-trade ON" : "Live · Auto-trade OFF") : j.mode === "paper" ? "Paper" : "Off";
-  const modeSub = j.mode === "live" ? (j.trading_enabled ? "real Kotak orders on expiry days" : "no new trades until Condor Auto-trade is ON")
+  const modeSub = j.mode === "live" ? (j.trading_enabled ? "real Kotak orders on expiry days" : `no new trades until ${esc(j.underlying)} Auto-trade is ON`)
     : j.mode === "paper" ? "pretend fills at bid / ask, no orders" : "starts nothing new";
   optEl("cdStatus").innerHTML = `
     <div class="cd-kpi st-${esc(st || "")}"><div class="k">Today</div>
       <div class="v"><span class="cd-dot ${esc(st || "")}"></span>${t ? esc(CD_STATUS[st] || st) : j.today_expiry ? "Expiry day" : "No expiry today"}</div>
-      <div class="d" title="${esc(t?.reason || "")}">${t ? esc(st === "OPEN" ? `${t.rolls || 0} roll(s) so far` : t.reason || "") : j.today_expiry ? "checks after 09:15 · enters 09:45–10:15" : "it only trades on NIFTY expiry days"}</div></div>
-    <div class="cd-kpi"><div class="k">Next NIFTY expiry</div><div class="v">${exp ? esc(cdDay(exp)) : "–"}</div>
+      <div class="d" title="${esc(t?.reason || "")}">${t ? esc(st === "OPEN" ? `${t.rolls || 0} roll(s) so far` : t.reason || "") : j.today_expiry ? "checks after 09:15 · enters 09:45–10:15" : `it only trades on ${esc(j.underlying)} expiry days`}</div></div>
+    <div class="cd-kpi"><div class="k">Next ${esc(j.underlying)} expiry</div><div class="v">${exp ? esc(cdDay(exp)) : "–"}</div>
       <div class="d">${dn == null ? "" : dn <= 0 ? "today" : dn === 1 ? "tomorrow" : `in ${dn} days`}</div></div>
     <div class="cd-kpi"><div class="k">Day P&amp;L</div><div class="v ${pl && pl.total > 0 ? "up" : pl && pl.total < 0 ? "down" : ""}">${pl ? cdInr(pl.total) : "₹0"}</div>
       <div class="cd-meter" title="Share of the daily loss cap used"><i style="width:${(used * 100).toFixed(1)}%"></i></div>
@@ -3382,10 +3421,10 @@ function renderCondor() {
   if (!has) {
     const why = st === "SKIPPED" ? `No trade today: ${esc(t.reason || "")}`
       : st === "CLOSED" || st === "STOPPED" || st === "FAILED" ? `Today's position is closed (${esc(t.reason || CD_STATUS[st])}). Net P&L ${cdInr(t.pnl)}.`
-      : j.mode === "off" ? "The condor is Off, so it won't open a position. Pick Paper or Live above."
+      : j.mode === "off" ? `The ${esc(j.underlying)} condor is Off, so it won't open a position. Pick Paper or Live above.`
       : j.today_expiry ? (st === "WAITING" ? `Waiting for the entry window (09:45–10:15). ${esc(t.reason || "")}` : "Today is an expiry day: it checks the rules after 09:15 and enters between 09:45 and 10:15 if every hard rule passes.")
-      : `No open position. The condor only trades on NIFTY expiry days: the next is <b>${esc(cdDay(exp || ""))}</b>${dn != null && dn > 0 ? ` (in ${dn} day${dn > 1 ? "s" : ""})` : ""}, entry 09:45–10:15 if every hard rule passes.`;
-    optEl("cdPosEmpty").innerHTML = `<span class="cd-empty-ic">◇</span><div>${why}<div class="hint">${j.mode === "paper" ? "Paper mode: the position will be simulated (no orders)." : j.mode === "live" ? (j.trading_enabled ? "Live mode: real Kotak orders." : "Live mode, but Condor Auto-trade is OFF: it won't open a position.") : ""} Its legs, prices, P&amp;L and close buttons appear here.</div></div>`;
+      : `No open position. The ${esc(j.underlying)} condor only trades on ${esc(j.underlying)} expiry days: the next is <b>${esc(cdDay(exp || ""))}</b>${dn != null && dn > 0 ? ` (in ${dn} day${dn > 1 ? "s" : ""})` : ""}, entry 09:45–10:15 if every hard rule passes.`;
+    optEl("cdPosEmpty").innerHTML = `<span class="cd-empty-ic">◇</span><div>${why}<div class="hint">${j.mode === "paper" ? "Paper mode: the position will be simulated (no orders)." : j.mode === "live" ? (j.trading_enabled ? "Live mode: real Kotak orders." : `Live mode, but ${esc(j.underlying)} Auto-trade is OFF: it won't open a position.`) : ""} Its legs, prices, P&amp;L and close buttons appear here.</div></div>`;
   }
   optEl("cdExitBtn").hidden = !has;
   optEl("cdCloseCE").hidden = !sides.has("CE");
@@ -3401,6 +3440,7 @@ function renderCondor() {
   const legPl = j.legs.reduce((a, g) => a + (g.pnl || 0), 0);
   optEl("cdLegsFoot").innerHTML = has ? `<tr><td colspan="6">Open legs</td>
     <td class="num ${legPl > 0 ? "up" : legPl < 0 ? "down" : ""}">${cdInr(legPl)}</td><td></td></tr>` : "";
+  if (cd.plan && cd.plan.underlying && cd.plan.underlying !== j.underlying) cd.plan = null;
   optEl("cdPlan").innerHTML = cdChecks(cd.plan || j.plan);
   optEl("cdLogN").textContent = j.log.length;
   optEl("cdLogLast").textContent = j.log.length ? `${(j.log[0].at || "").slice(11, 16)} · ${j.log[0].text}` : "nothing yet today";
@@ -3427,38 +3467,39 @@ function renderCondor() {
   const r = j.rules;
   optEl("cdRules").textContent = `Rules: 1 lot, ${r.wing}-pt wings; entry ${r.entry}; shorts at the farthest of ${r.delta} delta, 1SD and the OI wall; POP > ${r.pop_min}%; ` +
     `VIX rise ≤ ${r.vix_rise_max}%, IVP ${r.ivp_band.join("-")} (hard), VIX ${r.vix_band.join("-")} and VIX > HV10 (checks); rolls out at ${r.out_buffer} pts, in at ${r.in_buffer} pts with a net credit, ` +
-    `${r.cooldown_min}-min cooldown, none after ${r.roll_until}; loss cap ₹${cdNum(r.loss_cap)}; square-off ${r.exit}. Paper fills at the bid / ask; Live places MIS orders and opens or rolls only while Condor Auto-trade is ON (the Auto-trade switch at the top doesn't affect it).`;
+    `${r.cooldown_min}-min cooldown, none after ${r.roll_until}; loss cap ₹${cdNum(r.loss_cap)}; square-off ${r.exit}. Paper fills at the bid / ask; Live places MIS orders and opens or rolls only while ${j.underlying} Auto-trade is ON (the Auto-trade switch at the top doesn't affect it). ` +
+    `Each index (NIFTY, BANKNIFTY, SENSEX) has its own mode, switch, rules and loss cap; India VIX filters all three, and the event days apply to all.`;
 }
 
 optEl("cdMode").onclick = async e => {
   const b = e.target.closest("button[data-v]"); if (!b || !cd.data || b.dataset.v === cd.data.mode) return;
   const m = b.dataset.v;
-  if (m === "live" && !confirm("Switch the 0DTE condor to LIVE?\n\nOn NIFTY expiry days it will place REAL orders on Kotak " +
-      "(1 lot, 4 legs, plus rolls) while Condor Auto-trade is ON. Run it in Paper for a few expiries first.")) return;
+  if (m === "live" && !confirm(`Switch the ${cd.u} 0DTE condor to LIVE?\n\nOn ${cd.u} expiry days it will place REAL orders on Kotak ` +
+      `(1 lot, 4 legs, plus rolls) while ${cd.u} Auto-trade is ON. Run it in Paper for a few expiries first.`)) return;
   try {
-    cd.data = await optJson("/api/condor/mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: m }) });
+    cd.data = await cdPost("/api/condor/mode", { mode: m });
     renderCondor();
   } catch (err) { alert(err.message); }
 };
 optEl("cdAuto").onchange = async e => {
   const on = e.target.checked;
-  if (on && !confirm("Switch Condor Auto-trade ON?\n\nIn Live mode the 0DTE condor will place REAL Kotak orders on NIFTY expiry days " +
+  if (on && !confirm(`Switch ${cd.u} condor Auto-trade ON?\n\nIn Live mode the ${cd.u} 0DTE condor will place REAL Kotak orders on ${cd.u} expiry days ` +
       "(entry, rolls, exits). In Paper mode it still places none.")) { e.target.checked = false; return; }
   try {
-    cd.data = await optJson("/api/condor/trading", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: on }) });
+    cd.data = await cdPost("/api/condor/trading", { enabled: on });
     renderCondor();
   } catch (err) { e.target.checked = !on; alert(err.message); }
 };
 optEl("cdPlanBtn").onclick = async () => {
   const b = optEl("cdPlanBtn"); b.disabled = true; b.textContent = "Checking…";
-  try { cd.plan = await optJson("/api/condor/plan", { method: "POST" }); renderCondor(); }
+  try { cd.plan = await cdPost("/api/condor/plan"); renderCondor(); }
   catch (err) { optEl("cdErr").hidden = false; optEl("cdErr").textContent = err.message; }
   finally { b.disabled = false; b.textContent = "Check the rules now"; }
 };
 async function cdClose(body, ask) {
   if (!confirm(ask)) return;
   try {
-    cd.data = await optJson("/api/condor/close", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    cd.data = await cdPost("/api/condor/close", body);
     renderCondor();
   } catch (err) { alert(err.message); }
 }
@@ -3469,8 +3510,8 @@ optEl("cdLegs").onclick = e => {
   cdClose({ tsym: b.dataset.closeLeg }, `Buy back ${b.dataset.closeLeg} now?\n\nIts wing stays open (it only limits risk) until you close it or the 15:00 exit.`);
 };
 optEl("cdExitBtn").onclick = async () => {
-  if (!confirm("Close every condor leg now (shorts first, then wings)?")) return;
-  try { cd.data = await optJson("/api/condor/exit", { method: "POST" }); renderCondor(); } catch (err) { alert(err.message); }
+  if (!confirm(`Close every ${cd.u} condor leg now (shorts first, then wings)?`)) return;
+  try { cd.data = await cdPost("/api/condor/exit"); renderCondor(); } catch (err) { alert(err.message); }
 };
 optEl("cdRset").onchange = async e => {
   const k = e.target.dataset.rule; if (!k) return;
@@ -3479,11 +3520,18 @@ optEl("cdRset").onchange = async e => {
     e.target.checked = true; return;
   }
   try {
-    cd.data = await optJson("/api/condor/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rules: { [k]: on } }) });
+    cd.data = await cdPost("/api/condor/rules", { rules: { [k]: on } });
     e.target.blur(); renderCondor();
   } catch (err) { e.target.checked = !on; alert(err.message); }
 };
 optEl("cdSkip").oninput = () => { cd.skipDirty = true; };
+optEl("cdUnds").onclick = e => {
+  const b = e.target.closest("button[data-u]"); if (!b || b.dataset.u === cd.u) return;
+  cd.u = b.dataset.u; cd.plan = null;
+  try { localStorage.setItem("cdUnd", cd.u); } catch (err) {}
+  if (cd.data) { cd.data = { ...cd.data, underlying: cd.u }; cdUnds(cd.data); }
+  cd.busy = false; cdLoad();
+};
 optEl("cdSkipSave").onclick = async () => {
   const dates = optEl("cdSkip").value.split(/[\s,]+/).filter(Boolean);
   try {

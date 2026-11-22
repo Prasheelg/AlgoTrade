@@ -343,7 +343,20 @@ reason is shown. Contracts come from Kotak's F&O scrip master, downloaded once a
 
 ### 0DTE iron condor (algo)
 Strategy Builder › **0DTE Condor** runs the *Nifty 0DTE Short Iron Condor* rulebook (`algotrade/condor.py`) on
-NIFTY's weekly expiry day: 1 lot (65), 50-point wings, nothing on other days.
+NIFTY, BANKNIFTY and SENSEX, each on its own expiry days only: 1 lot, fixed wings, nothing on other days. Pick the
+index with the cards at the top of the tab. Each index is a separate book with its own mode, Auto-trade switch,
+rule settings, position, decision log, history and loss cap; the event days and India VIX filters apply to all.
+
+| Index | Exchange · expiry | Strike step | Wings | Roll out / in | Loss cap (env) |
+|---|---|---|---|---|---|
+| NIFTY | NSE · weekly | 50 | 50 | 25 / 75 pts | ₹2,600 (`CONDOR_LOSS_CAP`) |
+| BANKNIFTY | NSE · monthly | 100 | 100 | 50 / 150 pts | ₹2,400 (`CONDOR_LOSS_CAP_BANKNIFTY`) |
+| SENSEX | BSE · weekly | 100 | 200 | 75 / 250 pts | ₹3,200 (`CONDOR_LOSS_CAP_SENSEX`) |
+
+The rulebook's numbers are NIFTY's. The other two scale the wings and roll buffers to their price (Bank Nifty is
+about 2.3× Nifty, Sensex 3.2×), and each loss cap is about 80% of its widest wing loss. SENSEX options come from
+Kotak's bse_fo scrip master and trade on BSE; its HV10 uses Sensex closes, Bank Nifty's uses Bank Nifty's. The
+description below uses NIFTY's numbers.
 - **Day filters** (checked after 09:15, again at entry): expiry day, not an event day, India VIX up no more than
   5% on the day, VIX IV percentile over 252 days between 30 and 85. Logged checks that never block: VIX 11–20,
   VIX above HV10 (Nifty's 10-day realised volatility). VIX history and Nifty closes come from Yahoo once a day.
@@ -362,7 +375,7 @@ NIFTY's weekly expiry day: 1 lot (65), 50-point wings, nothing on other days.
   for the day (checked every 3 s). **From 15:00** all legs are squared off, shorts first, then wings.
 - **Modes** (top of the tab): **Paper** (default) fills at the bid / ask with no orders, so you can watch it for a
   few expiries; **Live** places MIS marketable limits on Kotak (re-priced up to 4 times) and opens or rolls only
-  while the tab's own **Condor Auto-trade** switch is ON (never needed to close). That switch is separate from the
+  while that index's own **Auto-trade** switch in the tab is ON (never needed to close). That switch is separate from the
   Auto-trade switch at the top, which doesn't affect the condor either way; switching it ON needs a device that may
   trade and a working Kotak login, OFF works from anywhere, and both are posted to Telegram. **Off** starts nothing
   new, but an open position is still managed to its exit. Leaving Off needs a device that may trade; Off works from
@@ -377,11 +390,11 @@ NIFTY's weekly expiry day: 1 lot (65), 50-point wings, nothing on other days.
   default. Entry filters: event days, VIX rise, IV percentile, OI walls not unwinding, POP > 75%, and the two
   checks (VIX 11–20, VIX above HV10). Strike candidates: 0.16 delta, 1SD level, OI wall (at least one stays on).
   Management: roll out, roll in, roll when a wall moves, close a threatened side after 14:30, daily loss cap
-  (asks to confirm before it goes off). A rule that is off is still shown in the rule check, struck through, but
-  never blocks or acts. Locked (always on): expiry day only, 1 lot with 50-pt wings, entry 09:45–10:15, 1SD A vs B,
+  (asks to confirm before it goes off). Each index keeps its own switches. A rule that is off is still shown in the rule check, struck through, but
+  never blocks or acts. Locked (always on): expiry day only, 1 lot with the index's fixed wings, entry 09:45–10:15, 1SD A vs B,
   strikes in the chain with two-sided quotes, wings first / shorts closed first, the 15:00–15:15 square-off.
   Changes need a device that may trade and are posted to Telegram.
-- **Event days:** the list at the bottom of the tab (`data/condor_skip.json`); add RBI policy, Budget, election
+- **Event days:** the list at the bottom of the tab (`data/condor_skip.json`, shared by all three indices); add RBI policy, Budget, election
   results and the like each month.
 - Every decision (checks, A / B, which candidate won each strike, credit, POP, rolls with reason and cash,
   charges, net P&L) is logged per day and posted to Telegram; **Check the rules now** runs the whole rulebook on

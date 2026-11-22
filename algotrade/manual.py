@@ -124,7 +124,7 @@ def _send(v: dict, tag: str = "") -> dict:
     row = dict(placed_at=datetime.now().isoformat(timespec="seconds"), tsym=tsym, underlying=c["underlying"],
                side=side, lots=lots, qty=qty, order_type=order_type, price=px, product=product, amo=amo)
     try:
-        res = broker.call("place_order", exchange_segment=fno.SEGMENT, product=product, validity="DAY", amo=amo,
+        res = broker.call("place_order", exchange_segment=fno.segment_of(c), product=product, validity="DAY", amo=amo,
                           order_type="L", price=f"{px:.2f}", trigger_price="0",
                           quantity=str(qty), trading_symbol=tsym, transaction_type=side[0])
         data = res.get("data") if isinstance(res.get("data"), dict) else {}

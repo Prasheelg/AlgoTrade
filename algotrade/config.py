@@ -58,6 +58,8 @@ MARKET_PROTECTION_PCT = float(_get("MARKET_PROTECTION_PCT", "1.0"))
 OPTION_PROTECTION_PCT = float(_get("OPTION_PROTECTION_PCT", "5.0"))
 # Nifty 0DTE iron condor (condor.py): daily loss cap in ₹ (realised + open - charges); mode is set on the dashboard
 CONDOR_LOSS_CAP = float(_get("CONDOR_LOSS_CAP", "2600"))
+CONDOR_LOSS_CAP_BANKNIFTY = float(_get("CONDOR_LOSS_CAP_BANKNIFTY", "2400"))   # 80% of 100-pt wings x 30
+CONDOR_LOSS_CAP_SENSEX = float(_get("CONDOR_LOSS_CAP_SENSEX", "3200"))         # 80% of 200-pt wings x 20
 # Portfolio risk: Auto-trade won't open a trade that takes the total risk at stops (all open app trades and
 # pending entries) above this % of CAPITAL; the dashboard's tickets warn about it too
 MAX_OPEN_RISK_PCT = float(_get("MAX_OPEN_RISK_PCT", "6.0"))

@@ -1,6 +1,9 @@
-"""Nifty 0DTE short iron condor, run by the rulebook (README > 0DTE iron condor).
+"""0DTE short iron condor on NIFTY, BANKNIFTY and SENSEX, run by the Nifty rulebook (README > 0DTE iron condor).
 
-On NIFTY's weekly expiry day only, one lot: buy two wings 50 points outside two short strikes, sell the shorts,
+Each index is its own book (mode, Auto-trade switch, rules, position, log), traded on its own expiry days only
+(NIFTY weekly, SENSEX weekly on BSE, BANKNIFTY monthly). The numbers below are NIFTY's; BANKNIFTY and SENSEX
+scale the strike step, wing, roll buffers and loss cap to their price (SPECS); India VIX filters all three.
+One lot: buy two wings 50 points outside two short strikes, sell the shorts,
 manage the position all day, square off from 15:00. The rules (locked unless marked "check", which is logged
 but never blocks):
 - Day filters: expiry day, not an event day (skip list), VIX up no more than 5% on the day, India VIX's IV
@@ -33,7 +36,7 @@ from . import broker, config, fno, markets, state, strategy, telegram_bot
 
 log = logging.getLogger(__name__)
 
-UNDERLYING = "NIFTY"
+UNDERLYING = "NIFTY"         # the default book (and the rulebook's numbers below)
 STEP = 50                    # strike rounding
 WING = 50                    # long strike = short strike +/- WING, never changed
 LOTS = 1
@@ -45,6 +48,19 @@ SESSION_MIN, YEAR_DAYS = 375, 252
 DELTA = 0.16
 POP_MIN = 0.75
 OUT_BUFFER, IN_BUFFER = 25, 75
+CHAIN_WIDTH = 25             # strikes either side of the money read for walls and deltas
+# Per index: strike step, wing, roll buffers (scaled to its price, about 2.3x Nifty for Bank Nifty and 3.2x for
+# Sensex), Yahoo symbol of its daily closes (HV10), the config name of its daily loss cap and how many strikes
+# either side of the money are read (CHAIN_WIDTH for NIFTY; wider where strikes are farther apart in % terms).
+SPECS = {
+    "NIFTY": {"name": "Nifty", "step": 50, "wing": 50, "out": 25, "in": 75, "yahoo": "^NSEI",
+              "cap": "CONDOR_LOSS_CAP", "exchange": "NSE", "expiry": "weekly", "width": CHAIN_WIDTH},
+    "BANKNIFTY": {"name": "Bank Nifty", "step": 100, "wing": 100, "out": 50, "in": 150, "yahoo": "^NSEBANK",
+                  "cap": "CONDOR_LOSS_CAP_BANKNIFTY", "exchange": "NSE", "expiry": "monthly", "width": 35},
+    "SENSEX": {"name": "Sensex", "step": 100, "wing": 200, "out": 75, "in": 250, "yahoo": "^BSESN",
+               "cap": "CONDOR_LOSS_CAP_SENSEX", "exchange": "BSE", "expiry": "weekly", "width": 40},
+}
+UNDERLYINGS = tuple(SPECS)
 COOLDOWN_MIN = 10
 VIX_BAND = (11.0, 20.0)      # check
 VIX_RISE_MAX = 5.0           # % vs previous close, hard
@@ -52,7 +68,6 @@ IVP_BAND = (30.0, 85.0)      # hard
 AB_TOLERANCE = 0.10
 STRADDLE_FACTOR = 1.25       # SD = straddle / sqrt(2/pi)
 UNWIND_PCT = 2.0             # a wall's OI this far below its level at the open counts as unwinding
-CHAIN_WIDTH = 25             # strikes either side of the money read for walls and deltas
 TICK_SEC = 3
 RETARGET_SEC = 60
 ENTRY_RETRY_SEC = 30
@@ -82,7 +97,7 @@ RULES = {
     "loss_cap": ("Management", "Daily loss cap", "Close everything when the day's P&L reaches −CONDOR_LOSS_CAP"),
 }
 CANDIDATES = ("cand_delta", "cand_sd", "cand_wall")
-LOCKED = ("NIFTY weekly expiry day only", "1 lot, 50-point wings", "Entry 09:45–10:15", "1SD: A vs B cross-check",
+LOCKED = ("Expiry day only (0DTE)", "1 lot, fixed wings", "Entry 09:45–10:15", "1SD: A vs B cross-check",
           "Strikes in the chain with two-sided quotes", "Wings bought first, shorts closed first",
           "Square-off from 15:00, all closed by 15:15")
 RULES_KEY = "condor_rules"
@@ -91,8 +106,30 @@ WAITING, OPEN, SKIPPED, CLOSED, STOPPED, FAILED = "WAITING", "OPEN", "SKIPPED", 
 FINAL = (SKIPPED, CLOSED, STOPPED, FAILED)
 
 _lock = threading.RLock()
-_mem = {"plan": None, "pnl": None, "marks": {}, "quotes": {}, "pnl_at": None, "retarget_at": 0.0, "entry_try": 0.0,
-        "exit_warned": None, "thread": None}
+_mem: dict = {"thread": None, "books": {}}
+
+
+def _book(u: str) -> dict:
+    """The engine's memory of one index's book (last plan, marks, timers)."""
+    return _mem["books"].setdefault(u, {"plan": None, "pnl": None, "marks": {}, "quotes": {}, "pnl_at": None,
+                                        "retarget_at": 0.0, "entry_try": 0.0, "exit_warned": None})
+
+
+def _und(u: str | None) -> str:
+    u = str(u or UNDERLYING).upper()
+    if u not in SPECS:
+        raise ValueError(f"Underlying must be one of {', '.join(UNDERLYINGS)}")
+    return u
+
+
+def loss_cap(u: str = UNDERLYING) -> float:
+    """The daily loss cap of an index's book (₹): CONDOR_LOSS_CAP for NIFTY, CONDOR_LOSS_CAP_<INDEX> for the others."""
+    return float(getattr(config, SPECS[u]["cap"]))
+
+
+def _key(base: str, u: str) -> str:
+    """Settings key of one book: NIFTY keeps the original names."""
+    return base if u == UNDERLYING else f"{base}_{u}"
 
 
 class ExecError(RuntimeError):
@@ -181,7 +218,8 @@ def round_down(x: float, step: float = STEP) -> float:
 
 
 def pick_strikes(spot: float, sd: float, d_call: float | None, d_put: float | None,
-                 call_wall: float | None, put_wall: float | None, use_sd: bool = True) -> dict:
+                 call_wall: float | None, put_wall: float | None, use_sd: bool = True, step: float = STEP,
+                 wing: float = WING) -> dict:
     """The farthest of the candidates per side, rounded outward, and which candidate won. A candidate passed as
     None (or the 1SD level with use_sd=False) is left out; with none left the 1SD level is used."""
     calls = {"delta": d_call, "1SD": spot + sd if use_sd else None, "OI wall": call_wall}
@@ -190,8 +228,8 @@ def pick_strikes(spot: float, sd: float, d_call: float | None, d_put: float | No
     puts = {k: v for k, v in puts.items() if v is not None} or {"1SD": spot - sd}
     c_by = max(calls, key=lambda k: calls[k])
     p_by = min(puts, key=lambda k: puts[k])
-    sc, sp = round_up(calls[c_by]), round_down(puts[p_by])
-    return {"short_call": sc, "long_call": sc + WING, "short_put": sp, "long_put": sp - WING,
+    sc, sp = round_up(calls[c_by], step), round_down(puts[p_by], step)
+    return {"short_call": sc, "long_call": sc + wing, "short_put": sp, "long_put": sp - wing,
             "call_by": c_by, "put_by": p_by, "call_level": spot + sd, "put_level": spot - sd}
 
 
@@ -202,14 +240,15 @@ def pop(short_call: float | None, short_put: float | None, credit: float, spot: 
     return up + dn - 1
 
 
-def roll_signal(opt: str, short: float, spot: float, sd: float) -> str | None:
+def roll_signal(opt: str, short: float, spot: float, sd: float, out_buf: float = OUT_BUFFER,
+                in_buf: float = IN_BUFFER) -> str | None:
     """"out" when the unrounded 1SD level is OUT_BUFFER+ past the short strike, "in" when the short strike is
     IN_BUFFER+ beyond it, else None."""
     level = spot + sd if opt == "CE" else spot - sd
     past = level - short if opt == "CE" else short - level
-    if past >= OUT_BUFFER:
+    if past >= out_buf:
         return "out"
-    if -past >= IN_BUFFER:
+    if -past >= in_buf:
         return "in"
     return None
 
@@ -260,16 +299,18 @@ def _check(rule: str, ok: bool | None, value: str, limit: str, hard: bool, data:
 def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | None = None,
              skip_dates: list[str] | None = None, filters: bool = True, rules: dict | None = None) -> dict:
     """The whole rulebook on one market snapshot (pure). snap: {"spot", "expiry" (iso), "lot", "rows":
-    [{"strike", "ce": {tsym, bid, ask, ltp, oi, oi_open}, "pe": {...}}]}; vix: {"now", "prev"};
-    hist: {"vix": [daily closes], "nifty": [daily closes]}. filters=False skips the day / VIX rules (rolls).
+    [{"strike", "ce": {tsym, bid, ask, ltp, oi, oi_open}, "pe": {...}}], "underlying" (NIFTY when absent)};
+    vix: {"now", "prev"}; hist: {"vix": [daily closes], "index": [the underlying's daily closes]}. filters=False skips the day / VIX rules (rolls).
     rules: {RULES key: bool}; a rule that is off is still shown, but never blocks (all on when omitted)."""
     on = {k: True for k in RULES} | (rules or {})
+    u = snap.get("underlying") or UNDERLYING
+    spec = SPECS[u]
     spot, rows = snap["spot"], sorted(snap["rows"], key=lambda r: r["strike"])
     expiry = date.fromisoformat(snap["expiry"])
     mins = trading_minutes_to(expiry, now)
     t = years(mins)
     checks: list[dict] = []
-    out = {"as_of": now.isoformat(timespec="seconds"), "expiry": snap["expiry"], "spot": spot,
+    out = {"underlying": u, "as_of": now.isoformat(timespec="seconds"), "expiry": snap["expiry"], "spot": spot,
            "zero_dte": expiry == now.date(), "minutes_left": round(mins, 1), "lot": snap.get("lot"),
            "checks": checks, "ok": False, "blockers": [], "legs": [], "sd": None, "rules": on}
 
@@ -289,7 +330,7 @@ def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | No
         out["ivp"] = p
         checks.append(_check("IV percentile 30-85", (IVP_BAND[0] <= p <= IVP_BAND[1]) if p is not None else None,
                              f"{p:.0f}" if p is not None else "no data", "30-85", True, data=p is None, key="ivp"))
-        hv = hv10((hist or {}).get("nifty") or [])
+        hv = hv10((hist or {}).get("index") or (hist or {}).get(u.lower()) or [])
         out["hv10"] = hv
         checks.append(_check("VIX above HV10", (v_now > hv) if v_now and hv else None,
                              f"{v_now:.2f} vs {hv:.2f}" if v_now and hv else "no data", "VIX > HV10", False, key="hv10"))
@@ -337,7 +378,8 @@ def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | No
                              key="oi_unwind"))
     pk = pick_strikes(spot, one, d_call if on["cand_delta"] else None, d_put if on["cand_delta"] else None,
                       (walls.get("call") or {}).get("strike") if on["cand_wall"] else None,
-                      (walls.get("put") or {}).get("strike") if on["cand_wall"] else None, use_sd=on["cand_sd"])
+                      (walls.get("put") or {}).get("strike") if on["cand_wall"] else None, use_sd=on["cand_sd"],
+                      step=spec["step"], wing=spec["wing"])
     out["candidates"] = {"call": {"delta": d_call, "sd": spot + one, "wall": (walls.get("call") or {}).get("strike"),
                                   "by": pk["call_by"], "strike": pk["short_call"]},
                          "put": {"delta": d_put, "sd": spot - one, "wall": (walls.get("put") or {}).get("strike"),
@@ -368,7 +410,7 @@ def evaluate(snap: dict, now: datetime, vix: dict | None = None, hist: dict | No
     qty = lot * LOTS
     p = pop(pk["short_call"], pk["short_put"], credit, spot, one)
     out.update(credit=round(credit, 2), qty=qty, pop=p, max_profit=round(credit * qty, 2),
-               max_loss=round((WING - credit) * qty, 2),
+               max_loss=round((spec["wing"] - credit) * qty, 2),
                breakevens=[round(pk["short_put"] - credit, 2), round(pk["short_call"] + credit, 2)])
     checks.append(_check("POP > 75%", p > POP_MIN, f"{p * 100:.1f}%", "> 75%", True, key="pop"))
     return _finish(out)
@@ -391,31 +433,31 @@ def _nse():
     return markets.get("IN")
 
 
-def today_expiry(now: datetime) -> str | None:
+def today_expiry(now: datetime, u: str = UNDERLYING) -> str | None:
     day = now.date().isoformat()
     try:
-        return day if day in fno.expiries(UNDERLYING) else None
+        return day if day in fno.expiries(u) else None
     except Exception as exc:
-        log.warning("NIFTY expiries unavailable: %s", exc)
+        log.warning("%s expiries unavailable: %s", u, exc)
         return None
 
 
-def next_expiry(now: datetime) -> str | None:
+def next_expiry(now: datetime, u: str = UNDERLYING) -> str | None:
     try:
-        exps = [e for e in fno.expiries(UNDERLYING) if e >= now.date().isoformat()]
+        exps = [e for e in fno.expiries(u) if e >= now.date().isoformat()]
     except Exception:
         return None
     return exps[0] if exps else None
 
 
-def snapshot(expiry: str, now: datetime) -> dict:
-    """NIFTY's chain for `expiry` with each leg's OI at today's open (oiflow), in evaluate()'s shape."""
+def snapshot(expiry: str, now: datetime, u: str = UNDERLYING) -> dict:
+    """An index's chain for `expiry` with each leg's OI at today's open (oiflow), in evaluate()'s shape."""
     from . import oiflow
-    oiflow.track(UNDERLYING, expiry)
-    ch = fno.chain(UNDERLYING, expiry, CHAIN_WIDTH, fresh=True)
+    oiflow.track(u, expiry)
+    ch = fno.chain(u, expiry, SPECS[u]["width"], fresh=True)
     spot = ch["spot"].get("ltp")
     if not spot:
-        raise RuntimeError("No live NIFTY price")
+        raise RuntimeError(f"No live {u} price")
     day = now.date().isoformat()
     rows = []
     for r in ch["rows"]:
@@ -425,7 +467,7 @@ def snapshot(expiry: str, now: datetime) -> dict:
             row[k] = None if not leg else {**{f: leg.get(f) for f in ("tsym", "bid", "ask", "ltp", "oi")},
                                            "oi_open": oiflow.oi_at_open(leg["tsym"], day)}
         rows.append(row)
-    return {"spot": spot, "expiry": expiry, "lot": ch["lot"], "rows": rows}
+    return {"underlying": u, "spot": spot, "expiry": expiry, "lot": ch["lot"], "rows": rows}
 
 
 def vix_quote() -> dict:
@@ -436,22 +478,22 @@ def vix_quote() -> dict:
 
 
 def history(now: datetime) -> dict:
-    """Daily closes before today: India VIX (about 2 years, for the IVP) and Nifty (for HV10), from Yahoo,
-    fetched once a day and kept in DATA_DIR/condor_history.json."""
+    """Daily closes before today: India VIX (about 2 years, for the IVP) and each index (for HV10: keys "nifty",
+    "banknifty", "sensex"), from Yahoo, fetched once a day and kept in DATA_DIR/condor_history.json."""
     path = config.DATA_DIR / "condor_history.json"
     day = now.date().isoformat()
     try:
         cached = json.loads(path.read_text(encoding="utf-8"))
-        if cached.get("day") == day:
+        if cached.get("day") == day and all(u.lower() in cached for u in SPECS):
             return cached
     except (OSError, ValueError):
         pass
     import yfinance as yf
     out = {"day": day}
-    for key, sym, period in (("vix", "^INDIAVIX", "2y"), ("nifty", "^NSEI", "3mo")):
+    for key, sym, period in (("vix", "^INDIAVIX", "2y"), *((u.lower(), sp["yahoo"], "3mo") for u, sp in SPECS.items())):
         df = yf.Ticker(sym).history(period=period, interval="1d", auto_adjust=False)
         out[key] = [float(c) for d, c in zip(df.index, df["Close"]) if d.date().isoformat() < day and c == c]
-    if len(out["vix"]) >= 200 and len(out["nifty"]) >= 11:
+    if len(out["vix"]) >= 200 and all(len(out[u.lower()]) >= 11 for u in SPECS):
         path.write_text(json.dumps(out), encoding="utf-8")
     return out
 
@@ -471,12 +513,12 @@ def set_skip_dates(dates: list[str]) -> list[str]:
     return clean
 
 
-def plan_now(now: datetime | None = None, expiry: str | None = None) -> dict:
+def plan_now(now: datetime | None = None, expiry: str | None = None, u: str = UNDERLYING) -> dict:
     """The rulebook evaluated on live data now, for the dashboard (any day: the nearest expiry by default)."""
     now = now or _nse().now()
-    exp = expiry or today_expiry(now) or next_expiry(now)
+    exp = expiry or today_expiry(now, u) or next_expiry(now, u)
     if not exp:
-        raise RuntimeError("No NIFTY expiry found")
+        raise RuntimeError(f"No {u} expiry found")
     vix, hist = {}, {}
     try:
         vix = vix_quote()
@@ -485,22 +527,38 @@ def plan_now(now: datetime | None = None, expiry: str | None = None) -> dict:
     try:
         hist = history(now)
     except Exception as exc:
-        log.warning("VIX / Nifty history unavailable: %s", exc)
-    return evaluate(snapshot(exp, now), now, vix, hist, skip_dates(), rules=get_rules())
+        log.warning("VIX / index history unavailable: %s", exc)
+    hist = {"vix": hist.get("vix") or [], "index": hist.get(u.lower()) or []}
+    return evaluate(snapshot(exp, now, u), now, vix, hist, skip_dates(), rules=get_rules(u))
 
 
 # ---- storage ----------------------------------------------------------------------------------------------
 
+_DAY_COLS = ("day", "mode", "status", "reason", "expiry", "entry_at", "exit_at", "last_roll_at", "rolls", "entry",
+             "pnl", "charges", "updated_at")
+
+
 def _conn():
     con = state._conn()
-    con.execute("""CREATE TABLE IF NOT EXISTS condor_days (day TEXT PRIMARY KEY, mode TEXT, status TEXT, reason TEXT,
-        expiry TEXT, entry_at TEXT, exit_at TEXT, last_roll_at TEXT, rolls INTEGER DEFAULT 0, entry TEXT, pnl REAL,
-        charges REAL, updated_at TEXT)""")
+    old = [r[1] for r in con.execute("PRAGMA table_info(condor_days)")]
+    if old and "und" not in old:                 # NIFTY-only table (day was the key): one row per (day, index) now
+        con.execute("ALTER TABLE condor_days RENAME TO condor_days_nifty_only")
+    con.execute("""CREATE TABLE IF NOT EXISTS condor_days (day TEXT, und TEXT NOT NULL DEFAULT 'NIFTY', mode TEXT,
+        status TEXT, reason TEXT, expiry TEXT, entry_at TEXT, exit_at TEXT, last_roll_at TEXT, rolls INTEGER DEFAULT 0,
+        entry TEXT, pnl REAL, charges REAL, updated_at TEXT, PRIMARY KEY (day, und))""")
+    if old and "und" not in old:
+        cols = ", ".join(_DAY_COLS)
+        con.execute(f"INSERT INTO condor_days ({cols}, und) SELECT {cols}, 'NIFTY' FROM condor_days_nifty_only")
+        con.execute("DROP TABLE condor_days_nifty_only")
     con.execute("""CREATE TABLE IF NOT EXISTS condor_fills (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT, at TEXT,
         mode TEXT, tsym TEXT, opt TEXT, strike REAL, action TEXT, qty INTEGER, price REAL, charges REAL,
-        order_id TEXT, why TEXT)""")
+        order_id TEXT, why TEXT, und TEXT NOT NULL DEFAULT 'NIFTY')""")
     con.execute("""CREATE TABLE IF NOT EXISTS condor_log (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT, at TEXT,
-        kind TEXT, text TEXT, data TEXT)""")
+        kind TEXT, text TEXT, data TEXT, und TEXT NOT NULL DEFAULT 'NIFTY')""")
+    for t in ("condor_fills", "condor_log"):
+        if "und" not in [r[1] for r in con.execute(f"PRAGMA table_info({t})")]:
+            con.execute(f"ALTER TABLE {t} ADD COLUMN und TEXT NOT NULL DEFAULT 'NIFTY'")
+    con.commit()
     return con
 
 
@@ -508,49 +566,51 @@ def _stamp() -> str:
     return _nse().now().isoformat(timespec="seconds")
 
 
-def get_day(day: str) -> dict | None:
+def get_day(day: str, u: str = UNDERLYING) -> dict | None:
     with _conn() as con:
-        r = con.execute("SELECT * FROM condor_days WHERE day = ?", (day,)).fetchone()
+        r = con.execute("SELECT * FROM condor_days WHERE day = ? AND und = ?", (day, u)).fetchone()
     return dict(r) if r else None
 
 
-def _save_day(day: str, **fields) -> None:
+def _save_day(day: str, u: str, **fields) -> None:
     fields["updated_at"] = _stamp()
     with _conn() as con:
-        con.execute("INSERT OR IGNORE INTO condor_days (day) VALUES (?)", (day,))
-        con.execute(f"UPDATE condor_days SET {', '.join(f'{k} = ?' for k in fields)} WHERE day = ?",
-                    (*fields.values(), day))
+        con.execute("INSERT OR IGNORE INTO condor_days (day, und) VALUES (?, ?)", (day, u))
+        con.execute(f"UPDATE condor_days SET {', '.join(f'{k} = ?' for k in fields)} WHERE day = ? AND und = ?",
+                    (*fields.values(), day, u))
 
 
-def _log(day: str, kind: str, text: str, data: dict | None = None, notify: bool = False, mode: str = "") -> None:
-    log.info("Condor %s: %s", kind, text)
+def _log(day: str, u: str, kind: str, text: str, data: dict | None = None, notify: bool = False,
+         mode: str = "") -> None:
+    log.info("Condor %s %s: %s", u, kind, text)
     with _conn() as con:
-        con.execute("INSERT INTO condor_log (day, at, kind, text, data) VALUES (?, ?, ?, ?, ?)",
-                    (day, _stamp(), kind, text, json.dumps(data, default=str) if data else None))
+        con.execute("INSERT INTO condor_log (day, und, at, kind, text, data) VALUES (?, ?, ?, ?, ?, ?)",
+                    (day, u, _stamp(), kind, text, json.dumps(data, default=str) if data else None))
     if notify:
         try:
             tag = " (PAPER)" if mode == "paper" else ""
-            telegram_bot.send_message(f"🦅 <b>0DTE condor{tag}</b> · {text}")
+            telegram_bot.send_message(f"🦅 <b>{u} 0DTE condor{tag}</b> · {text}")
         except Exception:
             log.exception("Telegram notice for the condor failed")
 
 
-def day_log(day: str, limit: int = 200) -> list[dict]:
+def day_log(day: str, u: str = UNDERLYING, limit: int = 200) -> list[dict]:
     with _conn() as con:
-        rows = con.execute("SELECT at, kind, text, data FROM condor_log WHERE day = ? ORDER BY id DESC LIMIT ?",
-                           (day, limit)).fetchall()
+        rows = con.execute("SELECT at, kind, text, data FROM condor_log WHERE day = ? AND und = ? ORDER BY id DESC "
+                           "LIMIT ?", (day, u, limit)).fetchall()
     return [{**dict(r), "data": json.loads(r["data"]) if r["data"] else None} for r in rows]
 
 
-def fills(day: str) -> list[dict]:
+def fills(day: str, u: str = UNDERLYING) -> list[dict]:
     with _conn() as con:
-        return [dict(r) for r in con.execute("SELECT * FROM condor_fills WHERE day = ? ORDER BY id", (day,))]
+        return [dict(r) for r in con.execute("SELECT * FROM condor_fills WHERE day = ? AND und = ? ORDER BY id",
+                                             (day, u))]
 
 
-def entry_prices(day: str) -> dict:
+def entry_prices(day: str, u: str = UNDERLYING) -> dict:
     """Average price of each open leg's current quantity (fills that added to it since it was last flat)."""
     run: dict = {}
-    for f in fills(day):
+    for f in fills(day, u):
         q, avg = run.get(f["tsym"], (0, 0.0))
         d = f["qty"] if f["action"] == "BUY" else -f["qty"]
         if q == 0 or (q > 0) == (d > 0):            # opening or adding: weighted average
@@ -564,81 +624,81 @@ def entry_prices(day: str) -> dict:
     return {t: round(a, 2) for t, (q, a) in run.items() if q}
 
 
-def position(day: str) -> dict:
+def position(day: str, u: str = UNDERLYING) -> dict:
     """Open legs: tsym -> {"qty" (signed: + long, - short), "opt", "strike"}."""
     pos: dict = {}
-    for f in fills(day):
+    for f in fills(day, u):
         p = pos.setdefault(f["tsym"], {"qty": 0, "opt": f["opt"], "strike": f["strike"]})
         p["qty"] += f["qty"] if f["action"] == "BUY" else -f["qty"]
     return {k: v for k, v in pos.items() if v["qty"]}
 
 
-def pnl(day: str, marks: dict) -> dict:
+def pnl(day: str, marks: dict, u: str = UNDERLYING) -> dict:
     """Realised cash of every fill + open legs at `marks` (tsym -> price) - charges."""
-    fl = fills(day)
+    fl = fills(day, u)
     cash = sum(f["price"] * f["qty"] * (1 if f["action"] == "SELL" else -1) for f in fl)
     charges = sum(f["charges"] or 0 for f in fl)
-    pos = position(day)
+    pos = position(day, u)
     unmarked = [t for t in pos if marks.get(t) is None]
     open_val = sum(p["qty"] * marks[t] for t, p in pos.items() if marks.get(t) is not None)
     return {"cash": round(cash, 2), "open_value": round(open_val, 2), "charges": round(charges, 2),
             "total": round(cash + open_val - charges, 2), "unmarked": unmarked}
 
 
-def get_rules() -> dict:
+def get_rules(u: str = UNDERLYING) -> dict:
     """{RULES key: on}; every rule is on unless switched off on the dashboard."""
-    st, _ = state.get_setting(RULES_KEY, {})
+    st, _ = state.get_setting(_key(RULES_KEY, u), {})
     return {k: bool(st.get(k, True)) for k in RULES}
 
 
-def set_rules(changes: dict, by: str) -> dict:
+def set_rules(changes: dict, by: str, u: str = UNDERLYING) -> dict:
     """Switch rules on / off. At least one strike candidate must stay on."""
     bad = [k for k in changes if k not in RULES]
     if bad:
         raise ValueError(f"Unknown rule: {', '.join(bad)}")
     if any(not isinstance(v, bool) for v in changes.values()):
         raise ValueError("Each rule is true (on) or false (off)")
-    new = get_rules() | changes
+    old = get_rules(u)
+    new = old | changes
     if not any(new[k] for k in CANDIDATES):
         raise ValueError("Keep at least one strike candidate (0.16 delta, 1SD level or OI wall) on")
-    old = get_rules()
-    state.set_setting(RULES_KEY, new)
+    state.set_setting(_key(RULES_KEY, u), new)
     diff = [f"{RULES[k][1]} {'ON' if v else 'OFF'}" for k, v in changes.items() if old[k] != v]
     if diff:
-        _log(_nse().now().date().isoformat(), "mode", f"Rules changed by {by}: {', '.join(diff)}", notify=True,
-             mode=get_mode())
+        _log(_nse().now().date().isoformat(), u, "mode", f"Rules changed by {by}: {', '.join(diff)}", notify=True,
+             mode=get_mode(u))
     return new
 
 
-def get_mode() -> str:
-    st, _ = state.get_setting(MODE_KEY, {"mode": "paper"})
+def get_mode(u: str = UNDERLYING) -> str:
+    st, _ = state.get_setting(_key(MODE_KEY, u), {"mode": "paper"})
     m = str(st.get("mode", "paper"))
     return m if m in MODES else "paper"
 
 
-def set_mode(mode: str, by: str) -> str:
+def set_mode(mode: str, by: str, u: str = UNDERLYING) -> str:
     mode = str(mode).lower()
     if mode not in MODES:
         raise ValueError(f"Mode must be one of {', '.join(MODES)}")
-    state.set_setting(MODE_KEY, {"mode": mode, "by": by})
+    state.set_setting(_key(MODE_KEY, u), {"mode": mode, "by": by})
     day = _nse().now().date().isoformat()
-    _log(day, "mode", f"Mode set to {mode.upper()} by {by}", notify=True, mode=mode)
+    _log(day, u, "mode", f"Mode set to {mode.upper()} by {by}", notify=True, mode=mode)
     return mode
 
 
-def trading_enabled() -> bool:
-    """The condor's own Auto-trade switch: Live mode opens and rolls only while it is ON (off until switched on)."""
-    st, _ = state.get_setting(TRADING_KEY, {"enabled": False})
+def trading_enabled(u: str = UNDERLYING) -> bool:
+    """An index's own Auto-trade switch: Live mode opens and rolls only while it is ON (off until switched on)."""
+    st, _ = state.get_setting(_key(TRADING_KEY, u), {"enabled": False})
     return bool(st.get("enabled"))
 
 
-def set_trading(enabled: bool, by: str) -> bool:
-    """Switch the condor's auto-trading. ON first proves the Kotak login works (raises BrokerError if not)."""
+def set_trading(enabled: bool, by: str, u: str = UNDERLYING) -> bool:
+    """Switch an index's condor auto-trading. ON first proves the Kotak login works (raises BrokerError if not)."""
     if enabled:
         broker.login(force=True)
-    state.set_setting(TRADING_KEY, {"enabled": bool(enabled), "by": by})
+    state.set_setting(_key(TRADING_KEY, u), {"enabled": bool(enabled), "by": by})
     day = _nse().now().date().isoformat()
-    _log(day, "mode", f"Condor Auto-trade {'ON' if enabled else 'OFF'} by {by}", notify=True, mode=get_mode())
+    _log(day, u, "mode", f"Condor Auto-trade {'ON' if enabled else 'OFF'} by {by}", notify=True, mode=get_mode(u))
     return bool(enabled)
 
 
@@ -648,7 +708,7 @@ def _quote(tsym: str) -> dict:
     return fno.option_quote(tsym)
 
 
-def _fill(day: str, mode: str, tsym: str, action: str, qty: int, why: str) -> float:
+def _fill(day: str, u: str, mode: str, tsym: str, action: str, qty: int, why: str) -> float:
     """Buy or sell `qty` of `tsym`: paper at the bid / ask, live with marketable limits re-priced up to
     FILL_TRIES times. Records the fills; raises ExecError if it can't be filled completely."""
     c = fno.contract(tsym) or {}
@@ -658,7 +718,7 @@ def _fill(day: str, mode: str, tsym: str, action: str, qty: int, why: str) -> fl
         px = (q.get("ask") if action == "BUY" else q.get("bid")) or q.get("ltp")
         if not px:
             raise ExecError(f"No price for {tsym}")
-        _record_fill(day, mode, tsym, opt, strike, action, qty, float(px), None, why)
+        _record_fill(day, u, mode, tsym, opt, strike, action, qty, float(px), None, why)
         return float(px)
     from .manual import protect
     from .orders import _filled, order_state
@@ -669,7 +729,7 @@ def _fill(day: str, mode: str, tsym: str, action: str, qty: int, why: str) -> fl
         if not ref:
             raise ExecError(f"No price for {tsym}")
         px = protect(float(ref), action, min(config.OPTION_PROTECTION_PCT * (attempt + 1), 25.0), tick)
-        res = broker.call("place_order", exchange_segment=fno.SEGMENT, product=PRODUCT, validity="DAY", amo="NO",
+        res = broker.call("place_order", exchange_segment=fno.segment_of(c), product=PRODUCT, validity="DAY", amo="NO",
                           order_type="L", price=f"{px:.2f}", trigger_price="0", quantity=str(left),
                           trading_symbol=tsym, transaction_type=action[0])
         data = res.get("data") if isinstance(res.get("data"), dict) else {}
@@ -695,7 +755,7 @@ def _fill(day: str, mode: str, tsym: str, action: str, qty: int, why: str) -> fl
                 log.warning("Cancelling condor order %s failed: %s", oid, exc)
         n, avg = _filled(o)
         if n:
-            _record_fill(day, mode, tsym, opt, strike, action, n, float(avg or px), oid, why)
+            _record_fill(day, u, mode, tsym, opt, strike, action, n, float(avg or px), oid, why)
             got, value, left = got + n, value + n * float(avg or px), left - n
         if left <= 0:
             return value / got
@@ -704,22 +764,22 @@ def _fill(day: str, mode: str, tsym: str, action: str, qty: int, why: str) -> fl
     raise ExecError(f"{action} {left} of {tsym} not filled after {FILL_TRIES} tries")
 
 
-def _record_fill(day, mode, tsym, opt, strike, action, qty, px, oid, why) -> None:
+def _record_fill(day, u, mode, tsym, opt, strike, action, qty, px, oid, why) -> None:
     with _conn() as con:
-        con.execute("""INSERT INTO condor_fills (day, at, mode, tsym, opt, strike, action, qty, price, charges,
-            order_id, why) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (day, _stamp(), mode, tsym, opt, strike, action, qty, px,
+        con.execute("""INSERT INTO condor_fills (day, und, at, mode, tsym, opt, strike, action, qty, price, charges,
+            order_id, why) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (day, u, _stamp(), mode, tsym, opt, strike, action, qty, px,
                      round(option_charges(action, px * qty), 2), oid, why))
 
 
-def _trade_to(day: str, mode: str, target: dict, why: str) -> None:
+def _trade_to(day: str, u: str, mode: str, target: dict, why: str) -> None:
     """Move the position to `target` (tsym -> signed qty): every buy first, then the sells."""
-    cur = {t: p["qty"] for t, p in position(day).items()}
+    cur = {t: p["qty"] for t, p in position(day, u).items()}
     diff = {t: target.get(t, 0) - cur.get(t, 0) for t in {*cur, *target}}
     for t in sorted(t for t, d in diff.items() if d > 0):
-        _fill(day, mode, t, "BUY", diff[t], why)
+        _fill(day, u, mode, t, "BUY", diff[t], why)
     for t in sorted(t for t, d in diff.items() if d < 0):
-        _fill(day, mode, t, "SELL", -diff[t], why)
+        _fill(day, u, mode, t, "SELL", -diff[t], why)
 
 
 def _target_of(plan: dict, qty: int, sides=("call", "put")) -> dict:
@@ -752,94 +812,107 @@ def start() -> None:
 
 
 def tick(now: datetime | None = None) -> None:
+    """One pass of every index's book (a failure in one never stops the others)."""
+    now = now or _nse().now()
+    for u in UNDERLYINGS:
+        try:
+            tick_book(u, now)
+        except Exception:
+            log.exception("Condor tick failed for %s", u)
+
+
+def tick_book(u: str, now: datetime) -> None:
     with _lock:
-        now = now or _nse().now()
+        mem = _book(u)
         day = now.date().isoformat()
-        rec = get_day(day)
-        pos = position(day)
+        rec = get_day(day, u)
+        pos = position(day, u)
         if pos:
-            _manage(day, rec or {}, pos, now)
+            _manage(day, u, rec or {}, pos, now)
             return
         if rec and rec["status"] == OPEN:        # flat again (closed by hand or the last side exited)
-            _close_day(day, CLOSED, rec.get("reason") or "All legs closed", now)
+            _close_day(day, u, CLOSED, rec.get("reason") or "All legs closed", now)
             return
         if not _nse().is_open(now) or (rec and rec["status"] in FINAL):
             return
-        mode = get_mode()
-        exp = today_expiry(now)
-        if mode == "off" or exp is None:
+        mode = get_mode(u)
+        if mode == "off":
+            return
+        exp = today_expiry(now, u)
+        if exp is None:
             return
         if rec is None:
-            _save_day(day, mode=mode, status=WAITING, expiry=exp, reason="Waiting for 09:45")
-            _precheck(day, exp, mode, now)
+            _save_day(day, u, mode=mode, status=WAITING, expiry=exp, reason="Waiting for 09:45")
+            _precheck(day, u, exp, mode, now)
             return
         if now.time() < ENTRY_FROM:
             return
         if now.time() >= ENTRY_TO:
-            _save_day(day, status=SKIPPED, reason="No entry between 09:45 and 10:15")
-            _log(day, "skip", "No entry between 09:45 and 10:15: " + (rec.get("reason") or ""), notify=True, mode=mode)
+            _save_day(day, u, status=SKIPPED, reason="No entry between 09:45 and 10:15")
+            _log(day, u, "skip", "No entry between 09:45 and 10:15: " + (rec.get("reason") or ""), notify=True,
+                 mode=mode)
             return
-        if _time.monotonic() - _mem["entry_try"] < ENTRY_RETRY_SEC:
+        if _time.monotonic() - mem["entry_try"] < ENTRY_RETRY_SEC:
             return
-        _mem["entry_try"] = _time.monotonic()
-        _try_entry(day, exp, mode, now)
+        mem["entry_try"] = _time.monotonic()
+        _try_entry(day, u, exp, mode, now)
 
 
-def _precheck(day: str, exp: str, mode: str, now: datetime) -> None:
+def _precheck(day: str, u: str, exp: str, mode: str, now: datetime) -> None:
     """Before 09:45: the day filters, posted once; a failed day filter skips the day."""
     try:
-        p = plan_now(now, exp)
+        p = plan_now(now, exp, u)
     except Exception as exc:
-        _log(day, "check", f"Pre-check: market data unavailable ({exc}); will try at 09:45")
+        _log(day, u, "check", f"Pre-check: market data unavailable ({exc}); will try at 09:45")
         return
-    _mem["plan"] = p
+    _book(u)["plan"] = p
     day_rules = ("Expiry day (0DTE)", "Not an event day", "VIX rise ≤ 5%", "IV percentile 30-85")
     bad = [c for c in p["checks"] if c["rule"] in day_rules and c["ok"] is False and c["on"]]
     text = " · ".join(f"{'✅' if c['ok'] else ('⚠️' if not c['hard'] else '❌') if c['ok'] is False else '…'} "
                       f"{c['rule']}: {c['value']}" for c in p["checks"] if c["rule"] in day_rules
                       or c["rule"] in ("India VIX 11-20", "VIX above HV10"))
     if bad:
-        _save_day(day, status=SKIPPED, reason="; ".join(f"{c['rule']} ({c['value']})" for c in bad))
-        _log(day, "skip", "No trade today: " + "; ".join(f"{c['rule']} ({c['value']})" for c in bad),
+        _save_day(day, u, status=SKIPPED, reason="; ".join(f"{c['rule']} ({c['value']})" for c in bad))
+        _log(day, u, "skip", "No trade today: " + "; ".join(f"{c['rule']} ({c['value']})" for c in bad),
              {"checks": p["checks"]}, notify=True, mode=mode)
     else:
-        _log(day, "check", "Expiry day pre-check: " + text, {"checks": p["checks"]}, notify=True, mode=mode)
+        _log(day, u, "check", "Expiry day pre-check: " + text, {"checks": p["checks"]}, notify=True, mode=mode)
 
 
-def _try_entry(day: str, exp: str, mode: str, now: datetime) -> None:
+def _try_entry(day: str, u: str, exp: str, mode: str, now: datetime) -> None:
     try:
-        p = plan_now(now, exp)
+        p = plan_now(now, exp, u)
     except Exception as exc:
-        _save_day(day, reason=f"Market data unavailable: {exc}")
-        _log(day, "check", f"Entry: market data unavailable ({exc}); retrying")
+        _save_day(day, u, reason=f"Market data unavailable: {exc}")
+        _log(day, u, "check", f"Entry: market data unavailable ({exc}); retrying")
         return
-    _mem["plan"] = p
+    _book(u)["plan"] = p
     if not p["ok"]:
         if p.get("data_only"):
-            _save_day(day, reason="Waiting for data: " + ", ".join(p["blockers"]))
-            _log(day, "check", "Entry: waiting for data (" + ", ".join(p["blockers"]) + ")", {"checks": p["checks"]})
+            _save_day(day, u, reason="Waiting for data: " + ", ".join(p["blockers"]))
+            _log(day, u, "check", "Entry: waiting for data (" + ", ".join(p["blockers"]) + ")", {"checks": p["checks"]})
             return
         bad = [c for c in p["checks"] if c["rule"] in p["blockers"]]
         why = "; ".join(f"{c['rule']} ({c['value']})" for c in bad)
-        _save_day(day, status=SKIPPED, reason=why, entry=json.dumps(_summary(p)))
-        _log(day, "skip", f"No trade today: {why}", _summary(p), notify=True, mode=mode)
+        _save_day(day, u, status=SKIPPED, reason=why, entry=json.dumps(_summary(p)))
+        _log(day, u, "skip", f"No trade today: {why}", _summary(p), notify=True, mode=mode)
         return
-    if mode == "live" and not trading_enabled():
-        _save_day(day, status=SKIPPED, reason="Live mode but the condor's Auto-trade switch is OFF")
-        _log(day, "skip", "Live mode but the condor's Auto-trade switch is OFF: no trade", notify=True, mode=mode)
+    if mode == "live" and not trading_enabled(u):
+        _save_day(day, u, status=SKIPPED, reason="Live mode but this index's Auto-trade switch is OFF")
+        _log(day, u, "skip", "Live mode but the condor's Auto-trade switch is OFF: no trade", notify=True, mode=mode)
         return
     s = _summary(p)
     try:
-        _trade_to(day, mode, _target_of(p, p["qty"]), "entry")
+        _trade_to(day, u, mode, _target_of(p, p["qty"]), "entry")
     except Exception as exc:
-        _log(day, "error", f"Entry failed ({exc}); closing whatever filled", s, notify=True, mode=mode)
-        _flatten(day, mode, "entry failed")
-        _save_day(day, status=FAILED, reason=f"Entry failed: {exc}")
+        _log(day, u, "error", f"Entry failed ({exc}); closing whatever filled", s, notify=True, mode=mode)
+        _flatten(day, u, mode, "entry failed")
+        _save_day(day, u, status=FAILED, reason=f"Entry failed: {exc}")
         return
-    _save_day(day, status=OPEN, mode=mode, entry_at=now.isoformat(timespec="seconds"), reason="Open",
+    _save_day(day, u, status=OPEN, mode=mode, entry_at=now.isoformat(timespec="seconds"), reason="Open",
               entry=json.dumps(s))
     t = p["targets"]
-    _log(day, "entry",
+    _log(day, u, "entry",
          f"Entered: buy {t['long_put']:.0f} PE, sell {t['short_put']:.0f} PE, sell {t['short_call']:.0f} CE, "
          f"buy {t['long_call']:.0f} CE · credit {p['credit']:.2f} (₹{p['max_profit']:,.0f}) · max loss "
          f"₹{p['max_loss']:,.0f} · POP {p['pop'] * 100:.1f}% · 1SD {p['sd']['sd']:.0f} ({p['sd']['used']}) · "
@@ -848,12 +921,12 @@ def _try_entry(day: str, exp: str, mode: str, now: datetime) -> None:
 
 def _summary(p: dict) -> dict:
     """What gets logged for a decision: checks, 1SD A/B, candidates, legs, credit, POP."""
-    return {k: p.get(k) for k in ("as_of", "spot", "expiry", "minutes_left", "vix", "ivp", "hv10", "sd", "candidates",
-                                  "walls", "targets", "legs", "credit", "pop", "max_profit", "max_loss", "breakevens",
-                                  "checks", "blockers")}
+    return {k: p.get(k) for k in ("underlying", "as_of", "spot", "expiry", "minutes_left", "vix", "ivp", "hv10", "sd",
+                                  "candidates", "walls", "targets", "legs", "credit", "pop", "max_profit", "max_loss",
+                                  "breakevens", "checks", "blockers")}
 
 
-def _marks(pos: dict) -> dict:
+def _marks(u: str, pos: dict) -> dict:
     """Mid prices (or last) of the open legs; their full quotes are kept for the dashboard."""
     out = {}
     for t in pos:
@@ -862,40 +935,42 @@ def _marks(pos: dict) -> dict:
         except Exception as exc:
             log.debug("Quote for %s failed: %s", t, exc)
             continue
-        _mem["quotes"][t] = {k: q.get(k) for k in ("bid", "ask", "ltp")}
+        _book(u)["quotes"][t] = {k: q.get(k) for k in ("bid", "ask", "ltp")}
         out[t] = (q["bid"] + q["ask"]) / 2 if q.get("bid") and q.get("ask") else q.get("ltp")
     return out
 
 
-def _manage(day: str, rec: dict, pos: dict, now: datetime) -> None:
-    mode = rec.get("mode") or get_mode()
-    marks = _marks(pos)
-    pl = pnl(day, marks)
-    _mem.update(pnl=pl, marks=marks, pnl_at=now.isoformat(timespec="seconds"))
-    cap = config.CONDOR_LOSS_CAP
-    if get_rules()["loss_cap"] and not pl["unmarked"] and pl["total"] <= -cap:
-        _log(day, "cap", f"Daily loss cap hit: P&L ₹{pl['total']:,.0f} ≤ −₹{cap:,.0f}; closing everything",
+def _manage(day: str, u: str, rec: dict, pos: dict, now: datetime) -> None:
+    mem = _book(u)
+    mode = rec.get("mode") or get_mode(u)
+    marks = _marks(u, pos)
+    pl = pnl(day, marks, u)
+    mem.update(pnl=pl, marks=marks, pnl_at=now.isoformat(timespec="seconds"))
+    cap = loss_cap(u)
+    if get_rules(u)["loss_cap"] and not pl["unmarked"] and pl["total"] <= -cap:
+        _log(day, u, "cap", f"Daily loss cap hit: P&L ₹{pl['total']:,.0f} ≤ −₹{cap:,.0f}; closing everything",
              pl, notify=True, mode=mode)
-        _exit_all(day, mode, STOPPED, f"Loss cap (₹{pl['total']:,.0f})", now)
+        _exit_all(day, u, mode, STOPPED, f"Loss cap (₹{pl['total']:,.0f})", now)
         return
     if now.time() >= EXIT_FROM:
-        _exit_all(day, mode, CLOSED, "Time exit (15:00)", now)
+        _exit_all(day, u, mode, CLOSED, "Time exit (15:00)", now)
         return
-    if not _nse().is_open(now) or _time.monotonic() - _mem["retarget_at"] < RETARGET_SEC:
+    if not _nse().is_open(now) or _time.monotonic() - mem["retarget_at"] < RETARGET_SEC:
         return
-    _mem["retarget_at"] = _time.monotonic()
+    mem["retarget_at"] = _time.monotonic()
     try:
-        _retarget(day, rec, pos, mode, now)
+        _retarget(day, u, rec, pos, mode, now)
     except Exception as exc:
         log.exception("Condor re-target failed")
-        _log(day, "error", f"Re-target failed: {exc}")
+        _log(day, u, "error", f"Re-target failed: {exc}")
 
 
-def _retarget(day: str, rec: dict, pos: dict, mode: str, now: datetime) -> None:
-    exp = rec.get("expiry") or today_expiry(now)
-    rules = get_rules()
-    p = evaluate(snapshot(exp, now), now, filters=False, rules=rules)
-    _mem["plan"] = p
+def _retarget(day: str, u: str, rec: dict, pos: dict, mode: str, now: datetime) -> None:
+    spec = SPECS[u]
+    exp = rec.get("expiry") or today_expiry(now, u)
+    rules = get_rules(u)
+    p = evaluate(snapshot(exp, now, u), now, filters=False, rules=rules)
+    _book(u)["plan"] = p
     if not p.get("sd") or not p["sd"].get("sd") or not p.get("targets"):
         return
     spot, one, tg = p["spot"], p["sd"]["sd"], p["targets"]
@@ -905,7 +980,7 @@ def _retarget(day: str, rec: dict, pos: dict, mode: str, now: datetime) -> None:
         short = next((v["strike"] for v in legs.values() if v["qty"] < 0), None)
         if short is None:
             continue
-        level = roll_signal(opt, short, spot, one)
+        level = roll_signal(opt, short, spot, one, spec["out"], spec["in"])
         lvl = spot + one if opt == "CE" else spot - one
         wall = (walls.get(side) or {}).get("strike")
         wall_past = wall is not None and (wall > short if opt == "CE" else wall < short)
@@ -914,7 +989,7 @@ def _retarget(day: str, rec: dict, pos: dict, mode: str, now: datetime) -> None:
                   else None)
         if now.time() >= ROLL_UNTIL:
             if threat and rules["late_exit"]:
-                _exit_side(day, mode, opt, f"after 14:30, {threat}")
+                _exit_side(day, u, mode, opt, f"after 14:30, {threat}")
             continue
         sig, why = None, None
         if level == "out" and rules["roll_out"]:
@@ -930,15 +1005,16 @@ def _retarget(day: str, rec: dict, pos: dict, mode: str, now: datetime) -> None:
             continue
         last = rec.get("last_roll_at")
         if last and now - datetime.fromisoformat(last) < timedelta(minutes=COOLDOWN_MIN):
-            _log(day, "roll", f"{opt} side wants to roll {sig} ({why or 'short beyond its 1SD level'}) but the "
-                              f"10-minute cooldown is running")
+            _log(day, u, "roll", f"{opt} side wants to roll {sig} ({why or 'short beyond its 1SD level'}) but the "
+                                 f"10-minute cooldown is running")
             continue
-        _roll(day, rec, pos, mode, p, opt, sig, why or f"short {short:.0f} is {IN_BUFFER}+ pts beyond its 1SD level",
-              now)
+        _roll(day, u, rec, pos, mode, p, opt, sig,
+              why or f"short {short:.0f} is {spec['in']}+ pts beyond its 1SD level", now)
         return   # one roll per re-target; the position changed
 
 
-def _roll(day: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str, why: str, now: datetime) -> None:
+def _roll(day: str, u: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str, why: str,
+          now: datetime) -> None:
     side = "call" if opt == "CE" else "put"
     qty = max(abs(v["qty"]) for v in pos.values())
     keep = {t: v["qty"] for t, v in pos.items() if v["opt"] != opt}
@@ -963,157 +1039,187 @@ def _roll(day: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str
             "to": [legs[t]["strike"] for t in new_side if t in legs], "pop": pp, "roll_cash": round(roll_cash, 2),
             "spot": p["spot"], "sd": p["sd"]["sd"]}
     if sig == "in" and roll_cash <= 0:
-        _log(day, "roll", f"{opt} inward roll skipped: it would not bring a net credit (₹{roll_cash:,.0f})", info)
+        _log(day, u, "roll", f"{opt} inward roll skipped: it would not bring a net credit (₹{roll_cash:,.0f})", info)
         return
-    if pp <= POP_MIN and get_rules()["pop"]:
+    if pp <= POP_MIN and get_rules(u)["pop"]:
         if sig == "out":
-            _log(day, "roll", f"{opt} roll out can't meet POP > 75% ({pp * 100:.1f}%): closing that side",
+            _log(day, u, "roll", f"{opt} roll out can't meet POP > 75% ({pp * 100:.1f}%): closing that side",
                  info, notify=True, mode=mode)
-            _exit_side(day, mode, opt, why)
+            _exit_side(day, u, mode, opt, why)
         else:
-            _log(day, "roll", f"{opt} inward roll skipped: POP {pp * 100:.1f}% ≤ 75%", info)
+            _log(day, u, "roll", f"{opt} inward roll skipped: POP {pp * 100:.1f}% ≤ 75%", info)
         return
-    if mode == "live" and not trading_enabled():
-        _log(day, "roll", f"{opt} roll {sig} needed but the condor's Auto-trade switch is OFF: closing that side instead",
-             info, notify=True, mode=mode)
-        _exit_side(day, mode, opt, why)
+    if mode == "live" and not trading_enabled(u):
+        _log(day, u, "roll", f"{opt} roll {sig} needed but the condor's Auto-trade switch is OFF: closing that side "
+                             f"instead", info, notify=True, mode=mode)
+        _exit_side(day, u, mode, opt, why)
         return
     try:
-        _trade_to(day, mode, target, f"roll {sig} {opt}")
+        _trade_to(day, u, mode, target, f"roll {sig} {opt}")
     except Exception as exc:
-        _log(day, "error", f"Roll failed ({exc}); closing everything", info, notify=True, mode=mode)
-        _exit_all(day, mode, FAILED, f"Roll failed: {exc}", now)
+        _log(day, u, "error", f"Roll failed ({exc}); closing everything", info, notify=True, mode=mode)
+        _exit_all(day, u, mode, FAILED, f"Roll failed: {exc}", now)
         return
-    _save_day(day, last_roll_at=now.isoformat(timespec="seconds"), rolls=int(rec.get("rolls") or 0) + 1)
-    _log(day, "roll", f"Rolled the {opt} side {sig} to {'/'.join(f'{k:.0f}' for k in sorted(info['to']))} "
-                      f"({why}) · cash ₹{roll_cash:,.0f} · POP {pp * 100:.1f}%", info, notify=True, mode=mode)
+    _save_day(day, u, last_roll_at=now.isoformat(timespec="seconds"), rolls=int(rec.get("rolls") or 0) + 1)
+    _log(day, u, "roll", f"Rolled the {opt} side {sig} to {'/'.join(f'{k:.0f}' for k in sorted(info['to']))} "
+                         f"({why}) · cash ₹{roll_cash:,.0f} · POP {pp * 100:.1f}%", info, notify=True, mode=mode)
 
 
-def _exit_side(day: str, mode: str, opt: str, why: str) -> bool:
-    pos = position(day)
+def _exit_side(day: str, u: str, mode: str, opt: str, why: str) -> bool:
+    pos = position(day, u)
     target = {t: v["qty"] for t, v in pos.items() if v["opt"] != opt}
     try:
-        _trade_to(day, mode, target, f"exit {opt}")
+        _trade_to(day, u, mode, target, f"exit {opt}")
     except Exception as exc:
-        _log(day, "error", f"Closing the {opt} side failed ({exc}); retrying", notify=True, mode=mode)
+        _log(day, u, "error", f"Closing the {opt} side failed ({exc}); retrying", notify=True, mode=mode)
         return False
-    _log(day, "exit", f"Closed the {opt} side: {why}", notify=True, mode=mode)
+    _log(day, u, "exit", f"Closed the {opt} side: {why}", notify=True, mode=mode)
     return True
 
 
-def _flatten(day: str, mode: str, why: str) -> bool:
+def _flatten(day: str, u: str, mode: str, why: str) -> bool:
     try:
-        _trade_to(day, mode, {}, why)
+        _trade_to(day, u, mode, {}, why)
         return True
     except Exception as exc:
-        _log(day, "error", f"Closing everything failed ({exc}); retrying in {TICK_SEC} s", notify=True, mode=mode)
+        _log(day, u, "error", f"Closing everything failed ({exc}); retrying in {TICK_SEC} s", notify=True, mode=mode)
         return False
 
 
-def _exit_all(day: str, mode: str, status: str, why: str, now: datetime) -> None:
-    if _flatten(day, mode, why):
-        _close_day(day, status, why, now)
-    elif now.time() >= EXIT_BY and _mem["exit_warned"] != day:
-        _mem["exit_warned"] = day
-        _log(day, "error", "⚠️ Legs still open after 15:15: close them in the Kotak app", notify=True, mode=mode)
+def _exit_all(day: str, u: str, mode: str, status: str, why: str, now: datetime) -> None:
+    mem = _book(u)
+    if _flatten(day, u, mode, why):
+        _close_day(day, u, status, why, now)
+    elif now.time() >= EXIT_BY and mem["exit_warned"] != day:
+        mem["exit_warned"] = day
+        _log(day, u, "error", "⚠️ Legs still open after 15:15: close them in the Kotak app", notify=True, mode=mode)
 
 
-def _close_day(day: str, status: str, why: str, now: datetime) -> None:
-    pl = pnl(day, {})
-    rec = get_day(day) or {}
-    _save_day(day, status=status, reason=why, exit_at=now.isoformat(timespec="seconds"), pnl=pl["total"],
+def _close_day(day: str, u: str, status: str, why: str, now: datetime) -> None:
+    pl = pnl(day, {}, u)
+    rec = get_day(day, u) or {}
+    _save_day(day, u, status=status, reason=why, exit_at=now.isoformat(timespec="seconds"), pnl=pl["total"],
               charges=pl["charges"])
-    _mem.update(pnl=pl)
-    _log(day, "exit", f"Day over ({why}): net P&L ₹{pl['total']:,.0f} after ₹{pl['charges']:,.0f} charges · "
-                      f"{int(rec.get('rolls') or 0)} roll(s)", pl, notify=True, mode=rec.get("mode") or "")
+    _book(u).update(pnl=pl)
+    _log(day, u, "exit", f"Day over ({why}): net P&L ₹{pl['total']:,.0f} after ₹{pl['charges']:,.0f} charges · "
+                         f"{int(rec.get('rolls') or 0)} roll(s)", pl, notify=True, mode=rec.get("mode") or "")
 
 
-def exit_now(by: str) -> dict:
-    """Close every leg now (dashboard button)."""
+def exit_now(by: str, u: str = UNDERLYING) -> dict:
+    """Close every leg of one index's condor now (dashboard button)."""
+    u = _und(u)
     with _lock:
         now = _nse().now()
         day = now.date().isoformat()
-        rec = get_day(day) or {}
-        if not position(day):
-            raise ValueError("No open condor legs today")
-        _log(day, "exit", f"Close all requested by {by}", notify=True, mode=rec.get("mode") or "")
-        _exit_all(day, rec.get("mode") or get_mode(), CLOSED, f"Closed by hand ({by})", now)
-        return status()
+        rec = get_day(day, u) or {}
+        if not position(day, u):
+            raise ValueError(f"No open {u} condor legs today")
+        _log(day, u, "exit", f"Close all requested by {by}", notify=True, mode=rec.get("mode") or "")
+        _exit_all(day, u, rec.get("mode") or get_mode(u), CLOSED, f"Closed by hand ({by})", now)
+        return status(u)
 
 
-def close_side(opt: str, by: str) -> dict:
+def close_side(opt: str, by: str, u: str = UNDERLYING) -> dict:
     """Close one side (its short bought back first, then its wing sold) now (dashboard button)."""
+    u = _und(u)
     opt = str(opt).upper()
     if opt not in ("CE", "PE"):
         raise ValueError("Side must be CE (calls) or PE (puts)")
     with _lock:
         now = _nse().now()
         day = now.date().isoformat()
-        rec = get_day(day) or {}
-        if not _side_legs(position(day), opt):
-            raise ValueError(f"No open {opt} legs")
-        mode = rec.get("mode") or get_mode()
-        if not _exit_side(day, mode, opt, f"closed by hand ({by})"):
+        rec = get_day(day, u) or {}
+        if not _side_legs(position(day, u), opt):
+            raise ValueError(f"No open {u} {opt} legs")
+        mode = rec.get("mode") or get_mode(u)
+        if not _exit_side(day, u, mode, opt, f"closed by hand ({by})"):
             raise RuntimeError(f"Closing the {opt} side failed; see Today's decisions")
-        if not position(day):
-            _close_day(day, CLOSED, f"Closed by hand ({by})", now)
-        return status()
+        if not position(day, u):
+            _close_day(day, u, CLOSED, f"Closed by hand ({by})", now)
+        return status(u)
 
 
-def close_leg(tsym: str, by: str) -> dict:
+def close_leg(tsym: str, by: str, u: str = UNDERLYING) -> dict:
     """Buy back one short leg now. A wing can't be closed on its own: its short would be left uncovered."""
+    u = _und(u)
     with _lock:
         now = _nse().now()
         day = now.date().isoformat()
-        rec = get_day(day) or {}
-        pos = position(day)
+        rec = get_day(day, u) or {}
+        pos = position(day, u)
         leg = pos.get(tsym)
         if not leg:
-            raise ValueError(f"{tsym} isn't an open condor leg")
+            raise ValueError(f"{tsym} isn't an open {u} condor leg")
         if leg["qty"] > 0:
             raise ValueError("A wing can't be closed on its own: its short would be left uncovered. "
                              "Close the short first, or the whole side.")
-        mode = rec.get("mode") or get_mode()
+        mode = rec.get("mode") or get_mode(u)
         target = {t: v["qty"] for t, v in pos.items() if t != tsym}
         try:
-            _trade_to(day, mode, target, "close leg")
+            _trade_to(day, u, mode, target, "close leg")
         except Exception as exc:
-            _log(day, "error", f"Buying back {tsym} failed ({exc})", notify=True, mode=mode)
+            _log(day, u, "error", f"Buying back {tsym} failed ({exc})", notify=True, mode=mode)
             raise RuntimeError(f"Buying back {tsym} failed: {exc}") from exc
-        _log(day, "exit", f"Bought back {tsym} by hand ({by})", notify=True, mode=mode)
-        if not position(day):
-            _close_day(day, CLOSED, f"Closed by hand ({by})", now)
-        return status()
+        _log(day, u, "exit", f"Bought back {tsym} by hand ({by})", notify=True, mode=mode)
+        if not position(day, u):
+            _close_day(day, u, CLOSED, f"Closed by hand ({by})", now)
+        return status(u)
 
 
 # ---- dashboard --------------------------------------------------------------------------------------------
 
-def status() -> dict:
+def overview(now: datetime | None = None) -> list[dict]:
+    """One line per index for the dashboard's index picker: mode, switch, today's state, open legs, P&L."""
+    now = now or _nse().now()
+    day = now.date().isoformat()
+    out = []
+    for u in UNDERLYINGS:
+        rec, pos = get_day(day, u), position(day, u)
+        pl = _book(u)["pnl"] if pos else (rec or {}).get("pnl")
+        out.append({"underlying": u, "name": SPECS[u]["name"], "mode": get_mode(u), "trading_enabled": trading_enabled(u),
+                    "status": (rec or {}).get("status"), "legs": len(pos), "today_expiry": today_expiry(now, u),
+                    "next_expiry": next_expiry(now, u),
+                    "pnl": pl.get("total") if isinstance(pl, dict) else pl})
+    return out
+
+
+def status(u: str = UNDERLYING) -> dict:
+    u = _und(u)
+    mem, spec = _book(u), SPECS[u]
     now = _nse().now()
     day = now.date().isoformat()
-    rec = get_day(day)
-    pos = position(day)
-    marks = _mem["marks"] if pos else {}
+    rec = get_day(day, u)
+    pos = position(day, u)
+    marks = mem["marks"] if pos else {}
     if pos and not marks:                       # outside the engine's loop (e.g. market closed): read them now
-        marks = _marks(pos)
-    avg = entry_prices(day)
+        marks = _marks(u, pos)
+    avg = entry_prices(day, u)
     legs = []
     for t, v in sorted(pos.items(), key=lambda kv: (kv[1]["opt"] != "PE", kv[1]["strike"])):
-        q, m, a = _mem["quotes"].get(t) or {}, marks.get(t), avg.get(t)
+        q, m, a = mem["quotes"].get(t) or {}, marks.get(t), avg.get(t)
         legs.append({"tsym": t, **v, "avg": a, "mark": m, "bid": q.get("bid"), "ask": q.get("ask"),
                      "ltp": q.get("ltp"), "pnl": round((m - a) * v["qty"], 2) if m is not None and a else None})
     with _conn() as con:
         hist = [dict(r) for r in con.execute(
-            "SELECT day, mode, status, reason, rolls, pnl, charges FROM condor_days ORDER BY day DESC LIMIT 40")]
-    return {"mode": get_mode(), "trading_enabled": trading_enabled(), "now": now.isoformat(timespec="seconds"),
-            "today": rec, "today_expiry": today_expiry(now), "next_expiry": next_expiry(now),
-            "legs": legs, "pnl": pnl(day, marks) if (pos or fills(day)) else None,
-            "fills": fills(day), "log": day_log(day), "plan": _mem["plan"], "history": hist,
+            "SELECT day, mode, status, reason, rolls, pnl, charges FROM condor_days WHERE und = ? "
+            "ORDER BY day DESC LIMIT 40", (u,))]
+    plan = mem["plan"]
+    if plan and plan.get("underlying", UNDERLYING) != u:
+        plan = None
+    cap = loss_cap(u)
+    return {"underlying": u, "name": spec["name"], "books": overview(now),
+            "mode": get_mode(u), "trading_enabled": trading_enabled(u), "now": now.isoformat(timespec="seconds"),
+            "today": rec, "today_expiry": today_expiry(now, u), "next_expiry": next_expiry(now, u),
+            "legs": legs, "pnl": pnl(day, marks, u) if (pos or fills(day, u)) else None,
+            "fills": fills(day, u), "log": day_log(day, u), "plan": plan, "history": hist,
             "skip_dates": skip_dates(),
-            "rule_settings": [{"key": k, "group": g, "name": n, "desc": d.replace("CONDOR_LOSS_CAP", f"₹{config.CONDOR_LOSS_CAP:,.0f}"),
-                               "on": v} for (k, (g, n, d)), v in zip(RULES.items(), get_rules().values())],
-            "locked_rules": list(LOCKED),
-            "rules": {"loss_cap": config.CONDOR_LOSS_CAP, "lots": LOTS, "wing": WING, "entry": "09:45-10:15",
-                      "roll_until": "14:30", "exit": "15:00-15:15", "pop_min": POP_MIN * 100,
-                      "out_buffer": OUT_BUFFER, "in_buffer": IN_BUFFER, "cooldown_min": COOLDOWN_MIN,
-                      "vix_band": VIX_BAND, "vix_rise_max": VIX_RISE_MAX, "ivp_band": IVP_BAND, "delta": DELTA}}
+            "rule_settings": [{"key": k, "group": g, "name": n,
+                               "desc": d.replace("CONDOR_LOSS_CAP", f"₹{cap:,.0f}")
+                                        .replace("25+ pts", f"{spec['out']}+ pts").replace("75+ pts", f"{spec['in']}+ pts"),
+                               "on": v} for (k, (g, n, d)), v in zip(RULES.items(), get_rules(u).values())],
+            "locked_rules": [r.replace("1 lot, fixed wings", f"1 lot, {spec['wing']}-point wings") for r in LOCKED],
+            "rules": {"loss_cap": cap, "lots": LOTS, "wing": spec["wing"], "step": spec["step"],
+                      "entry": "09:45-10:15", "roll_until": "14:30", "exit": "15:00-15:15", "pop_min": POP_MIN * 100,
+                      "out_buffer": spec["out"], "in_buffer": spec["in"], "cooldown_min": COOLDOWN_MIN,
+                      "vix_band": VIX_BAND, "vix_rise_max": VIX_RISE_MAX, "ivp_band": IVP_BAND, "delta": DELTA,
+                      "exchange": spec["exchange"], "expiry": spec["expiry"]}}

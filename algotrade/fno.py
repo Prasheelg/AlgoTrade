@@ -15,6 +15,7 @@ from . import config, kotak, livefeed, oibook
 
 log = logging.getLogger(__name__)
 SEGMENT = "nse_fo"
+BSE_SEGMENT = "bse_fo"
 EPOCH_1980 = 315532800      # scrip master expiry dates count seconds from 1980-01-01
 QUOTE_BATCH = kotak.BATCH   # Kotak takes at most 49 instruments per quote call
 CHAIN_CACHE_SEC = 2         # one quote round per chain for this long, however many tabs poll
@@ -22,6 +23,9 @@ LIVE_CHAIN_CACHE_SEC = 0.2  # while the live stream is connected (prices come fr
 # Index option underlyings -> Kotak quote name of the index (nse_cm)
 INDEX_QUOTE = {"NIFTY": "Nifty 50", "BANKNIFTY": "Nifty Bank", "FINNIFTY": "Nifty Fin Service",
                "MIDCPNIFTY": "NIFTY MID SELECT", "NIFTYNXT50": "Nifty Next 50"}
+# BSE index options (bse_fo), read for the 0DTE condor only: underlying -> Kotak quote name of the index (bse_cm).
+# They stay out of underlyings() (the Options tab and its orders are NSE only).
+BSE_INDEX_QUOTE = {"SENSEX": "SENSEX"}
 
 _master = {"day": None, "df": None, "fut": None}
 _chains: dict = {}
@@ -43,9 +47,30 @@ def parse_master(csv_text: str) -> pd.DataFrame:
         "token": m["pSymbol"].str.strip(),
         "tsym": m["pTrdSymbol"].str.strip(),
         "tick": pd.to_numeric(m["dTickSize"], errors="coerce").fillna(5) / 100,
+        "segment": SEGMENT,
     })
     df = df[df["underlying"].isin(INDEX_QUOTE) | (df["kind"] == "stock")]
     return df.dropna(subset=["strike", "expiry"]).reset_index(drop=True)
+
+
+def parse_bse_master(csv_text: str) -> pd.DataFrame:
+    """The BSE index options in BSE_INDEX_QUOTE from the bse_fo scrip master (instrument type "IO"; its expiry
+    dates are plain Unix seconds, not counted from 1980 like nse_fo's)."""
+    m = pd.read_csv(io.StringIO(csv_text), dtype=str, low_memory=False)
+    m.columns = [c.strip().rstrip(";") for c in m.columns]
+    m = m[(m["pInstType"].str.strip() == "IO") & m["pSymbolName"].str.strip().isin(BSE_INDEX_QUOTE)]
+    exp = pd.to_numeric(m["pExpiryDate"], errors="coerce")
+    df = pd.DataFrame({
+        "underlying": m["pSymbolName"].str.strip(), "kind": "index",
+        "expiry": pd.to_datetime(exp, unit="s", utc=True).dt.tz_convert("Asia/Kolkata").dt.date,
+        "strike": pd.to_numeric(m["dStrikePrice"], errors="coerce") / 100,
+        "opt": m["pOptionType"].str.strip(),
+        "lot": pd.to_numeric(m["lLotSize"], errors="coerce").fillna(0).astype(int),
+        "token": m["pSymbol"].str.strip(), "tsym": m["pTrdSymbol"].str.strip(),
+        "tick": pd.to_numeric(m["dTickSize"], errors="coerce").fillna(5) / 100,
+        "segment": BSE_SEGMENT,
+    })
+    return df[df["opt"].isin(["CE", "PE"])].dropna(subset=["strike", "expiry"]).reset_index(drop=True)
 
 
 def _master_text(segment: str) -> str:
@@ -91,6 +116,10 @@ def contracts() -> pd.DataFrame:
         except Exception as exc:     # futures are extra information; options must still load
             log.warning("No futures in the F&O scrip master: %s", exc)
             fut = None
+        try:
+            df = pd.concat([df, parse_bse_master(_master_text(BSE_SEGMENT))], ignore_index=True)
+        except Exception as exc:     # BSE (SENSEX) options are extra; NSE's must still load
+            log.warning("BSE F&O scrip master unavailable: %s", exc)
         _master.update(day=today, df=df[df["expiry"] >= today].reset_index(drop=True), fut=fut)
         log.info("Kotak F&O scrip master: %d option contracts", len(_master["df"]))
     return _master["df"]
@@ -121,6 +150,11 @@ def underlyings() -> list[dict]:
     idx = [{"name": u, "kind": "index", "lot": lots[u]} for u in INDEX_QUOTE if u in lots]
     stocks = sorted(set(df.loc[df["kind"] == "stock", "underlying"]))
     return idx + [{"name": u, "kind": "stock", "lot": lots[u]} for u in stocks]
+
+
+def segment_of(c: dict | None) -> str:
+    """The exchange segment a contract (a contracts() row) trades on."""
+    return str((c or {}).get("segment") or SEGMENT)
 
 
 def expiries(underlying: str) -> list[str]:
@@ -174,19 +208,20 @@ def option_quote(tsym: str) -> dict:
     c = contract(tsym)
     if c is None:
         raise ValueError(f"Unknown option contract {tsym}")
-    res = _quotes([c["token"]])
+    res = _quotes([c["token"]], segment_of(c))
     if not res:
         raise RuntimeError(f"No quote for {tsym}")
     return parse_option_quote(res[0])
 
 
 def spot(underlying: str) -> dict:
-    """Underlying price: the index quote, or the stock's NSE quote."""
-    token = INDEX_QUOTE.get(underlying) or kotak.tokens().get(underlying)
+    """Underlying price: the index quote (NSE, or BSE for SENSEX), or the stock's NSE quote."""
+    seg = "bse_cm" if underlying in BSE_INDEX_QUOTE else "nse_cm"
+    token = BSE_INDEX_QUOTE.get(underlying) or INDEX_QUOTE.get(underlying) or kotak.tokens().get(underlying)
     q = {}
     if token:
         try:
-            res = _quotes([token], "nse_cm")
+            res = _quotes([token], seg)
         except RuntimeError:
             res = []
         q = res[0] if res else {}
@@ -214,7 +249,8 @@ def chain(underlying: str, expiry: str, width: int = 10, fresh: bool = False) ->
     atm_i = min(range(len(strikes)), key=lambda k: abs(strikes[k] - ref))
     window = strikes[max(0, atm_i - width): atm_i + width + 1]
     sel = rows[rows["strike"].isin(window)]
-    quotes = {str(q.get("exchange_token")): parse_option_quote(q) for q in _quotes(list(sel["token"]))}
+    quotes = {str(q.get("exchange_token")): parse_option_quote(q)
+              for q in _quotes(list(sel["token"]), segment_of(rows.iloc[0].to_dict()))}
     out_rows = []
     for k in window:
         row = {"strike": float(k)}
