@@ -123,9 +123,10 @@ US_CAPITAL = float(_get("US_CAPITAL", "10000"))
 US_MIN_PRICE = 5.0         # dollars
 US_MIN_AVG_TURNOVER = 2e7  # avg 20d turnover < $20M
 
-# MCX commodity futures (dashboard MCX tab; alerts only, see mcx.py). Lots are sized to risk RISK_PER_TRADE_PCT
-# of this capital per trade
+# MCX commodity futures (dashboard MCX tab; alerts only, see mcx.py): the mini contracts, MCX_LOTS lots a signal
+# (one by default); the alert warns when that risks more than RISK_PER_TRADE_PCT of MCX_CAPITAL
 MCX_CAPITAL = float(_get("MCX_CAPITAL", "") or CAPITAL)
+MCX_LOTS = max(int(_get("MCX_LOTS", "1") or 1), 1)
 
 DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)

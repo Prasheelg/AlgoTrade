@@ -17,6 +17,10 @@ MASTER = """pSymbol,pInstType,pSymbolName,pTrdSymbol,lLotSize,pExpiryDate
 574320,FUTCOM,NATURALGAS,NATURALGAS28DEC26FUT,1250,1
 600001,OPTFUT,CRUDEOIL,CRUDEOIL18DEC267000CE,100,1
 600002,FUTCOM,CARDAMOM,CARDAMOM15DEC26FUT,100,1
+576300,FUTCOM,CRUDEOILM,CRUDEOILM18DEC26FUT,10,1
+495300,FUTCOM,GOLDM,GOLDM04DEC26FUT,100,1
+495301,FUTCOM,SILVERM,SILVERM26FEB27FUT,5,1
+574400,FUTCOM,NATGASMINI,NATGASMINI24NOV26FUT,250,1
 """
 
 
@@ -38,9 +42,9 @@ def test_mcx_is_a_market_with_its_own_session_and_no_index():
     assert not m.in_scan_window(datetime(2026, 11, 21, 12, 0, tzinfo=IST))      # Saturday
 
 
-def test_universe_is_the_liquid_commodities():
-    assert universe.get_universe(market="MCX") == ["CRUDEOIL", "NATURALGAS", "GOLD", "SILVER", "COPPER"]
-    assert universe.get_universe("gold, cotton", market="MCX") == ["GOLD"]
+def test_universe_is_the_mini_contracts():
+    assert universe.get_universe(market="MCX") == ["CRUDEOILM", "NATGASMINI", "GOLDM", "SILVERM"]
+    assert universe.get_universe("goldm, gold, cotton", market="MCX") == ["GOLDM"]
 
 
 def test_fetch_ohlcv_goes_to_mcx_not_yahoo(monkeypatch):
@@ -58,8 +62,9 @@ def test_no_index_means_no_index_download(monkeypatch):
 # ---- contracts ------------------------------------------------------------------------------------
 
 def test_contracts_keep_only_futures_of_the_commodities(master):
-    assert sorted(master["tsym"]) == ["CRUDEOIL18DEC26FUT", "CRUDEOIL19JAN27FUT", "GOLD04DEC26FUT",
-                                      "NATURALGAS24NOV26FUT", "NATURALGAS28DEC26FUT"]
+    assert sorted(master["tsym"]) == ["CRUDEOIL18DEC26FUT", "CRUDEOIL19JAN27FUT", "CRUDEOILM18DEC26FUT",
+                                      "GOLD04DEC26FUT", "GOLDM04DEC26FUT", "NATGASMINI24NOV26FUT",
+                                      "NATURALGAS24NOV26FUT", "NATURALGAS28DEC26FUT", "SILVERM26FEB27FUT"]
     assert master.set_index("tsym").loc["CRUDEOIL18DEC26FUT", "expiry"] == date(2026, 12, 18)
 
 
@@ -78,6 +83,13 @@ def test_gold_moves_100_rupees_per_lot_per_rupee(master):
     assert mcx.lot_size("CRUDEOIL") == 100 and mcx.point_value("CRUDEOIL") == 100
     assert mcx.lot_size("GOLD") == 1 and mcx.point_value("GOLD") == 100      # 1 kg, quoted per 10 g
     assert mcx.point_value("NATURALGAS") == 1250
+
+
+@pytest.mark.parametrize("symbol, lot, point", [
+    ("CRUDEOILM", 10, 10), ("GOLDM", 100, 10),     # Gold mini: 100 g quoted per 10 g
+    ("SILVERM", 5, 5), ("NATGASMINI", 250, 250)])
+def test_mini_lots(master, symbol, lot, point):
+    assert mcx.lot_size(symbol) == lot and mcx.point_value(symbol) == point
 
 
 # ---- recorded bars --------------------------------------------------------------------------------
@@ -122,6 +134,16 @@ def test_live_feed_passes_every_update_to_listeners(monkeypatch):
         buy = sell = []
     livefeed.on_message(Msg())
     assert got == [("mcx_fo|576264", 7600.0)]
+
+
+def test_a_mini_starts_from_its_full_size_contracts_recorded_bars():
+    for hh, mm, sym, px in [(10, 0, "GOLD", 121000), (10, 5, "GOLD", 121010), (10, 10, "GOLD", 121020),
+                            (10, 10, "GOLDM", 121025), (10, 15, "GOLDM", 121030)]:
+        mcx.save_bar(sym, datetime(2026, 11, 20, hh, mm), "X", px, px, px, px, 1)
+    df = mcx.history("GOLDM")
+    assert list(df.index.strftime("%H:%M")) == ["10:00", "10:05", "10:10", "10:15"]
+    assert list(df["Close"]) == [121000, 121010, 121025, 121030]     # the mini's own bars from when it began
+    assert len(mcx.history("SILVERM")) == 0 and len(mcx.history("GOLD")) == 3
 
 
 def test_resample_cuts_bars_into_timeframes():
@@ -179,11 +201,12 @@ def evaluate_mcx(symbol, side="SELL"):
 
 
 @pytest.mark.parametrize("symbol, lots, lot_risk", [
-    ("CRUDEOIL", 3, 300.0),     # stop 3 (1.5 x ATR 2) x 100 bbl = Rs 300 a lot; 1% of 1 lakh = Rs 1,000 -> 3 lots
-    ("GOLD", 3, 300.0),         # 1 kg lot quoted per 10 g: x100
-    ("NATURALGAS", 0, 3750.0),  # one lot risks more than the 1%: no lots, the alert says so
+    ("CRUDEOILM", 1, 30.0),     # stop 3 (1.5 x ATR 2) x 10 bbl = Rs 30 a lot
+    ("GOLDM", 1, 30.0),         # 100 g quoted per 10 g: x10
+    ("NATGASMINI", 1, 750.0),
+    ("NATURALGAS", 1, 3750.0),  # always one lot, even when it risks more than the 1% (the alert says so)
 ])
-def test_signals_are_sized_in_whole_lots_and_can_be_sells(master, monkeypatch, symbol, lots, lot_risk):
+def test_signals_are_one_lot_and_can_be_sells(master, monkeypatch, symbol, lots, lot_risk):
     monkeypatch.setattr(config, "ALLOW_SHORTS", False)       # stocks can't short, futures can
     sig = evaluate_mcx(symbol)
     assert sig.side == "SELL" and sig.market == "MCX" and sig.key.startswith(f"MCX|{symbol}|SELL|15m|")
@@ -203,10 +226,13 @@ def test_alert_shows_lots_contract_and_estimated_prices(master, monkeypatch):
 
 def test_alert_warns_when_one_lot_is_too_big(master, monkeypatch):
     monkeypatch.setattr(telegram_bot, "_mcx_contract", lambda s: "")
-    sig = make_signal(symbol="NATURALGAS", market="MCX", qty=0, timeframe="15m",
+    sig = make_signal(symbol="NATURALGAS", market="MCX", qty=1, timeframe="15m",
                       extra={"lot": 1250, "point_value": 1250.0, "lot_risk": 3750.0, "data": "mcx"})
     text = telegram_bot.format_signal(sig)
     assert "One lot risks ₹3,750 (3.8% of capital)" in text and "Prices: MCX prices" in text
+    small = make_signal(symbol="GOLDM", market="MCX", qty=1, timeframe="15m",
+                        extra={"lot": 100, "point_value": 10.0, "lot_risk": 300.0, "data": "mcx"})
+    assert "risks" not in telegram_bot.format_signal(small)
 
 
 def test_mcx_never_auto_trades():
@@ -227,5 +253,5 @@ def test_scanner_starts_with_every_market(monkeypatch):
     main._loop(list(markets.MARKETS))
     assert runner.market_on("MCX")
     text = sent[0]
-    assert "MCX: CRUDEOIL, NATURALGAS, GOLD, SILVER, COPPER" in text and "09:00" in text and "23:55 IST" in text
+    assert "MCX: CRUDEOILM, NATGASMINI, GOLDM, SILVERM" in text and "09:00" in text and "23:55 IST" in text
     assert "India:" in text and "US: off" in text

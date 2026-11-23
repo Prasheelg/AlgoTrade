@@ -1,4 +1,7 @@
-"""MCX commodity futures (market "MCX"): the liquid contracts, scanned like a market, alerts only (no orders).
+"""MCX commodity futures (market "MCX"): the mini contracts, scanned like a market, alerts only (no orders).
+
+The scan trades the minis (GOLDM, SILVERM, CRUDEOILM, NATGASMINI), one lot a signal: the same prices as the
+full-size contracts at a fraction of the size. Copper has no mini on MCX, so it isn't scanned.
 
 Kotak gives live MCX prices but no MCX price history, and Yahoo has none either, so history is built two ways:
 
@@ -32,16 +35,22 @@ from . import config
 log = logging.getLogger(__name__)
 IST = ZoneInfo("Asia/Kolkata")
 SEGMENT = "mcx_fo"
-# symbol: (Yahoo world future used as the proxy, what it is)
+# Scanned: the mini contracts. symbol: (the full-size contract quoted in the same units, what it is)
 COMMODITIES = {
-    "CRUDEOIL": ("CL=F", "Crude oil (NYMEX WTI)"),
-    "NATURALGAS": ("NG=F", "Natural gas (NYMEX)"),
-    "GOLD": ("GC=F", "Gold (COMEX)"),
-    "SILVER": ("SI=F", "Silver (COMEX)"),
-    "COPPER": ("HG=F", "Copper (COMEX)"),
+    "CRUDEOILM": ("CRUDEOIL", "Crude oil mini (10 bbl)"),
+    "NATGASMINI": ("NATURALGAS", "Natural gas mini (250 mmBtu)"),
+    "GOLDM": ("GOLD", "Gold mini (100 g)"),
+    "SILVERM": ("SILVER", "Silver mini (5 kg)"),
 }
-# Rupees a 1-rupee price move is worth per traded unit: Gold is quoted per 10 g but traded in kg (lot 1 = 1 kg)
-MULTIPLIER = {"GOLD": 100}
+PARENT = {sym: full for sym, (full, _) in COMMODITIES.items()}
+# The Yahoo world future used as the proxy. The full-size contracts (scanned before the minis) stay known so their
+# recorded bars and any signal still open on them keep working.
+PROXY = {"CRUDEOIL": "CL=F", "NATURALGAS": "NG=F", "GOLD": "GC=F", "SILVER": "SI=F", "COPPER": "HG=F"}
+PROXY.update({sym: PROXY[full] for sym, full in PARENT.items()})
+KNOWN = set(PROXY)
+# Rupees a 1-rupee price move is worth per unit of Kotak's lot size: Gold is quoted per 10 g but its lot is in
+# kg (lot 1 = 1 kg -> x100); Gold mini's lot is in grams (lot 100 = 100 g -> x0.1)
+MULTIPLIER = {"GOLD": 100, "GOLDM": 0.1}
 FX_TICKER = "INR=X"                   # USD/INR
 SESSION = (dtime(9, 0), dtime(23, 55))   # MCX metals & energy (23:30 while the US is on summer time)
 ROLL_DAYS = 3                         # move to the next month this many days before expiry
@@ -59,10 +68,10 @@ _contracts = {"day": None, "df": None}
 
 
 def parse_contracts(csv_text: str) -> pd.DataFrame:
-    """Commodity futures of the COMMODITIES from Kotak's mcx_fo scrip master: symbol, expiry, token, tsym, lot."""
+    """Commodity futures of the KNOWN commodities from Kotak's mcx_fo scrip master: symbol, expiry, token, tsym, lot."""
     m = pd.read_csv(io.StringIO(csv_text), dtype=str, low_memory=False)
     m.columns = [c.strip().rstrip(";") for c in m.columns]
-    m = m[(m["pInstType"].str.strip() == "FUTCOM") & m["pSymbolName"].str.strip().isin(COMMODITIES)]
+    m = m[(m["pInstType"].str.strip() == "FUTCOM") & m["pSymbolName"].str.strip().isin(KNOWN)]
     tsym = m["pTrdSymbol"].str.strip()
     # The trading symbol carries the expiry (CRUDEOIL18DEC26FUT); the numeric field's epoch differs by segment
     expiry = pd.to_datetime(tsym.str.extract(r"(\d{2}[A-Z]{3}\d{2})FUT$")[0], format="%d%b%y", errors="coerce")
@@ -73,7 +82,7 @@ def parse_contracts(csv_text: str) -> pd.DataFrame:
 
 
 def contracts() -> pd.DataFrame:
-    """Today's MCX futures of the COMMODITIES (downloaded once a day, cached on disk)."""
+    """Today's MCX futures of the KNOWN commodities (downloaded once a day, cached on disk)."""
     today = date.today()
     if _contracts["day"] != today:
         from . import fno
@@ -104,7 +113,7 @@ def lot_size(symbol: str) -> int:
 def point_value(symbol: str, lot: int | None = None) -> float:
     """Rupees one lot gains or loses per 1-rupee price move (lot x multiplier); 0 if the lot is unknown."""
     lot = lot_size(symbol) if lot is None else lot
-    return float(lot * MULTIPLIER.get(symbol, 1))
+    return round(float(lot * MULTIPLIER.get(symbol, 1)), 6)
 
 
 def in_session(now: datetime | None = None) -> bool:
@@ -143,6 +152,19 @@ def recorded(symbol: str) -> pd.DataFrame:
         return df.set_index("ts")
     df.index = pd.to_datetime(df.pop("ts"))
     return df.astype(float)
+
+
+def history(symbol: str) -> pd.DataFrame:
+    """Recorded bars of a mini, led by its full-size contract's bars from before the mini was recorded (same
+    commodity, same price units: the history scanned before the switch to minis)."""
+    real = recorded(symbol)
+    parent = PARENT.get(symbol)
+    if not parent:
+        return real
+    old = recorded(parent)
+    if not real.empty:
+        old = old[old.index < real.index[0]]
+    return pd.concat([old, real]) if not old.empty and not real.empty else (real if old.empty else old)
 
 
 def prune(today: date | None = None) -> int:
@@ -284,7 +306,7 @@ def to_mcx_hours(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
 
 def proxy(symbol: str, timeframe: str) -> pd.DataFrame:
     """The world contract in rupees (unscaled): price x USD/INR at the time. Empty if Yahoo has nothing."""
-    df = _yahoo(COMMODITIES[symbol][0], timeframe)
+    df = _yahoo(PROXY[symbol], timeframe)
     if df.empty:
         return df
     fx = _yahoo(FX_TICKER, "1d" if timeframe == "1d" else "1h")["Close"]
@@ -347,10 +369,10 @@ def fetch_ohlcv(symbols: list[str], timeframe: str = "1d", stop=None) -> dict[st
     for sym in symbols:
         if stop:
             stop()
-        if sym not in COMMODITIES:
+        if sym not in KNOWN:
             continue
         try:
-            real = resample(recorded(sym), timeframe)
+            real = resample(history(sym), timeframe)
             prox, anchor = pd.DataFrame(), None
             if len(real) < MIN_BARS:
                 prox = proxy(sym, timeframe)

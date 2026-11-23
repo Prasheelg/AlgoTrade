@@ -172,11 +172,11 @@ def evaluate(symbol: str, df: pd.DataFrame, i: int = -1, min_score: int | None =
     targets = [round(entry + sign * risk * m, 2) for m in config.TARGET_R_MULTIPLES]
     extra = {}
     if mkt.code == "MCX":
-        # Futures: whole lots, sized so the stop risks RISK_PER_TRADE_PCT of capital (0 = even one lot risks more)
+        # Futures: a fixed MCX_LOTS lots of the mini (0 if the lot size is unknown)
         from . import mcx
         lot = mcx.lot_size(symbol)
         point = mcx.point_value(symbol, lot)
-        qty = int((mkt.capital * config.RISK_PER_TRADE_PCT / 100) // (risk * point)) if point else 0
+        qty = config.MCX_LOTS if point else 0
         extra = {"lot": lot, "point_value": point, "lot_risk": round(risk * point, 2)}
     else:
         qty = int((mkt.capital * config.RISK_PER_TRADE_PCT / 100) // risk)

@@ -27,16 +27,18 @@ Add `--market IN`, `--market US` or `--market MCX` to any command to limit it to
 scanned. `--symbols` needs `--market IN` or `US`.
 
 ### MCX commodities (alerts only)
-The **MCX** tab scans the liquid commodity futures (Crude Oil, Natural Gas, Gold, Silver, Copper) 09:00–23:55 IST
-on every timeframe except backtests, with the same strategies, scan panel and Telegram alerts. It never places
-orders. Each alert names the front-month contract (rolled 3 days before expiry), sizes **whole lots** so the stop
-risks `RISK_PER_TRADE_PCT` of `MCX_CAPITAL` (default `CAPITAL`; Gold counts ×100: quoted per 10 g, traded in
-kg), and says when one lot alone risks more. Futures alerts can be SELLs.
+The **MCX** tab scans the **mini** commodity futures (Crude Oil mini `CRUDEOILM`, Natural Gas mini `NATGASMINI`,
+Gold mini `GOLDM`, Silver mini `SILVERM`) 09:00–23:55 IST on every timeframe except backtests, with the same
+strategies, scan panel and Telegram alerts. Copper has no mini on MCX, so it isn't scanned. It never places
+orders. Each alert names the front-month contract (rolled 3 days before expiry) and plans **one lot** (`MCX_LOTS`,
+default 1), with its rupee risk to the stop (Gold mini counts ×10: 100 g quoted per 10 g), and warns when that
+risks more than `RISK_PER_TRADE_PCT` of `MCX_CAPITAL` (default `CAPITAL`). Futures alerts can be SELLs.
 
 Kotak gives live MCX prices but no MCX price history (and Yahoo has none), so the dashboard **records 5-minute
 bars** from Kotak's live stream while it runs (`mcx_bars` in `signals.db`, backed up with it). Until a timeframe
 has 260 recorded bars, the bars before recording began come from the world contract on Yahoo (NYMEX / COMEX)
-converted with USD/INR and scaled to MCX; such alerts say their prices are estimated. Roughly: 5m/15m are fully
+converted with USD/INR and scaled to MCX; such alerts say their prices are estimated. A mini's history starts
+with the bars recorded for its full-size contract (same prices) before the mini itself was recorded. Roughly: 5m/15m are fully
 MCX after 1–4 trading days, 1h after about three weeks, daily after about a year.
 
 ## Strategy

@@ -184,9 +184,12 @@ def format_signal(sig) -> str:
                  ["Risk", money(sig.qty * risk, mkt, 0), f"{config.TARGET_R_MULTIPLES[0]:g}R"]]
     lines.append(_levels(levels, extra=extra))
     if mkt.code == "MCX":
-        if not sig.qty and sig.extra.get("lot_risk"):
-            pct = sig.extra["lot_risk"] / mkt.capital * 100 if mkt.capital else 0
-            lines.append(f"\n⚠️ One lot risks {money(sig.extra['lot_risk'], mkt, 0)} ({pct:.1f}% of capital), "
+        lots = sig.qty or 1
+        risk_rs = lots * (sig.extra.get("lot_risk") or 0)
+        pct = risk_rs / mkt.capital * 100 if mkt.capital else 0
+        if pct > config.RISK_PER_TRADE_PCT:
+            what = "One lot" if lots == 1 else f"{lots} lots"
+            lines.append(f"\n⚠️ {what} risks {money(risk_rs, mkt, 0)} ({pct:.1f}% of capital), "
                          f"more than the {config.RISK_PER_TRADE_PCT:g}% per trade")
         from . import mcx
         src = sig.extra.get("data", "mcx")
