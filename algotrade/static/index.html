@@ -1254,8 +1254,7 @@
       border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel-2); overflow: hidden;
       box-shadow: inset 4px 0 0 var(--stripe, transparent), 0 1px 2px rgb(0 0 0 / .18); padding-left: 16px; }
     /* Scan settings, opened: the scanner switch + status on one line (as when closed), Telegram below it;
-       strategies as a plain list, each group's name in a narrow left column with its pills beside it, groups
-       divided by hairlines (no boxes),
+       strategies as a tile grid: each group's name, then its strategies as equal tiles three to a row,
        the All / None links beside the Strategies heading */
     #scanPanel.open .run { row-gap: 12px; }
     #scanPanel.open .run .scan-power { order: 1; }
@@ -1266,13 +1265,14 @@
     #scanPanel .sc-row .links { display: flex; align-items: center; gap: 2px; color: var(--muted); font-size: 12px; }
     #scanPanel .sc-row .links #stratCount { margin-right: 6px; }
     #scanPanel .sc-row .segs { order: 3; flex-basis: 100%; flex-direction: column; gap: 0; }
-    #scanPanel .sgrp { position: relative; display: flex; gap: 6px; padding: 8px 0 0 86px; min-height: 38px;
-                       border: 0; border-radius: 0; background: none; }
-    #scanPanel .sgrp + .sgrp, #scanPanel .sc-contents + .sgrp { margin-top: 8px; border-top: 1px solid var(--line-2); }
-    #scanPanel .sgrp .sg-h { position: absolute; left: 0; top: 17px; width: 80px; margin: 0; font-size: 10px;
-                             white-space: normal; line-height: 1.25; align-items: flex-start; }
-    #scanPanel .sgrp .sg-h i { flex-shrink: 0; margin-top: 3px; }
-    #scanPanel .pill-t { padding: 5px 11px 5px 9px; font-size: 13px; }
+    #scanPanel .sgrp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0;
+                       margin-top: 12px; border: 0; border-radius: 0; background: none; }
+    #scanPanel .sgrp .sg-h { grid-column: 1 / -1; margin: 0 0 1px; font-size: 10px; }
+    #scanPanel .sgrp .pill-t { min-width: 0; min-height: 40px; padding: 6px 8px; border-radius: 10px; font-size: 13px;
+                               justify-content: flex-start; background: var(--panel-2); }
+    #scanPanel .sgrp .pill-t:has(input:checked) { background: var(--accent-soft); }
+    #scanPanel .sgrp .pill-t::before { flex-shrink: 0; }
+    #scanPanel .sgrp .pill-t > span, #scanPanel .sgrp .pill-t { overflow: hidden; text-overflow: ellipsis; }
 
     /* Tabs and segmented buttons: wrap onto a second line, each button sharing the width */
     .seg, .tabs, .opt-tabs, .ch-bar .seg { flex-wrap: wrap; overflow: visible; }
