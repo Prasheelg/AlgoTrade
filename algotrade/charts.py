@@ -4,7 +4,11 @@ India, intraday: Kotak's own history, in real time, for NSE stocks, indices (NIF
 contracts (e.g. NIFTY26NOV25350CE). Kotak returns nothing at all when the date range is longer than it allows,
 so each timeframe asks for no more than KOTAK_TF's days. Daily bars, the US, and stocks or indices Kotak can't
 serve come from Yahoo (~15 min delayed intraday); an Indian stock's daily bar for today is Kotak's live quote.
-An option has no Yahoo history: its daily bars are built from Kotak's 30-minute ones."""
+An option has no Yahoo history: its daily bars are built from Kotak's 30-minute ones.
+
+MCX: a commodity (GOLDM, SILVER, ...) or a futures contract (SILVERM30NOV26FUT) charts the front-month future
+from the bars mcx.py records off Kotak's live feed (older ones estimated from world futures until enough are
+recorded), 5m and up."""
 import logging
 import re
 import threading
@@ -25,7 +29,7 @@ KOTAK_INDEX_DAILY = ("D", 170)   # Kotak has daily bars for indices only (none f
 YAHOO_PERIOD = {"1m": "7d", "5m": "60d", "15m": "60d", "30m": "60d", "1h": "730d", "1d": "2y"}
 INDEX_YAHOO_ALL = {**INDEX_YAHOO, "NIFTYNXT50": "^NSMIDCP"}
 MAX_BARS = 1500
-TTL_SEC = {"intraday": 5, "1d": 60}   # one Kotak / Yahoo round per chart for this long, however many tabs ask
+TTL_SEC = {"intraday": 5, "1d": 60, "mcx": 30}   # MCX: recorded bars (5-minute), maybe a Yahoo proxy download   # one Kotak / Yahoo round per chart for this long, however many tabs ask
 KOTAK_GAP_SEC = 1.1                   # between Kotak history requests (it rate-limits back-to-back calls)
 
 _cache: dict = {}
@@ -40,6 +44,8 @@ def resolve(name: str, market: str = "IN") -> dict:
         raise ValueError("Type a stock, an index (NIFTY, BANKNIFTY) or an option contract")
     if market == "US":
         return {"kind": "stock", "symbol": sym, "label": sym}
+    if market == "MCX":
+        return _mcx_future(sym)
     alias = {v.upper(): k for k, v in fno.INDEX_QUOTE.items()}   # "NIFTY 50" -> NIFTY
     sym = alias.get(sym, sym)
     if sym in fno.INDEX_QUOTE:
@@ -56,6 +62,22 @@ def resolve(name: str, market: str = "IN") -> dict:
     if _kotak_index(name):   # any other index Kotak quotes, by its Kotak name ("Nifty IT", "INDIA VIX")
         return {"kind": "index", "symbol": name, "label": name, "kotak": f"nse_cm|{name}"}
     raise ValueError(f"{sym} isn't an NSE stock, index or option contract")
+
+
+def _mcx_future(sym: str) -> dict:
+    """An MCX commodity or futures contract -> its front-month future (the one the scan's signals are on)."""
+    from . import mcx
+    commodity = sym.removesuffix("FUT")
+    m = re.fullmatch(r"([A-Z]+?)\d{2}[A-Z]{3}\d{2}", commodity)
+    commodity = m[1] if m else commodity
+    if commodity not in mcx.KNOWN:
+        raise ValueError(f"{sym} isn't an MCX commodity this app follows ({', '.join(mcx.COMMODITIES)})")
+    c = mcx.front(commodity)
+    if not c:
+        raise ValueError(f"No {commodity} futures contract listed today")
+    exp = pd.Timestamp(c["expiry"]).strftime("%d %b")
+    return {"kind": "future", "symbol": c["tsym"], "commodity": commodity, "label": f"{commodity} · {exp} FUT",
+            "lot": int(c["lot"])}
 
 
 _known_index: dict[str, bool] = {}
@@ -117,7 +139,20 @@ def _daily_from(df: pd.DataFrame) -> pd.DataFrame:
                                   "Volume": "sum"}).dropna()
 
 
+def _fetch_mcx(inst: dict, tf: str) -> tuple[pd.DataFrame, str]:
+    from . import mcx
+    if tf not in mcx.RULE:
+        raise ValueError("MCX charts start at 5m (the bars are recorded every 5 minutes)")
+    df = mcx.fetch_ohlcv([inst["commodity"]], tf).get(inst["commodity"])
+    if df is None or df.empty:
+        raise RuntimeError(f"No {tf} history for {inst['symbol']} yet")
+    src = df.attrs.get("source", "mcx")
+    return df, "Kotak Neo, recorded live" if src == "mcx" else mcx.SOURCE_TEXT.get(src, src)
+
+
 def _fetch(inst: dict, tf: str, market: str) -> tuple[pd.DataFrame, str]:
+    if inst["kind"] == "future":
+        return _fetch_mcx(inst, tf)
     mkt = markets.get(market)
     today = mkt.now().date()
     use_kotak = market == "IN" and kotak.enabled() and "kotak" in inst
@@ -162,7 +197,7 @@ def candles(name: str, tf: str, market: str = "IN") -> dict:
     inst = resolve(name, market)
     key = (market, inst["symbol"], tf)
     hit = _cache.get(key)
-    ttl = TTL_SEC["1d" if tf == "1d" else "intraday"]
+    ttl = TTL_SEC["1d" if tf == "1d" else "intraday"] if inst["kind"] != "future" else TTL_SEC["mcx"]
     if hit and time.monotonic() - hit[0] < ttl:
         return hit[1]
     df, source = _fetch(inst, tf, market)

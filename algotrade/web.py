@@ -160,6 +160,21 @@ def _live_ltp(mkt: markets.Market, sigs: list[dict]) -> None:
             s["ltp"] = q[s["symbol"]]["ltp"]
 
 
+def _mcx_contracts(sigs: list[dict]) -> None:
+    """Each MCX signal's front-month futures contract (its name in the list; a click charts it)."""
+    from . import mcx
+    fronts: dict[str, str | None] = {}
+    for s in sigs:
+        if s["symbol"] not in fronts:
+            try:
+                c = mcx.front(s["symbol"])
+            except Exception:
+                log.exception("MCX contract list unavailable")
+                c = None
+            fronts[s["symbol"]] = c["tsym"] if c else None
+        s["contract"] = fronts[s["symbol"]]
+
+
 def _real_trades(code: str) -> dict[str, dict]:
     """Signal key -> the Auto-trade order actually sent to Kotak for it (fill, exit, P&L), India only. The signal's
     own status is the tracker's paper result; this is what happened on the account."""
@@ -210,6 +225,8 @@ def _skipped(code: str) -> dict[str, str]:
 def _signals_payload(mkt: markets.Market) -> dict:
     sigs = state.all_signals(mkt.code)
     _live_ltp(mkt, sigs)
+    if mkt.code == "MCX":
+        _mcx_contracts(sigs)
     real = _real_trades(mkt.code)
     opts = _option_trades(mkt.code)
     skipped = _skipped(mkt.code)

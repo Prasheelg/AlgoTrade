@@ -297,3 +297,26 @@ def test_status_bar_shows_the_gold_mini_future_live(monkeypatch):
     q = web.app.test_client().get("/api/index?market=MCX").get_json()
     assert (q["name"], q["last"], q["change"], q["source"]) == ("GOLDM04DEC26", 153200, 1200, "Kotak Neo, live")
     assert q["change_pct"] == pytest.approx(0.79)
+
+
+def test_mcx_names_chart_their_front_future(master, monkeypatch):
+    from algotrade import charts
+    for name in ("CRUDEOIL", "crudeoil", "CRUDEOIL18DEC26FUT", "CRUDEOIL19JAN27FUT"):
+        inst = charts.resolve(name, "MCX")
+        assert (inst["kind"], inst["commodity"]) == ("future", "CRUDEOIL")
+    with pytest.raises(ValueError, match="isn't an MCX commodity"):
+        charts.resolve("RELIANCE", "MCX")                  # never an NSE stock (NSE's SILVER is an ETF)
+    bars = proxy_frame(80, price=7600.0, freq="15min")
+    bars.attrs["source"] = "mcx"
+    monkeypatch.setattr(mcx, "fetch_ohlcv", lambda syms, tf, stop=None: {"CRUDEOIL": bars})
+    out = charts.candles("CRUDEOIL", "15m", "MCX")
+    assert out["kind"] == "future" and len(out["bars"]) == 80 and out["source"] == "Kotak Neo, recorded live"
+    with pytest.raises(ValueError, match="start at 5m"):
+        charts.candles("CRUDEOIL", "1m", "MCX")
+
+
+def test_mcx_signals_carry_their_futures_contract(master):
+    from algotrade import state, web
+    state.record([make_signal(symbol="CRUDEOIL", market="MCX")])
+    sigs = web._signals_payload(markets.get("MCX"))["signals"]
+    assert sigs[0]["contract"] == "CRUDEOIL18DEC26FUT"

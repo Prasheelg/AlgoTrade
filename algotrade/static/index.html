@@ -1728,6 +1728,8 @@ const optTrade = (o, s) => {
                o.plan_note, o.note].filter(Boolean).join(" · ");
   return `<div class="sub" title="${esc(tip)}">${line}${o.plan_note || (o.note && o.state !== "WAIT") ? ` <span class="flat">(${esc(o.plan_note || o.note)})</span>` : ""}</div>`;
 };
+// "SILVERM30NOV26FUT" -> "30NOV26 FUT" (an MCX signal's futures contract, under its commodity name)
+const futName = (tsym, sym) => tsym.startsWith(sym) ? `${tsym.slice(sym.length).replace(/FUT$/, "")} FUT` : tsym;
 const inr = v => v == null ? "–" : cfg.currency + Number(v).toLocaleString(cfg.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sgn = (v, d = 2, suf = "") => (v > 0 ? "+" : "") + v.toFixed(d) + suf;
 const cls = v => v > 0 ? "up" : v < 0 ? "down" : "flat";
@@ -1840,8 +1842,8 @@ function renderTable() {
     const tags = String(s.reasons ?? "").split(", ").filter(Boolean), TAGS_SHOWN = 2;
     const intraday = s.timeframe !== "1d" && s.bar_time;
     return `<tr class="${outcome}">
-    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener" title="Chart (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
-      <span class="side ${s.side}">${s.side}</span></div></td>
+    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}${s.market === "MCX" ? "1!" : ""}" target="_blank" rel="noopener" title="Chart${s.contract ? ` of ${esc(s.contract)}` : ""} (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
+      <span class="side ${s.side}">${s.side}</span></div>${s.contract ? `<div class="sub">${esc(futName(s.contract, s.symbol))}</div>` : ""}</td>
     <td class="when" title="${esc(signalTime(s))}"><span class="t">${intraday ? esc(s.bar_time.slice(11, 16)) : esc(dayText(s.bar_date))}</span> <span class="tf">${esc(s.timeframe)}</span>` +
       `<div class="sub">${intraday ? esc(dayText(s.bar_time)) : ""}${s.closed_at ? `${intraday ? " · " : ""}closed${dayText(s.closed_at) === dayText(intraday ? s.bar_time : s.bar_date) ? "" : ` ${esc(dayText(s.closed_at))}`}` : ""}</div></td>
     <td class="st"><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}${s.skipped && !s.trade && !s.option ? `<div class="sub flat">Skipped: ${esc(s.skipped)}</div>` : ""}</td>
@@ -4715,7 +4717,7 @@ function renderSd() {
   const desc = name => STRATS.find(x => x.name === name)?.description ?? "";
   const reasons = String(s.reasons ?? "").split(", ").filter(Boolean);
   const stat = (k, v) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`;
-  sdBox.innerHTML = `<div class="row"><h3><span class="sym" data-chart="${esc(s.symbol)}" data-tf="${esc(s.timeframe)}">${esc(s.symbol)}</span> <span class="side ${s.side}">${s.side}</span></h3>
+  sdBox.innerHTML = `<div class="row"><h3><span class="sym" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}">${esc(s.symbol)}${s.contract ? ` <small class="flat">${esc(futName(s.contract, s.symbol))}</small>` : ""}</span> <span class="side ${s.side}">${s.side}</span></h3>
       <span class="pill s-${s.status}">${STATUS_TEXT[s.status] ?? s.status}</span>
       <span class="est">${esc(signalTime(s))} · ${esc(s.timeframe)} · <span class="stars">${"★".repeat(s.score)}</span> ${s.score} vote${s.score === 1 ? "" : "s"}</span>
       <button class="btn icon" type="button" data-sd="close" title="Close" style="margin-left:auto">✕</button></div>
@@ -5350,7 +5352,7 @@ const CH_LIVE_SEC = 5;     // reload while the market is open and the bars are K
 const CH_IDLE_SEC = 60;    // otherwise, and while live ticks keep the newest candle current
 const CH_TF_MIN = { "1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60 };
 const CH_SESSION_MIN = 9 * 60 + 15;   // NSE candles start at 09:15
-const chDefault = mk => mk === "US" ? "AAPL" : "NIFTY";
+const chDefault = mk => mk === "US" ? "AAPL" : mk === "MCX" ? "GOLDM" : "NIFTY";
 const ch = {
   sym: store.get(`chSym_${market}`) || chDefault(market),
   tf: CH_TFS.some(t => t[0] === store.get("chTf")) ? store.get("chTf") : "15m",
@@ -5574,6 +5576,7 @@ async function chFillList() {
   const list = document.getElementById("chList");
   if (list.dataset.mk === market) return;
   list.dataset.mk = market;
+  if (market === "MCX") { list.innerHTML = ["GOLDM", "SILVERM", "CRUDEOILM", "NATGASMINI"].map(s => `<option value="${s}"></option>`).join(""); return; }
   if (market !== "IN") { list.innerHTML = ""; return; }
   const idx = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50"];
   try {
