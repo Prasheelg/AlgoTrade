@@ -119,6 +119,12 @@ def icons(name):
     return send_from_directory(STATIC / "icons", name)
 
 
+@app.get("/sounds/<path:name>")
+def sounds(name):
+    """Activity sounds (made by tools/make_sounds.py), cached a day: they rarely change."""
+    return send_from_directory(STATIC / "sounds", name, max_age=86400)
+
+
 def _market():
     """Market from ?market= or the JSON body; raises ValueError if unknown."""
     body = request.get_json(silent=True) or {}
@@ -1345,6 +1351,18 @@ def api_summary_send():
     """Send the daily summary to Telegram now (it also goes out by itself after the close)."""
     from . import summary
     return jsonify({"sent": telegram_bot.send_message(summary.build())})
+
+
+@app.get("/api/activity")
+def api_activity():
+    """Activity feed for sounds and phone notifications: events after ?after=<id> (oldest first) and the newest
+    id. ?after=-1 (or none) gives only the newest id, so a client that just started doesn't ring for the past."""
+    from . import activity
+    try:
+        after = int(request.args.get("after", -1))
+    except ValueError:
+        return jsonify({"error": "after must be a whole number"}), 400
+    return jsonify(activity.since(after))
 
 
 @app.get("/api/push/key")

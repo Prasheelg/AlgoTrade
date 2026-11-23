@@ -342,5 +342,11 @@ def scan_and_alert(send: bool = True, **scan_kw) -> dict:
     log.info("%d signals, %d new", len(signals), len(new))
     delivered = telegram_bot.send_signals(new) if send else new
     state.record(delivered, telegram=send)
+    from . import activity
+    for s in delivered:
+        cur = "₹" if s.market != "US" else "$"
+        activity.record("signal", f"New signal · {s.side} {s.symbol}",
+                        f"{s.market} {s.timeframe} · entry {cur}{s.entry:,.2f} · stop {cur}{s.stop_loss:,.2f}"
+                        + (f" · target {cur}{s.targets[0]:,.2f}" if s.targets else ""), f"/#{s.market}/all")
     return {"found": len(signals), "new": len(new), "sent": len(delivered) if send else 0,
             "symbols": [f"{s.side} {s.symbol}" for s in new]}

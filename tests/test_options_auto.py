@@ -36,7 +36,7 @@ def opt(monkeypatch):
     mkt = FakeMarket()
     monkeypatch.setattr(oa, "_mkt", lambda: mkt)
     msgs = []
-    monkeypatch.setattr(orders, "_notify", lambda text: msgs.append(text))
+    monkeypatch.setattr(orders, "_notify", lambda text, kind=None: msgs.append(text))
     for k, v in dict(OPTIONS_AUTO_TRADE=True, OPTIONS_OTM_STEPS=2, OPTIONS_MIN_DAYS=5, OPTIONS_MAX_PREMIUM=10000.0,
                      OPTIONS_MAX_OPEN_PREMIUM=30000.0, OPTIONS_MAX_SPREAD_PCT=5.0, OPTION_PROTECTION_PCT=5.0,
                      OPTIONS_MAX_LOTS=10, INTRADAY_AUTO_TRADE=False, OPTIONS_INSTEAD_OF_SHARES=False).items():

@@ -109,6 +109,38 @@ def _regressed(old: str, new: str) -> bool:
     return old in OPEN_RANK and new in OPEN_RANK and OPEN_RANK[new] < OPEN_RANK[old]
 
 
+def _traded(key: str) -> bool:
+    """Auto-trade took this signal (shares or options): its own fill / close notices cover it, so the signal's
+    status changes don't ring a second time."""
+    try:
+        with state._conn() as con:
+            tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            if "live_trades" in tables and con.execute(
+                    "SELECT 1 FROM live_trades WHERE key = ? AND entry_order IS NOT NULL", (key,)).fetchone():
+                return True
+            return "option_trades" in tables and bool(con.execute(
+                "SELECT 1 FROM option_trades WHERE key = ? AND state NOT IN ('SKIPPED', 'CANCELLED', 'REJECTED')",
+                (key,)).fetchone())
+    except Exception:
+        return False
+
+
+def _activity(sig: dict, res: dict, ltp: float) -> None:
+    """A signal's status change in the activity feed (the phone's sound)."""
+    from . import activity
+    kind, title = activity.SIGNAL_STATUS.get(res["status"], ("info", f"Signal {res['status'].lower()}"))
+    if _traded(sig["key"]):
+        return
+    exit_px, entry = res.get("exit_price"), res.get("fill_price") or sig.get("fill_price") or sig["entry"]
+    if kind in ("loss", "closed") and exit_px and entry:   # a stop above entry (or a time exit) can still be a gain
+        move = (exit_px - entry) if sig["side"] == "BUY" else (entry - exit_px)
+        kind = activity.kind_of_pnl(move, flat=entry * 0.0005)
+    cur = "$" if sig.get("market") == "US" else "₹"
+    body = f"{sig['side']} {sig['symbol']} · {sig.get('timeframe') or '1d'}" + (
+        f" · exit {cur}{exit_px:,.2f}" if exit_px else f" · now {cur}{ltp:,.2f}")
+    activity.record(kind, f"{title} · {sig['symbol']}", body, f"/#{sig.get('market') or 'IN'}/{'active' if kind == 'entry' else 'closed'}")
+
+
 def update_all(notify: bool = True, market: str | None = None) -> int:
     """Refresh open signals (all markets, or one). Returns number of status changes."""
     open_sigs = [s for s in state.open_signals() if market is None or s["market"] == market]
@@ -140,6 +172,8 @@ def update_all(notify: bool = True, market: str | None = None) -> int:
                 changes += 1
                 if notify and sig["telegram"]:  # only signals that were posted to Telegram
                     telegram_bot.send_message(telegram_bot.format_update(sig, res, ltp))
+                if notify:
+                    _activity(sig, res, ltp)
             state.update_signal(sig["key"], **fields)
     log.info("Tracked %d open signals, %d status changes", len(open_sigs), changes)
     return changes

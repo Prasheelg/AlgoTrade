@@ -122,7 +122,9 @@ def check(now: datetime | None = None) -> int:
                                       + (f"\n{html.escape(a['note'])}" if a["note"] else ""))
         except Exception:
             log.exception("Telegram price alert failed")
-        from . import push
+        from . import activity, push
+        activity.record("alert", f"🔔 {a['symbol']} {a['op']} ₹{a['price']:,.2f}",
+                        f"Now ₹{ltp:,.2f}" + (f" · {a['note']}" if a["note"] else ""), "/#IN/watchlist")
         push.send(f"🔔 {a['symbol']} {a['op']} ₹{a['price']:,.2f}", f"Now ₹{ltp:,.2f}" + (f" · {a['note']}" if a["note"] else ""),
                   "/#IN/watchlist")
         fired += 1

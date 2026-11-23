@@ -561,7 +561,23 @@ screen. The server still does all the checks (PIN login, Cloudflare Access, who 
 
 Cloudflare Access: log in with the **email one-time PIN**. Google sign-in refuses to run inside apps (that's a
 Google rule), so if your Access app only offers Google, add *One-time PIN* as a login method in Zero Trust.
-Alerts still come by Telegram (in-app web push doesn't work inside an Android app).
+Web push doesn't work inside an Android app, so the app rings by itself (from version 1.1):
+- **Activity sounds.** Every event worth hearing goes into the activity feed (`algotrade/activity.py`, table
+  `activity`, read at `/api/activity`), each with a kind that has its own sound: new signal, signal entry reached,
+  order placed, trade opened, closed in profit, closed at a loss, closed about even, cancelled, needs attention
+  (rejections, no stop-loss, errors, health), watchlist price alert, and other updates (stop-loss / target placed,
+  daily summary, condor). A signal Auto-trade took rings through its trade's own notices, not twice.
+- **App open:** the dashboard plays the sound and shows a toast (any browser too, after one tap on the page).
+  Settings > Sounds has a ▶ to hear each one and a switch to mute it on that device.
+- **App closed:** a background service polls the feed every 15 s (with the app's login cookies) and shows a
+  notification on that kind's channel, with the same sound. Android shows a quiet "Watching for signals and trades"
+  notification while it runs; turn it off in Settings > Sounds > *Ring when the app is closed*. Change or mute a
+  single kind in Android's notification settings for the app. Let the app run unrestricted in the phone's battery
+  settings, or Android may stop the service.
+- The sounds are made by `tools/make_sounds.py` (into `algotrade/static/sounds/` and `android/app/src/main/res/raw/`);
+  run it again after changing one, and bump the channel id prefix in `ActivityService` (Android keeps a channel's
+  first sound).
+Telegram alerts carry on as before.
 
 Build (Android SDK and a JDK 17+ needed): `cd android` then `gradlew assembleRelease`; the APK is
 `android/app/build/outputs/apk/release/app-release.apk`. Install it on the phone (allow *Install unknown apps*

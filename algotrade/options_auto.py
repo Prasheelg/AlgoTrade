@@ -86,8 +86,8 @@ def _today() -> str:
     return _mkt().now().date().isoformat()
 
 
-def _notify(text: str) -> None:
-    orders._notify(f"🎟️ {text}")
+def _notify(text: str, kind: str | None = None) -> None:
+    orders._notify(f"🎟️ {text}", kind)
 
 
 def intraday(t: dict) -> bool:
@@ -504,8 +504,9 @@ def _step_selling(t: dict, book: dict) -> None:
 def _closed(t: dict, price: float | None) -> None:
     _save(t["key"], state=CLOSED, exit_price=price, closed_at=_now())
     pnl = (price - t["fill_price"]) * t["qty"] if price and t["fill_price"] else None
+    from .activity import kind_of_pnl
     _notify(f"🏁 <b>{t['tsym']}</b> closed ({t['note'] or 'exit'}) @ ₹{price or 0:,.2f}"
-            + (f" · P&L ₹{pnl:,.0f} before charges" if pnl is not None else ""))
+            + (f" · P&L ₹{pnl:,.0f} before charges" if pnl is not None else ""), kind=kind_of_pnl(pnl))
 
 
 CLOSE_NOTE = "closed by you"

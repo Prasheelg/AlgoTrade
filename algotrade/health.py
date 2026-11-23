@@ -164,6 +164,9 @@ def watch_once(last_refresh: str | None = None) -> list[dict]:
     for p in now:
         if p["id"] not in _alerted:
             _send(("🚨 " if p["level"] == "critical" else "⚠️ ") + f"<b>Health</b> · {p['text']}")
+            from . import activity
+            activity.record("problem", "AlgoTrade needs attention" if p["level"] == "critical" else "AlgoTrade warning",
+                            p["text"])
             if p["level"] == "critical":
                 from . import push
                 push.send("AlgoTrade needs attention", p["text"])

@@ -3,6 +3,7 @@ package com.algotrade.dashboard;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
+import android.provider.Settings;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -20,6 +21,7 @@ import android.view.WindowInsets;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.URLUtil;
@@ -46,6 +48,8 @@ import android.window.OnBackInvokedDispatcher;
 public class MainActivity extends Activity {
 
     static final String ACTION_CHANGE_SERVER = "com.algotrade.dashboard.CHANGE_SERVER";
+    static final String ACTION_OPEN_PATH = "com.algotrade.dashboard.OPEN_PATH";   // from a notification
+    static final String EXTRA_PATH = "path";                                         // e.g. "/#IN/portfolio"
     private static final String PREFS = "algotrade";
     private static final String KEY_SERVER = "server_url";
 
@@ -82,12 +86,38 @@ public class MainActivity extends Activity {
         setUpBack();
 
         String server = savedServer();
+        String path = getIntent().getStringExtra(EXTRA_PATH);
         if (server == null || ACTION_CHANGE_SERVER.equals(getIntent().getAction())) {
             showSetup();
+        } else if (path != null) {
+            web.loadUrl(server + path.replaceFirst("^/", ""));
         } else if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(server);
+        }
+        askNotificationPermission();
+    }
+
+    /** Android 13+ asks before an app may show notifications (the background alerts). */
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && ActivityService.enabled(this)
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 1);
+        }
+    }
+
+    /** A tapped notification: show its page. A fragment-only change doesn't reload the dashboard, so reload. */
+    private void openPath(String path) {
+        String server = savedServer();
+        if (server == null || path == null) return;
+        String target = server + path.replaceFirst("^/", "");
+        String current = web.getUrl();
+        if (current != null && current.startsWith(server)) {
+            web.evaluateJavascript("location.replace(" + org.json.JSONObject.quote(target) + "); location.reload();", null);
+        } else {
+            web.loadUrl(target);
         }
     }
 
@@ -96,6 +126,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         if (ACTION_CHANGE_SERVER.equals(intent.getAction())) showSetup();
+        else if (ACTION_OPEN_PATH.equals(intent.getAction())) openPath(intent.getStringExtra(EXTRA_PATH));
     }
 
     @Override
@@ -108,12 +139,15 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
+        ActivityService.appVisible = true;          // the page plays the sounds while it is on screen
+        ActivityService.startIfEnabled(this);
     }
 
     @Override
     protected void onPause() {
         web.onPause();
-        CookieManager.getInstance().flush();   // keep the login across app restarts
+        ActivityService.appVisible = false;         // from now on the service rings
+        CookieManager.getInstance().flush();   // keep the login across app restarts (and for the service)
         super.onPause();
     }
 
@@ -138,6 +172,8 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setUserAgentString(s.getUserAgentString() + " AlgoTradeApp/" + BuildConfigCompat.versionName(this));
+        s.setMediaPlaybackRequiresUserGesture(false);   // the activity sounds play without a tap first
+        web.addJavascriptInterface(new Bridge(), "AlgoTradeApp");
 
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
@@ -430,6 +466,32 @@ public class MainActivity extends Activity {
 
     private String savedServer() {
         return prefs().getString(KEY_SERVER, null);
+    }
+
+    /** window.AlgoTradeApp in the dashboard: Settings > Sounds. */
+    final class Bridge {
+        @JavascriptInterface
+        public void openNotificationSettings() {
+            Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+            runOnUiThread(() -> {
+                try { startActivity(i); } catch (ActivityNotFoundException e) { /* very old Android */ }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean isBackgroundAlerts() {
+            return ActivityService.enabled(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void setBackgroundAlerts(boolean on) {
+            prefs().edit().putBoolean(ActivityService.KEY_ENABLED, on).apply();
+            runOnUiThread(() -> {
+                if (on) { askNotificationPermission(); ActivityService.startIfEnabled(MainActivity.this); }
+                else ActivityService.stop(MainActivity.this);
+            });
+        }
     }
 
     /** versionName without needing BuildConfig generation. */

@@ -266,7 +266,9 @@ def check_manual() -> int:
         st = order_state(o)
         if st in FINAL:
             _send(notice(r, o, st))
-            from . import push
+            from . import activity, push
+            activity.record({"FILLED": "filled", "REJECTED": "problem"}.get(st, "cancelled"), f"Order {st.lower()}",
+                            notice(r, o, st), "/#IN/portfolio")
             push.send(f"Order {st.lower()}", re.sub(r"<[^>]+>", "", notice(r, o, st)), "/#IN/portfolio")
             _mark(r["id"], st)
             sent += 1

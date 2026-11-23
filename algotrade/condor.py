@@ -587,6 +587,10 @@ def _log(day: str, u: str, kind: str, text: str, data: dict | None = None, notif
         con.execute("INSERT INTO condor_log (day, und, at, kind, text, data) VALUES (?, ?, ?, ?, ?, ?)",
                     (day, u, _stamp(), kind, text, json.dumps(data, default=str) if data else None))
     if notify:
+        from . import activity
+        total = data.get("total") if isinstance(data, dict) else None
+        sound = activity.kind_of_pnl(total) if kind == "exit" and isinstance(total, (int, float)) else             "closed" if kind == "exit" else activity.CONDOR.get(kind, "info")
+        activity.record(sound, f"{u} 0DTE condor{' (paper)' if mode == 'paper' else ''}", text, "/#IN/options")
         try:
             tag = " (PAPER)" if mode == "paper" else ""
             telegram_bot.send_message(f"🦅 <b>{u} 0DTE condor{tag}</b> · {text}")

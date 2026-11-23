@@ -144,6 +144,8 @@ def daily(now: datetime | None = None) -> bool:
     state.set_setting(KEY, {"day": day})   # first, so the other process doesn't send it too
     text = build(now)
     telegram_bot.send_message(text)
+    from . import activity
+    activity.record("info", "Daily summary", "Today's trading summary is on Telegram", "/#IN/performance")
     try:
         from . import push
         push.send("Daily summary", "Today's trading summary is on Telegram", "/#IN/performance")

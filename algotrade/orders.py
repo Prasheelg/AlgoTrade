@@ -103,12 +103,14 @@ def _save(key: str, **fields) -> None:
                         (key, *fields.values()))
 
 
-def _notify(text: str) -> None:
+def _notify(text: str, kind: str | None = None) -> None:
+    """Telegram, web push and the activity feed (the phone's sound; kind from the notice's icon unless given)."""
     try:
         telegram_bot.send_message(f"💰 {text}")
     except Exception:
         log.exception("Telegram order notice failed")
-    from . import push
+    from . import activity, push
+    activity.record(kind or activity.kind_of_notice(text), "", text, "/#IN/portfolio")
     push.send("Auto-trade", re.sub(r"<[^>]+>", "", text), "/#IN/portfolio")
 
 
@@ -792,5 +794,6 @@ def _closed(t: dict, price: float | None, why: str) -> None:
     fill = t["fill_price"] or t["entry"]
     _save(t["key"], state=CLOSED, exit_price=price, closed_at=datetime.now().isoformat(timespec="seconds"), note=why)
     pnl = (price - fill) * t["qty"] if price else None
+    from .activity import kind_of_pnl
     _notify(f"🏁 <b>{t['symbol']}</b> closed ({why}) @ ₹{price or 0:,.2f}"
-            + (f" · P&L ₹{pnl:,.0f} before charges" if pnl is not None else ""))
+            + (f" · P&L ₹{pnl:,.0f} before charges" if pnl is not None else ""), kind=kind_of_pnl(pnl))

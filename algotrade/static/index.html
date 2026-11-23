@@ -20,8 +20,15 @@
     try { t = localStorage.getItem("theme") === "light" ? "light" : "dark"; } catch {}
     document.documentElement.dataset.theme = t;
     document.querySelector('meta[name="theme-color"]').content = t === "dark" ? "#0b0e13" : "#f4f5f8";
+    // The Android app already keeps its WebView clear of the status and nav bars, but still hands the page those
+    // insets: adding env(safe-area-inset-*) on top doubled the gap above the logo and under the tab bar
+    if (/AlgoTradeApp\//.test(navigator.userAgent)) document.documentElement.classList.add("in-app");
   })();
 </script>
+<style>
+  :root { --sa-top: env(safe-area-inset-top, 0px); --sa-bottom: env(safe-area-inset-bottom, 0px); }
+  :root.in-app { --sa-top: 0px; --sa-bottom: 0px; }
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -995,14 +1002,14 @@
   #logout svg { display: none; }
   @media (max-width: 640px) {
     body { font-size: 14px; }
-    .wrap { padding: 0 14px calc(84px + env(safe-area-inset-bottom)); }
+    .wrap { padding: 0 14px calc(84px + var(--sa-bottom)); }
     .card { border-radius: 14px; }
     .scan, .notice, .tiles, .chart-card { margin-bottom: 12px; }
 
     /* App bar: row 1 = brand + icon actions, row 2 = market switch + Auto-trade */
     /* sticky with a negative top (pinStrip): the app bar scrolls away, the status strip under it stays */
     .top { top: var(--top-pin, 0px); backdrop-filter: none; background: var(--bg); border-bottom: 0;
-           margin: 0 -14px 10px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; }
+           margin: 0 -14px 10px; padding: calc(10px + var(--sa-top)) 14px 10px; }
     .top-in { gap: 10px 8px; }
     .top-in::after { content: ""; order: 3; flex-basis: 100%; height: 0; }
     .brand { order: 0; gap: 9px; }
@@ -1027,7 +1034,7 @@
 
     /* Bottom tab bar */
     #views { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr);
-             gap: 0; border-radius: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+             gap: 0; border-radius: 0; padding: 6px 6px calc(6px + var(--sa-bottom));
              background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(16px);
              -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--line); }
     #views button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 2px 0; font-size: 11px;
@@ -1172,7 +1179,7 @@
 
     /* ...shown as a bottom sheet over the page, in thumb reach; tap the dimmed page to close */
     .opt-ticket { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; margin: 0; max-height: 88dvh; overflow-y: auto;
-                  overscroll-behavior: contain; border: 0; border-radius: 20px 20px 0 0; padding: 22px 16px calc(18px + env(safe-area-inset-bottom));
+                  overscroll-behavior: contain; border: 0; border-radius: 20px 20px 0 0; padding: 22px 16px calc(18px + var(--sa-bottom));
                   box-shadow: 0 -10px 40px rgb(0 0 0 / .35); animation: sheet-up .22s ease-out; }
     .opt-ticket::before { content: ""; position: absolute; top: 8px; left: 50%; width: 38px; height: 4px; margin-left: -19px;
                           border-radius: 2px; background: var(--line); }
@@ -1186,18 +1193,94 @@
     .pill-t { padding: 6px 12px 6px 10px; }
     .links button { padding: 6px 4px; }
   }
+  /* ---- Phone: nothing scrolls sideways. Rows that used to swipe now wrap or stack, so every panel shows in full
+     at the phone's width (the option chain and the strategy legs table are the only wide tables left to swipe) ---- */
+  @media (max-width: 640px) {
+    html, body { overflow-x: clip; }   /* clip, not hidden: hidden would stop the sticky app bar sticking */
+
+    /* Status strip: compact chips that wrap onto a second line instead of a strip you swipe */
+    .sbar { flex-wrap: wrap; overflow: visible; white-space: normal; gap: 6px; margin: 0; padding: 0; font-size: 12px; }
+    .sseg, .sseg:first-child { margin: 0; padding: 4px 9px; gap: 6px; border: 1px solid var(--line-2); border-radius: 8px;
+                               background: var(--panel); white-space: nowrap; }
+    .sseg.end { margin-left: 0; }
+
+    /* P&L today: totals on top, then one full-width row per position (the panel scrolls down if there are many) */
+    .pp-tiles { flex-wrap: wrap; overflow: visible; flex-direction: column; }
+    .pp-tile { flex: none; width: 100%; white-space: normal; }
+    .pp-tile .pl, .pp-tile .d.r { white-space: nowrap; }
+
+    /* KPI groups (Open positions, Closed, ...): stacked full width instead of a swipeable row */
+    .tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; overflow: visible; scroll-snap-type: none;
+             margin: 0 0 12px; padding: 0; }
+    .tiles > *, .tiles > :only-child { flex: none; min-width: 0; }
+
+    /* Tabs and segmented buttons: wrap onto a second line, each button sharing the width */
+    .seg, .tabs, .opt-tabs, .ch-bar .seg { flex-wrap: wrap; overflow: visible; }
+    .tabs { gap: 4px; }
+    .tab { flex: 1 1 auto; justify-content: center; text-align: center; padding: 8px 10px; }
+    .seg button { flex: 1 1 auto; }
+    .opt-tabs { margin: 12px -14px 0; padding: 0 8px; }
+    .opt-tabs button { flex: 1 1 auto; padding: 10px 8px; }
+
+    /* Strategy templates: a two-column grid instead of a carousel */
+    .sb-tpls { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(2, minmax(0, 1fr));
+               overflow: visible; scroll-snap-type: none; padding-bottom: 0; }
+
+    /* App bar row 2: market switch and Auto-trade side by side (flags dropped, the switch's colour says ON/off) */
+    #markets .flag { display: none; }
+    #markets button { padding: 0 6px; gap: 6px; }
+    #tradeSw { flex: none; gap: 8px; padding: 0 10px; }
+    #tradeLbl { font-size: 0; }
+    #tradeLbl::after { content: "Auto"; font-size: 13px; }
+
+    /* Status strip: only what a phone needs. The exchange clock (the phone has one) and the account line (it is
+       in Settings) are dropped; the data line only shows when prices are stale or missing */
+    .sseg:has(#sbClock), .sseg.acct { display: none; }
+    .sseg.end:not(:has(.fresh.stale, .fresh.none)) { display: none; }
+    .sseg.end .lbl, .sseg.end .sv.dim { display: none; }
+    .sseg, .sseg:first-child { padding: 3px 8px; gap: 5px; }
+    .top-strip { margin-top: 6px; padding-top: 8px; row-gap: 0; }
+    .top-strip::after { display: none; }   /* the app bar's row break; the strip needs none */
+    .top { padding-bottom: 8px; }
+
+    /* Tabs: equal columns, the count big on top and the name under it, all on one line of the card */
+    .list-head .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; }
+    .list-head .tabs:has(> :nth-child(6)) { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .list-head .tab { display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-end; gap: 1px;
+                      padding: 7px 2px; font-size: 11.5px; line-height: 1.2; white-space: normal; text-align: center; }
+    .list-head .tab .n { margin: 0; padding: 0; min-width: 0; border: 0; background: none; color: var(--ink-2);
+                         font-size: 16px; font-weight: 650; }
+    .list-head .tab.on { background: var(--accent-soft); color: var(--ink); }
+    .list-head .tab.on .n { background: none; color: var(--accent); }
+
+    /* KPI cards: tighter, so the signal list starts higher up */
+    .kgroup { padding: 10px 0; }
+    .khead { padding: 0 14px 8px; margin-bottom: 8px; }
+    .krow { row-gap: 10px; }
+    .kpi .v { font-size: 17px; }
+    .kpi .k, .kpi .d { font-size: 11px; }
+
+    /* Performance: the long sections fold behind their heading (tap it to open) */
+    .fold > :first-child { cursor: pointer; }
+    .fold > :first-child > .lbl:first-child::after { content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 0 2px 9px;
+      border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform .2s; }
+    .fold.open > :first-child > .lbl:first-child::after { transform: rotate(-135deg); margin-bottom: -2px; }
+    .fold:not(.open) > :not(:first-child) { display: none; }
+    .fold:not(.open) > :first-child { border-bottom: 0; }
+    .fold:not(.open) > :first-child > :not(.lbl):not(.hint) { display: none; }
+  }
   /* Toasts (phone): results of an action, above the tab bar; tap to dismiss */
-  #toasts { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 50;
+  #toasts { position: fixed; left: 12px; right: 12px; bottom: calc(76px + var(--sa-bottom)); z-index: 50;
             display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
   .toast { pointer-events: auto; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-left: 4px solid var(--accent);
            border-radius: 12px; padding: 12px 14px; font-size: 14px; white-space: pre-line; box-shadow: 0 8px 28px rgb(0 0 0 / .3);
            animation: toast-in .2s ease-out; }
-  body.sheet-open #toasts { top: calc(12px + env(safe-area-inset-top)); bottom: auto; }   /* clear of the sheet's buttons */
+  body.sheet-open #toasts { top: calc(12px + var(--sa-top)); bottom: auto; }   /* clear of the sheet's buttons */
   .toast.ok { border-left-color: var(--up); }
   .toast.err { border-left-color: var(--down); }
   @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
   /* Pull to refresh (phone) */
-  #ptr { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; z-index: 45; width: 38px; height: 38px; margin-left: -19px;
+  #ptr { position: fixed; top: calc(8px + var(--sa-top)); left: 50%; z-index: 45; width: 38px; height: 38px; margin-left: -19px;
          border-radius: 50%; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 4px 14px rgb(0 0 0 / .25);
          display: grid; place-items: center; opacity: 0; transform: translateY(-60px); pointer-events: none; }
   #ptr svg { width: 18px; height: 18px; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -1311,13 +1394,13 @@
         <th class="num">Profit factor after</th></tr></thead><tbody id="bdRows"></tbody></table></div>
       <div class="empty" id="bdEmpty" hidden></div>
     </section>
-    <section class="card">
+    <section class="card fold" id="scCard">
       <div class="list-head"><span class="lbl">Strategy scorecard</span><span class="hint" id="scHint"></span></div>
       <div class="tablewrap"><table><thead><tr><th>Strategy</th><th class="num">Live trades</th><th class="num">Live avg R</th>
         <th class="num">Live win rate</th><th class="num">Backtested</th><th class="num">Backtest avg R</th><th>Verdict</th>
         <th>Scanner</th></tr></thead><tbody id="scRows"></tbody></table></div>
     </section>
-    <section class="card" id="btCard">
+    <section class="card fold" id="btCard">
       <div class="list-head"><span class="lbl">Backtest</span><span class="hint">Daily bars over the market's universe, after costs</span></div>
       <div class="bt-ctl">
         <div class="ctl"><span class="lbl">Period</span><div class="seg" id="btPeriod">
@@ -1327,7 +1410,7 @@
       </div>
       <div class="bt-res" id="btRes"></div>
     </section>
-    <section class="card" id="taxCard">
+    <section class="card fold" id="taxCard">
       <div class="bt-ctl">
         <span class="lbl">Tax · realised P&amp;L</span>
         <div class="ctl"><select id="taxFy"></select></div>
@@ -4837,6 +4920,18 @@ function renderSt() {
         ${p?.on ? `<button class="btn" type="button" data-stx="push-test">Send a test</button><button type="button" class="reset" data-stx="push-off">turn off on this device</button>` : ""}
       </div><span class="h">Price alerts, fills and rejections, Auto-trade events, problems and the daily summary${p?.devices != null ? ` · ${p.devices} device(s) signed up` : ""}</span></div>
     </div>
+    <div class="st-group"><span class="lbl">Sounds</span>
+      ${Object.entries(SOUND_KINDS).map(([k, label]) => `<div class="st-row"><span class="t">${esc(label)}</span><div class="c" style="flex-direction:row;align-items:center;gap:10px">
+        <button class="btn" type="button" data-stx="snd-play" data-kind="${k}" title="Play" style="padding:3px 10px">▶</button>
+        <label class="switch"><input type="checkbox" data-snd="${k}" ${sound.on(k) ? "checked" : ""}></label></div></div>`).join("")}
+      ${window.AlgoTradeApp ? `<div class="st-row"><span class="t">Ring when the app is closed</span>
+        <div class="c"><label class="switch"><input type="checkbox" data-sndbg ${window.AlgoTradeApp.isBackgroundAlerts() ? "checked" : ""}></label></div>
+        <span class="h">Notifications with the same sounds. Android shows a quiet "Watching" notification while it's on</span></div>
+      <div class="st-row"><span class="t">Change or mute a kind's notification</span>
+        <div class="c"><button class="btn" type="button" data-stx="snd-android">Android settings</button></div></div>`
+      : `<div class="st-row"><span class="t">Played while the dashboard is open on this device</span><div class="c"></div>
+        <span class="h">Tap the page once after opening it: browsers only play sound after a touch</span></div>`}
+    </div>
     <div class="st-group"><span class="lbl">Daily summary</span>
       <div class="st-row"><span class="t">Send today's summary to Telegram now</span><div class="c"><button class="btn" type="button" data-stx="summary">Send now</button></div>
       <span class="h">It also goes out by itself after 15:45 IST on trading days. Telegram commands: /help in the group</span></div>
@@ -4848,11 +4943,17 @@ stBox.addEventListener("input", e => {
   const save = stBox.querySelector('[data-stx="save"]');
   if (save) save.disabled = false;
 });
-stBox.addEventListener("change", e => { if (e.target.dataset?.st && st) renderSt(); });
+stBox.addEventListener("change", e => {
+  if (e.target.dataset?.snd) { sound.set(e.target.dataset.snd, e.target.checked); if (e.target.checked) sound.play(e.target.dataset.snd); return; }
+  if ("sndbg" in (e.target.dataset ?? {})) { window.AlgoTradeApp?.setBackgroundAlerts(e.target.checked); return; }
+  if (e.target.dataset?.st && st) renderSt();
+});
 stBox.addEventListener("click", async e => {
   const b = e.target.closest("[data-stx], [data-streset]"); if (!b || !st) return;
   const a = b.dataset.stx;
   if (a === "close") { st = null; renderSt(); return; }
+  if (a === "snd-play") { sound.play(b.dataset.kind, true); return; }
+  if (a === "snd-android") { window.AlgoTradeApp?.openNotificationSettings(); return; }
   try {
     if (a === "save" || b.dataset.streset) {
       const changes = b.dataset.streset ? { [b.dataset.streset]: null }
@@ -5086,6 +5187,17 @@ function labelCells(table) {
   const panel = document.getElementById("scanPanel"), sum = document.getElementById("scanSum");
   sum.onclick = () => sum.setAttribute("aria-expanded", panel.classList.toggle("open"));
 }
+// Phone: long Performance sections (.fold) fold behind their heading; tapping it opens or closes the section,
+// remembered on this device. The CSS only folds them on phones, so on a PC they always show in full
+document.querySelectorAll(".fold").forEach(sec => {
+  const key = `fold:${sec.id}`;
+  try { sec.classList.toggle("open", localStorage.getItem(key) === "1"); } catch {}
+  sec.firstElementChild.addEventListener("click", e => {
+    if (!PHONE.matches || e.target.closest("button, a, select, input, label")) return;
+    const open = sec.classList.toggle("open");
+    try { localStorage.setItem(key, open ? "1" : "0"); } catch {}
+  });
+});
 document.querySelectorAll(".tablewrap table:not(.chain):not(.sb-legs)").forEach(t => {
   t.classList.add("cards");
   labelCells(t);
@@ -5119,6 +5231,57 @@ function toast(msg) {
 }
 const nativeAlert = window.alert.bind(window);
 window.alert = msg => PHONE.matches ? toast(msg) : nativeAlert(msg);
+
+// ---- Activity sounds (/api/activity): a different sound for each kind of event while the dashboard is open.
+// The Android app's background service rings for the same events (its own notification sounds) while it is closed.
+// Each kind can be muted in Settings > Sounds, kept on this device
+const SOUND_KINDS = { signal: "New signal", entry: "Signal entry reached", placed: "Order placed", filled: "Trade opened",
+  profit: "Closed in profit", loss: "Closed at a loss", closed: "Closed about even", cancelled: "Order / signal cancelled",
+  problem: "Needs attention (rejections, no stop-loss, errors)", alert: "Watchlist price alert",
+  info: "Other updates (stop-loss placed, summary, condor)" };
+const SOUND_RANK = { info: 1, cancelled: 2, closed: 3, entry: 3, placed: 4, signal: 5, alert: 6, filled: 7, profit: 8, loss: 9, problem: 10 };
+const sound = (() => {
+  let ctx = null;
+  const bufs = {};
+  const prefs = () => { try { return JSON.parse(localStorage.getItem("sounds") || "{}"); } catch { return {}; } };
+  // browsers only let a page make sound after the user has touched it once
+  const unlock = () => { try { ctx ??= new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === "suspended") ctx.resume(); } catch {} };
+  ["pointerdown", "keydown"].forEach(t => addEventListener(t, unlock, { passive: true }));
+  const buf = kind => bufs[kind] ??= fetch(`/sounds/${kind}.wav`).then(r => r.arrayBuffer()).then(a => ctx.decodeAudioData(a))
+    .catch(e => { delete bufs[kind]; throw e; });
+  return {
+    on: kind => { const p = prefs(); return p.all !== false && p[kind] !== false; },
+    set(kind, v) { const p = prefs(); p[kind] = v; try { localStorage.setItem("sounds", JSON.stringify(p)); } catch {} },
+    async play(kind, force = false) {
+      if (!force && !this.on(kind)) return;
+      unlock();
+      if (!ctx) return;
+      try { const src = ctx.createBufferSource(); src.buffer = await buf(kind); src.connect(ctx.destination); src.start(); } catch {}
+    },
+  };
+})();
+let actLast = null, actBusy = false, actHidden = false;
+async function pollActivity() {
+  if (actBusy) return;
+  actBusy = true;
+  try {
+    const res = await fetch(`/api/activity?after=${actLast ?? -1}`);
+    if (!res.ok) return;
+    const j = await res.json(), evs = j.events ?? [];
+    if (actLast != null && evs.length) {
+      // one sound per check (the most important kind); none for what happened while the page was in the
+      // background: the app's own notifications rang for that
+      if (!actHidden) sound.play(evs.reduce((a, e) => (SOUND_RANK[e.kind] ?? 0) > (SOUND_RANK[a.kind] ?? 0) ? e : a).kind);
+      evs.filter(e => e.kind !== "info").slice(-3).forEach(e => toast(`${e.title}\n${e.body}`));
+      if (evs.some(e => e.kind !== "info")) { try { load(); } catch {} }
+    }
+    actLast = j.last ?? actLast;
+    actHidden = false;
+  } catch {} finally { actBusy = false; }
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) actHidden = true; });
+setInterval(() => { if (!document.hidden) pollActivity(); }, 5000);
+pollActivity();
 
 // Reload what the current view shows (pull to refresh, coming back to the app)
 async function refreshView(force = false) {
