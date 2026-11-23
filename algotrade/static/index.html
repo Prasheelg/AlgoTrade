@@ -1337,6 +1337,23 @@
     .top-strip::after { display: none; }   /* the app bar's row break; the strip needs none */
     .top { padding-bottom: 8px; }
 
+    /* ...as one card: the session across the top, then the index and P&L today as two equal tiles (label, big
+       value, change under it); the index takes the full width when there is no P&L (US, MCX) */
+    .sbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; width: 100%; font-size: 12px;
+            border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel); overflow: hidden; }
+    .sbar .sseg, .sbar .sseg:first-child { min-width: 0; padding: 10px 14px; border: 0; border-radius: 0; background: none; }
+    .sbar .sseg.sess { grid-column: 1 / -1; gap: 8px; border-bottom: 1px solid var(--line-2); }
+    .sbar .sseg.sess .sv.dim { margin-left: auto; }
+    .sbar .sseg.idx, .sbar .sseg.pnl { position: relative; flex-direction: column; align-items: flex-start;
+                                       justify-content: flex-start; align-self: stretch; gap: 1px; }
+    .sbar .sseg.idx:not(:has(+ .sseg.pnl)) { grid-column: 1 / -1; }
+    .sbar .sseg.pnl { border-left: 1px solid var(--line-2); }
+    .sbar .sseg.idx .sv:not(.chg), .sbar .sseg.pnl #sbPnl { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+    .sbar .sseg.idx .chg { font-size: 12px; }
+    .sbar .sseg.pnl .caret { position: absolute; right: 12px; top: 50%; margin-top: -6px; }
+    .sbar .sseg.pnl .sv.dim { font-size: 11px; }
+    .sbar .sseg.end { grid-column: 1 / -1; border-top: 1px solid var(--line-2); }
+
     /* Tabs: equal columns, the count big on top and the name under it, all on one line of the card */
     .list-head .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; }
     .list-head .tabs:has(> :nth-child(6)) { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -2016,7 +2033,7 @@ function renderStatus() {
   if (m) {
     const st = marketState(m), [ex, tz] = EXCHANGE[m.code] ?? [m.name, ""];
     parts.push(seg("", `<span class="pill ${st.open ? "open" : "closed"}" id="sbSess">${st.open ? "Open" : "Closed"}</span>` +
-      `<span class="sv">${esc(ex)}</span><span class="sv dim" id="sbWhen">${st.when}</span>`, "",
+      `<span class="sv">${esc(ex)}</span><span class="sv dim" id="sbWhen">${st.when}</span>`, "sess",
       `Regular hours ${m.session[0]}–${m.session[1]} ${tz}, Mon–Fri (holidays not included)`));
     parts.push(seg(tz, `<span class="sv" id="sbClock">${st.now.time}</span>`, "", "Exchange time"));
   }
@@ -2025,7 +2042,7 @@ function renderStatus() {
     const dir = q.change > 0 ? "up" : q.change < 0 ? "down" : "";
     parts.push(seg(esc(q.name), q.last == null ? `<span class="sv dim">unavailable</span>`
       : `<span class="sv">${num(q.last)}</span><span class="sv chg ${dir}">${q.change > 0 ? "▲" : q.change < 0 ? "▼" : ""} ` +
-        `${num(Math.abs(q.change))} (${sgn(q.change_pct, 2, "%")})</span>`, "",
+        `${num(Math.abs(q.change))} (${sgn(q.change_pct, 2, "%")})</span>`, "idx",
       q.as_of ? `Daily change vs previous close · as of ${q.as_of} · ${q.source ?? "Yahoo Finance, delayed"}` : ""));
   }
   const pl = market === "IN" ? pnlTop : null;
