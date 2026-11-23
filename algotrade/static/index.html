@@ -1213,6 +1213,7 @@
     .tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; overflow: visible; scroll-snap-type: none;
              margin: 0 0 12px; padding: 0; }
     .tiles > *, .tiles > :only-child { flex: none; min-width: 0; }
+    #tiles { display: none; }   /* Signals: Open positions / Closed trades cards are desktop only (the tabs carry the counts) */
 
     /* Tabs and segmented buttons: wrap onto a second line, each button sharing the width */
     .seg, .tabs, .opt-tabs, .ch-bar .seg { flex-wrap: wrap; overflow: visible; }
