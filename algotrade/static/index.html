@@ -1050,27 +1050,28 @@
     input, select, textarea { font-size: 16px !important; }
     .btn, .tab, .seg button, .chip, .pill-t { -webkit-tap-highlight-color: transparent; }
 
-    /* Scan settings fold away behind a one-line summary; Run scan stays in reach */
-    #scanPanel { padding: 10px 10px 10px 14px; }
-    #scanPanel .scan-row:first-child { flex-wrap: nowrap; gap: 10px; }
+    /* Scan settings fold away behind a summary line (title + timeframes, chevron on the right); under it, divided
+       by a hairline, the scanner switch on the left and its status on the right */
+    #scanPanel { padding: 12px 14px; }
+    #scanPanel .scan-row:first-child { flex-wrap: wrap; gap: 10px; }
     .scan-sum { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; border: 0; background: none; padding: 0;
                 text-align: left; color: var(--ink); }
     .scan-sum > span { display: flex; flex-direction: column; min-width: 0; }
-    .scan-sum b { font-size: 14px; font-weight: 600; }
+    .scan-sum { flex: 1 1 100%; }
+    .scan-sum b { font-size: 15px; font-weight: 600; white-space: nowrap; }
     .scan-sum small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .scan-sum svg { flex-shrink: 0; width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2;
                     stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; margin-left: auto; }
     #scanPanel.open .scan-sum svg { transform: rotate(180deg); }
-    #scanPanel .run { width: auto; margin: 0; flex-shrink: 0; }
+    #scanPanel .run { order: 9; width: 100%; margin: 0; gap: 12px; justify-content: space-between;
+                      padding-top: 10px; border-top: 1px solid var(--line-2); }
     #scanPanel .run .switch { display: none; }
     #scanPanel .run .switch.scan-power { display: inline-flex; }
     #scanPanel .run .btn.primary { padding: 9px 18px; border-radius: 10px; }
-    #scanPanel .run .scan-state { max-width: 46vw; }
+    #scanPanel .run .scan-state { flex: 0 1 auto; justify-content: flex-end; }
     #scanPanel:not(.open) .ctl, #scanPanel:not(.open) .sc-row { display: none; }
-    #scanPanel.open .scan-row:first-child { flex-wrap: wrap; }
-    #scanPanel.open .scan-sum { flex-basis: calc(100% - 130px); }
     #scanPanel.open .run .switch { display: inline-flex; }
-    #scanPanel.open .run { order: 9; width: 100%; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--line-2); }
+    #scanPanel.open .run { flex-wrap: wrap; }
     #scanPanel.open .ctl { width: 100%; justify-content: space-between; }
     #scanPanel .scan-row + .scan-row { margin-top: 10px; padding-top: 10px; }
 
