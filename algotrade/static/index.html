@@ -1248,6 +1248,11 @@
     .tablewrap table.sigt.cards td.wide[data-label=""] { grid-column: 4; margin-top: 0; align-self: center; }
     .tablewrap table.sigt.cards td.wide[data-label=""] .row-acts { justify-content: flex-end; gap: 6px; }
     .tablewrap table.sigt.cards td.wide[data-label=""] .row-acts .btn.ic { flex: 0 0 34px; width: 34px; }
+    /* each signal its own rounded panel, a little apart, the outcome stripe down its left edge */
+    .tablewrap table.sigt.cards tbody { display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+    .tablewrap table.sigt.cards tbody tr, .tablewrap table.sigt.cards tbody tr:last-child {
+      border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel-2); overflow: hidden;
+      box-shadow: inset 4px 0 0 var(--stripe, transparent), 0 1px 2px rgb(0 0 0 / .18); padding-left: 16px; }
 
     /* Tabs and segmented buttons: wrap onto a second line, each button sharing the width */
     .seg, .tabs, .opt-tabs, .ch-bar .seg { flex-wrap: wrap; overflow: visible; }
