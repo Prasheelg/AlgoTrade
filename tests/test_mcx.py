@@ -285,3 +285,15 @@ def test_scanner_starts_with_every_market(monkeypatch):
     text = sent[0]
     assert "MCX: CRUDEOILM, NATGASMINI, GOLDM, SILVERM" in text and "09:00" in text and "23:55 IST" in text
     assert "India:" in text and "US: off" in text
+
+
+def test_status_bar_shows_the_gold_mini_future_live(monkeypatch):
+    from algotrade import fno, kotak, web
+    web._index_cache.clear()
+    monkeypatch.setattr(mcx, "front", lambda s: {"token": "495300", "tsym": "GOLDM04DEC26FUT"})
+    monkeypatch.setattr(fno, "_quotes", lambda toks, seg: [{"exchange_token": "495300", "ltp": "153200",
+                                                            "ohlc": {"close": "152000"}}])
+    monkeypatch.setattr(kotak, "quote_time", lambda q: None)
+    q = web.app.test_client().get("/api/index?market=MCX").get_json()
+    assert (q["name"], q["last"], q["change"], q["source"]) == ("GOLDM04DEC26", 153200, 1200, "Kotak Neo, live")
+    assert q["change_pct"] == pytest.approx(0.79)

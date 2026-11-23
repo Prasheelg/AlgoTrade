@@ -132,12 +132,24 @@ def _market():
 
 
 def _live_ltp(mkt: markets.Market, sigs: list[dict]) -> None:
-    """While the live stream is connected, show open India signals at the streamed price (display only: the
-    tracker still decides stops, targets and fills from its own checks)."""
+    """While the live stream is connected, show open India / MCX signals at the streamed price (display only:
+    the tracker still decides stops, targets and fills from its own checks). MCX: the front-month future."""
     from . import livefeed
-    if mkt.code != "IN" or not livefeed.connected():
+    if mkt.code not in ("IN", "MCX") or not livefeed.connected():
         return
     open_ = [s for s in sigs if state.is_open(s) and s["exit_price"] is None]
+    if mkt.code == "MCX":
+        from . import mcx
+        for sym in sorted({s["symbol"] for s in open_}):
+            try:
+                px = mcx.live_price(sym)
+            except Exception:
+                log.exception("Live MCX price for %s failed", sym)
+                px = None
+            for s in open_:
+                if px and s["symbol"] == sym:
+                    s["ltp"] = px
+        return
     try:
         q = kotak.quotes(sorted({s["symbol"] for s in open_}))
     except Exception:
@@ -210,7 +222,7 @@ def _signals_payload(mkt: markets.Market) -> dict:
                    "risk_pct": config.RISK_PER_TRADE_PCT, "currency": mkt.currency, "locale": mkt.locale,
                    "tv_prefix": mkt.tv_prefix,
                    # real-time price source for tracking, or None when only the delayed Yahoo feed is used
-                   "live": "Kotak Neo" if mkt.code == "IN" and kotak.enabled() else None},
+                   "live": "Kotak Neo" if mkt.code in ("IN", "MCX") and kotak.enabled() else None},
     }
 
 
@@ -710,11 +722,34 @@ ALL_TF = "all"  # scans every timeframe above, one after another
 
 
 INDEX_NAME = {"IN": "NIFTY 50", "US": "S&P 500"}
+MCX_HEADLINE = "GOLDM"   # MCX has no index: the status bar shows this mini's front-month future instead
 INDEX_TTL_SEC = 300  # index quote cache, per market
 KOTAK_INDEX = {"IN": "Nifty 50"}   # Kotak quote name of the market's index (live), where available
 KOTAK_INDEX_TTL_SEC = 30
 LIVE_INDEX_TTL_SEC = 0.2   # while the live stream is connected
 _index_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _mcx_headline() -> dict:
+    """The MCX_HEADLINE mini's front future: Kotak's live price and change vs the previous close."""
+    from . import fno, livefeed, mcx
+    out = {"name": MCX_HEADLINE, "source": "Kotak Neo, live"}
+    try:
+        c = mcx.front(MCX_HEADLINE)
+        q = (fno._quotes([c["token"]], mcx.SEGMENT) or [{}])[0] if c else {}
+    except Exception as exc:
+        log.warning("MCX headline quote failed: %s", exc)
+        return out
+    last, prev = fno._f(q.get("ltp")), fno._f((q.get("ohlc") or {}).get("close"))
+    if not last:
+        return out
+    t = kotak.quote_time(q)
+    out.update(name=c["tsym"].removesuffix("FUT"), last=round(last, 2),
+               as_of=t.isoformat(sep=" ", timespec="minutes") if t else None,
+               ttl=LIVE_INDEX_TTL_SEC if livefeed.connected() else KOTAK_INDEX_TTL_SEC)
+    if prev:
+        out.update(change=round(last - prev, 2), change_pct=round((last - prev) / prev * 100, 2))
+    return out
 
 
 @app.get("/api/index")
@@ -729,6 +764,11 @@ def api_index():
         return jsonify(hit[1])
     quote = {"market": mkt.code, "name": INDEX_NAME.get(mkt.code, mkt.index_symbol),
              "last": None, "change": None, "change_pct": None, "as_of": None, "source": "Yahoo Finance, delayed"}
+    if mkt.code == "MCX":
+        quote.update(_mcx_headline())
+        if quote["last"] is not None:
+            _index_cache[mkt.code] = (time.monotonic(), quote)
+        return jsonify(quote)
     kq = kotak.index_quote(KOTAK_INDEX[mkt.code]) if mkt.code in KOTAK_INDEX else None
     if kq and kq["prev_close"]:
         last, prev = kq["ltp"], kq["prev_close"]

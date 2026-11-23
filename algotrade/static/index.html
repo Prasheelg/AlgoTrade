@@ -1954,7 +1954,9 @@ function renderStatus() {
   parts.push(seg("Data", `<span class="fresh ${mins == null ? "none" : mins > 10 ? "stale" : ""}"></span>` +
     `<span class="sv">Updated <span id="sbAgo">${ago(lastRefresh)}</span></span>` +
     (cfg.live ? `<span class="sv dim feed">· Live · ${esc(cfg.live)}</span>` : `<span class="sv dim delay">· Delayed 15 min</span>`), "end",
-    (lastRefresh ? `Open signals re-checked at ${lastRefresh}. ` : "") + (cfg.live
+    (lastRefresh ? `Open signals re-checked at ${lastRefresh}. ` : "") + (cfg.live && market === "MCX"
+      ? `Prices are ${cfg.live}'s live MCX feed: signals are tracked on 5-minute bars recorded from it; history from before recording began is estimated from world futures`
+      : cfg.live
       ? `Prices for tracking are real-time from ${cfg.live}; scan history comes from Yahoo Finance`
       : "Yahoo Finance, free feed delayed up to about 15 min")));
   document.getElementById("sbar").innerHTML = parts.join("");
