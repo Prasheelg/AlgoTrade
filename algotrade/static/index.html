@@ -774,6 +774,40 @@
   .pill-t:has(input:checked)::before { background: var(--accent); border-color: var(--accent); }
   .pill-t:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
   .pill-t:has(input:disabled) { opacity: .6; cursor: default; }
+  /* PC / tablet: the Strategies heading with the count and All / None on one line, then the groups side by side
+     as columns (as many as fit), each its name over its strategies as tiles that wrap; the phone stacks the
+     groups with three tiles to a row instead (see the 640px block) */
+  @media (min-width: 641px) {
+    /* folds like the phone: closed it is one line (title + summary + chevron, the scanner switch and status on the
+       right); opening it shows Min votes and the strategies */
+    #scanPanel .scan-sum { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; border: 0; background: none;
+                           padding: 0; text-align: left; color: var(--ink); cursor: pointer; }
+    #scanPanel .scan-sum > span { display: flex; flex-direction: column; min-width: 0; }
+    #scanPanel .scan-sum b { font-size: 14px; font-weight: 600; white-space: nowrap; }
+    #scanPanel .scan-sum small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #scanPanel .scan-sum svg { flex-shrink: 0; width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2;
+                               stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+    #scanPanel .scan-sum:hover svg { stroke: var(--ink); }
+    #scanPanel.open .scan-sum svg { transform: rotate(180deg); }
+    #scanPanel .scan-row:first-child { flex-wrap: wrap; }
+    #scanPanel .scan-row:first-child .run { margin-left: auto; width: auto; }
+    #scanPanel .scan-row:first-child .ctl { order: 5; flex-basis: 100%; padding-top: 12px; border-top: 1px solid var(--line-2); }
+    #scanPanel:not(.open) .ctl, #scanPanel:not(.open) .sc-row { display: none; }
+    #scanPanel .sc-row { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+    #scanPanel .sc-row > .lbl { flex: 1; padding-top: 0 !important; }
+    #scanPanel .sc-row .links { display: flex; align-items: center; gap: 4px; padding-top: 0; color: var(--muted); font-size: 12px; }
+    #scanPanel .sc-row .links button { padding: 2px 6px; }
+    #scanPanel .sc-row .links #stratCount { margin-right: 6px; }
+    #scanPanel .sc-row .segs { order: 3; flex-basis: 100%; display: grid; gap: 14px 16px;
+                               grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    #scanPanel .sgrp { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: stretch; gap: 6px;
+                       padding: 10px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel-2); }
+    #scanPanel .sgrp .sg-h { flex-basis: 100%; margin: 0 0 2px; font-size: 10px; }
+    #scanPanel .sgrp .pill-t { flex: 1 1 auto; min-height: 34px; padding: 5px 10px 5px 8px; border-radius: 9px;
+                               font-size: 12.5px; justify-content: flex-start; background: var(--panel); }
+    #scanPanel .sgrp .pill-t:has(input:checked) { background: var(--accent-soft); }
+    #scanPanel .sgrp .pill-t::before { flex-shrink: 0; }
+  }
   @media (max-width: 760px) {
     .sc-row { flex-direction: column; align-items: stretch; gap: 8px; }
     .sc-row > .lbl { padding-top: 0 !important; }
@@ -5250,7 +5284,13 @@ function labelCells(table) {
 }
 {
   const panel = document.getElementById("scanPanel"), sum = document.getElementById("scanSum");
-  sum.onclick = () => sum.setAttribute("aria-expanded", panel.classList.toggle("open"));
+  // open / closed is remembered on this device (closed by default)
+  try { if (localStorage.getItem("scanPanelOpen") === "1") { panel.classList.add("open"); sum.setAttribute("aria-expanded", true); } } catch {}
+  sum.onclick = () => {
+    const open = panel.classList.toggle("open");
+    sum.setAttribute("aria-expanded", open);
+    try { localStorage.setItem("scanPanelOpen", open ? "1" : "0"); } catch {}
+  };
 }
 // Phone: long Performance sections (.fold) fold behind their heading; tapping it opens or closes the section,
 // remembered on this device. The CSS only folds them on phones, so on a PC they always show in full
