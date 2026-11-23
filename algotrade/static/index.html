@@ -1395,7 +1395,6 @@
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       <div class="ctl"><span class="lbl">Min votes</span><select id="minScore"></select></div>
       <div class="run">
-        <label class="switch"><input type="checkbox" id="send"> Send to Telegram</label>
         <label class="switch scan-power" id="scanSw"><input type="checkbox" id="scanOn"> <span id="scanLbl">Scanner</span></label>
         <span class="scan-state" id="scanState" role="status"><i></i><span>Scanner…</span></span>
       </div>
@@ -2250,7 +2249,7 @@ function saveScanSettings() {
     saveTimer = null;
     try {
       const res = await fetch(`/api/scan/settings?market=${mk}`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ strategies: o.strategies, min_score: o.minScore, filters: o.filters, send: o.send }) });
+        body: JSON.stringify({ strategies: o.strategies, min_score: o.minScore, filters: o.filters }) });
       const j = await res.json();
       if (!res.ok) { alert(j.error || "Could not save the scan settings"); delete optsBy[mk]; loadScanSettings(mk); return; }
       o.saved = j.saved;
@@ -2263,7 +2262,6 @@ function scanChanged() { renderScanPanel(); saveScanSettings(); }
 function renderScanPanel() {
   document.querySelectorAll("#strats input").forEach(c => c.checked = opts.strategies.includes(c.value));
   document.querySelectorAll("#filters input").forEach(c => c.checked = opts.filters.includes(c.value));
-  document.getElementById("send").checked = opts.send;
   const n = opts.strategies.length;
   // Strategies in the same family (the zone patterns) share one vote
   const votes = new Set(opts.strategies.map(name => STRATS.find(s => s.name === name)?.family ?? name)).size;
@@ -2448,7 +2446,6 @@ document.getElementById("strats").onchange = () => {
 document.getElementById("allStrats").onclick = () => { opts.strategies = STRATS.map(s => s.name); scanChanged(); };
 document.getElementById("noStrats").onclick = () => { opts.strategies = []; scanChanged(); };
 document.getElementById("minScore").onchange = e => { opts.minScore = +e.target.value; scanChanged(); };
-document.getElementById("send").onchange = e => { opts.send = e.target.checked; scanChanged(); };
 
 const FILTER_LABEL = { trend: "Market trend", rs: "Relative strength" };
 
@@ -4958,7 +4955,8 @@ const ST_GROUPS = [["Sizing", ["CAPITAL", "RISK_PER_TRADE_PCT", "MAX_OPEN_RISK_P
                           "OPTIONS_MAX_SPREAD_PCT"]],
   ["Order limits", ["MAX_ORDER_VALUE", "STOCK_MAX_ORDER_VALUE", "OPTIONS_MAX_LOTS"]],
   ["Market orders (sent as limits)", ["MARKET_PROTECTION_PCT", "OPTION_PROTECTION_PCT"]],
-  ["Signals and Telegram", ["EVENT_WINDOW_DAYS", "DAILY_SUMMARY", "TELEGRAM_COMMANDS", "LIVE_FEED", "DB_BACKUP"]]];
+  ["Telegram", ["TELEGRAM_SIGNALS_IN", "TELEGRAM_SIGNALS_US", "TELEGRAM_SIGNALS_MCX", "DAILY_SUMMARY", "TELEGRAM_COMMANDS"]],
+  ["Signals and data", ["EVENT_WINDOW_DAYS", "LIVE_FEED", "DB_BACKUP"]]];
 function renderSt() {
   stBox.hidden = !st;
   if (!st) return;

@@ -68,9 +68,11 @@ patchy for small ones; live scans only, backtests ignore it).
 
 ### Per-market scanner settings
 **The scan panel on the dashboard is the scanner's settings.** For each market it holds the strategies, the
-minimum votes, the filters and *Send to Telegram*; changes are saved on the PC (in `signals.db`) and the scanner
+minimum votes and the filters; changes are saved on the PC (in `signals.db`) and the scanner
 (`run.bat`) reads them at the start of every loop, so a change applies from the next scan, without a restart.
 Changing them needs the same access as placing an order. `--once`, `--dry-run` and `--backtest` use them too.
+Whether a market's new signals go to Telegram is in **Settings › Telegram** (India / US / MCX signals to Telegram,
+`TELEGRAM_SIGNALS_IN` / `_US` / `_MCX` in `.env`).
 Strategies switched off in the strategy scorecard are still left out.
 
 Every loop scans each timeframe in `SCAN_TIMEFRAMES` (`5m,15m,30m,1h,1d`) one after another, every

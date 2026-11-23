@@ -907,6 +907,7 @@ def _auto_trade(new_keys: list[str], market: str = "IN") -> dict | None:
 
 @app.post("/api/scan")
 def api_scan():
+    from . import settings
     body = request.get_json(silent=True) or {}
     mkt = _market()
     strategies = body.get("strategies") or list(DEFAULT_STRATEGIES)
@@ -933,7 +934,7 @@ def api_scan():
         try:
             before = {s["key"] for s in state.all_signals(mkt.code)}
             out["result"] = _scan_timeframes([v for v, _ in TIMEFRAMES] if timeframe == ALL_TF else [timeframe],
-                                             send=bool(body.get("send", False)), strategies=strategies,
+                                             send=settings.signal_alerts(mkt.code), strategies=strategies,
                                              min_score=min_score, market=mkt.code, filters=filters)
             if mkt.code in ("IN", "MCX"):
                 # Auto-trade: stocks take the BUYs, options both sides (intraday ones when switched on in Settings);

@@ -63,13 +63,26 @@ def test_save_scan_settings_round_trip_per_market():
     ({"strategies": ["RSI Pullback"], "min_score": 1, "filters": ["moon"], "send": True}, "filters"),
     ({"strategies": ["RSI Pullback"], "min_score": 2, "filters": [], "send": True}, "between 1 and 1"),
     ({"strategies": ["RSI Pullback"], "min_score": "x", "filters": [], "send": True}, "min_score"),
-    ({"strategies": ["RSI Pullback"], "min_score": 1, "filters": [], "send": "yes"}, "send"),
 ])
 def test_save_scan_settings_validation(body, msg):
     with pytest.raises(ValueError) as e:
         settings.save_scan_settings("IN", body)
     assert msg in str(e.value)
     assert settings.scan_settings("IN")["saved"] is None
+
+
+def test_signals_to_telegram_live_in_settings_and_move_over_from_the_panel(monkeypatch):
+    """The scan panel's old "send" switch is carried over to Settings once; after that Settings decides."""
+    monkeypatch.setattr(telegram_bot, "send_message", lambda *a, **k: True)   # the "Settings changed" notice
+    state.set_setting(settings.SCAN_KEY.format("US"), {"strategies": [], "min_score": 1, "filters": [], "send": True})
+    assert settings.scan_settings("US")["send"] is True and settings.signal_alerts("IN") is False
+    assert settings._overrides()["TELEGRAM_SIGNALS_US"] is True
+    settings.update({"TELEGRAM_SIGNALS_US": False}, "test")
+    assert settings.scan_settings("US")["send"] is False      # the old panel value no longer wins
+    settings.save_scan_settings("US", {"strategies": [], "min_score": 1, "filters": [], "send": True})
+    assert settings.signal_alerts("US") is False               # a "send" sent to the panel is ignored
+    settings.update({"TELEGRAM_SIGNALS_IN": True}, "test")
+    assert settings.scan_settings("IN")["send"] is True
 
 
 def test_no_strategies_can_be_saved():

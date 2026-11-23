@@ -68,6 +68,10 @@ DAILY_SUMMARY = _get("DAILY_SUMMARY", "true").lower() in ("1", "true", "yes")
 LIVE_FEED = _get("LIVE_FEED", "true").lower() in ("1", "true", "yes")   # Kotak WebSocket prices
 DB_BACKUP = _get("DB_BACKUP", "false").lower() in ("1", "true", "yes")
 TELEGRAM_COMMANDS = _get("TELEGRAM_COMMANDS", "true").lower() in ("1", "true", "yes")
+# New signals of each market sent to Telegram by the continuous scanner and the dashboard's scans (Settings)
+TELEGRAM_SIGNALS_IN = _get("TELEGRAM_SIGNALS_IN", "false").lower() in ("1", "true", "yes")
+TELEGRAM_SIGNALS_US = _get("TELEGRAM_SIGNALS_US", "false").lower() in ("1", "true", "yes")
+TELEGRAM_SIGNALS_MCX = _get("TELEGRAM_SIGNALS_MCX", "false").lower() in ("1", "true", "yes")
 # "events" scan filter: skip stocks with results or an ex-dividend date within this many days
 EVENT_WINDOW_DAYS = int(_get("EVENT_WINDOW_DAYS", "3"))
 

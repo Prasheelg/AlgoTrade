@@ -164,10 +164,13 @@ def test_scan_defaults_ignore_env_strategies_and_filters(client, monkeypatch):
 
 
 def test_scan_body_values_and_send(client, monkeypatch):
+    """Telegram sending comes from Settings (US signals to Telegram), not the request body."""
+    from algotrade import settings
     rec = Recorder(scan_result(sent=1))
     monkeypatch.setattr(web, "scan_and_alert", rec)
+    monkeypatch.setattr(settings, "signal_alerts", lambda code: code == "US")
     body = {"market": "US", "strategies": ["EMA 9/21 Cross", "RSI Pullback"], "filters": ["rs"],
-            "timeframe": "15m", "min_score": "2", "send": 1}
+            "timeframe": "15m", "min_score": "2", "send": 0}
     r = client.post("/api/scan", json=body)
     assert r.status_code == 200
     assert rec.calls[0][1] == dict(timeframe="15m", send=True, strategies=["EMA 9/21 Cross", "RSI Pullback"],

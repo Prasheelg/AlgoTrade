@@ -43,6 +43,9 @@ EDITABLE = {
     "OPTION_PROTECTION_PCT": (float, 0.5, 20, "Market order limit, options (%)", "The same for options"),
     "EVENT_WINDOW_DAYS": (int, 0, 15, "Events filter window (days)",
                           "The Events scan filter skips stocks with results / ex-dividend this close"),
+    "TELEGRAM_SIGNALS_IN": (bool, None, None, "India signals to Telegram", "Each new India signal as a message"),
+    "TELEGRAM_SIGNALS_US": (bool, None, None, "US signals to Telegram", "Each new US signal as a message"),
+    "TELEGRAM_SIGNALS_MCX": (bool, None, None, "MCX signals to Telegram", "Each new MCX signal as a message"),
     "DAILY_SUMMARY": (bool, None, None, "Daily summary on Telegram", "After the NSE close"),
     "LIVE_FEED": (bool, None, None, "Live price stream", "Kotak WebSocket prices in the dashboard (else quotes every few seconds)"),
     "DB_BACKUP": (bool, None, None, "Daily database backup", "Copy signals.db to data/backups and Telegram after 16:00"),
@@ -63,9 +66,35 @@ def _set(name: str, value) -> None:
         markets.MARKETS["US"] = replace(markets.MARKETS["US"], capital=float(value))
 
 
+def _migrate_signal_alerts() -> dict:
+    """Signals to Telegram used to be a switch in each market's scan panel (its "send"): carry a saved one over to
+    TELEGRAM_SIGNALS_<market> once, unless that is already set here. Returns the overrides."""
+    ov = _overrides()
+    moved = {}
+    for code in ("IN", "US", "MCX"):
+        name = f"TELEGRAM_SIGNALS_{code}"
+        if name in ov:
+            continue
+        saved, _ = state.get_setting(SCAN_KEY.format(code), None)
+        if isinstance(saved, dict) and isinstance(saved.get("send"), bool):
+            moved[name] = saved["send"]
+    if moved:
+        ov = {**ov, **moved}
+        state.set_setting(KEY, ov)
+        log.info("Signals to Telegram moved from the scan panels to Settings: %s", moved)
+    return ov
+
+
+def signal_alerts(code: str) -> bool:
+    """Whether new signals of a market go to Telegram (Settings: TELEGRAM_SIGNALS_<market>)."""
+    name = f"TELEGRAM_SIGNALS_{code}"
+    value = _migrate_signal_alerts().get(name)
+    return bool(_DEFAULTS.get(name, False) if value is None else value)
+
+
 def apply() -> None:
     """Bring config in line with the stored overrides (None = back to the .env value)."""
-    for name, value in _overrides().items():
+    for name, value in _migrate_signal_alerts().items():
         if name not in EDITABLE:
             continue
         want = _DEFAULTS[name] if value is None else value
@@ -74,7 +103,8 @@ def apply() -> None:
 
 
 def current() -> list[dict]:
-    ov = _overrides()
+    ov = _migrate_signal_alerts()
+    apply()
     return [{"name": n, "value": getattr(config, n), "default": _DEFAULTS[n], "changed": ov.get(n) is not None,
              "type": t.__name__, "min": lo, "max": hi, "label": label, "help": help_}
             for n, (t, lo, hi, label, help_) in EDITABLE.items()]
@@ -127,7 +157,7 @@ def scan_defaults(code: str) -> dict:
     strategies = list(kw.get("strategies") or config.STRATEGIES or DEFAULT_STRATEGIES)
     votes = len({family_of(s) for s in strategies})
     return {"strategies": strategies, "min_score": max(1, min(kw.get("min_score") or config.MIN_SCORE, votes)),
-            "filters": list(kw.get("filters", config.FILTERS)), "send": False}
+            "filters": list(kw.get("filters", config.FILTERS)), "send": False}   # send: Settings, not .env
 
 
 def scan_settings(code: str) -> dict:
@@ -136,11 +166,13 @@ def scan_settings(code: str) -> dict:
     code = markets.get(code).code
     saved, at = state.get_setting(SCAN_KEY.format(code), None)
     base = scan_defaults(code)
-    return {**base, **{k: saved[k] for k in base if k in (saved or {})}, "saved": at if saved else None}
+    return {**base, **{k: saved[k] for k in base if k in (saved or {}) and k != "send"},
+            "send": signal_alerts(code), "saved": at if saved else None}
 
 
 def save_scan_settings(code: str, body: dict) -> dict:
-    """Validate and store a market's scan panel: {strategies, min_score, filters, send}. Returns scan_settings()."""
+    """Validate and store a market's scan panel: {strategies, min_score, filters}. Returns scan_settings(). (Signals
+    to Telegram are in Settings now: a "send" here is ignored.)"""
     from .scanner import FILTERS
     from .strategies import STRATEGIES, family_of
     code = markets.get(code).code
@@ -159,10 +191,9 @@ def save_scan_settings(code: str, body: dict) -> dict:
         raise ValueError("min_score: a whole number")
     if strategies and not 1 <= min_score <= votes:
         raise ValueError(f"Minimum agreeing votes must be between 1 and {votes}")
-    if not isinstance(body.get("send"), bool):
-        raise ValueError("send: true or false")
+    _migrate_signal_alerts()   # before the old "send" leaves the stored panel
     state.set_setting(SCAN_KEY.format(code), {"strategies": strategies, "min_score": max(min_score, 1),
-                                              "filters": filters, "send": body["send"]})
-    log.info("%s scan settings saved: %d strategies, min %d, filters %s, Telegram %s", code, len(strategies),
-             min_score, filters or "none", "on" if body["send"] else "off")
+                                              "filters": filters})
+    log.info("%s scan settings saved: %d strategies, min %d, filters %s", code, len(strategies),
+             min_score, filters or "none")
     return scan_settings(code)
