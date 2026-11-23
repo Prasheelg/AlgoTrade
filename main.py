@@ -92,23 +92,24 @@ def run_scan(code: str, dry_run: bool = False) -> None:
         # Auto-trade: India setups (stocks: BUYs; options: both sides), intraday when switched on. Handed over
         # after each timeframe, not once at the end, so a restart part-way through a loop can't drop them (the
         # next loop would count them as already seen)
-        if code == "IN" and (new := [x["key"] for x in state.all_signals("IN") if x["key"] not in before]):
+        if code in ("IN", "MCX") and (new := [x["key"] for x in state.all_signals(code) if x["key"] not in before]):
             before.update(new)
-            trade(new)
+            trade(new, code)
     set_status(code, running=False, finished_at=_stamp(), timeframe=None, result=total,
                error="; ".join(errors) or None)
     if errors:
         raise RuntimeError(f"{code} scan failed on {', '.join(e.split(':')[0] for e in errors)}")
 
 
-def trade(new_keys: list[str]) -> None:
-    """Automatic Kotak orders (India): entries for new signals (only while Auto-trade is ON), then bring every
-    live trade up to date. Stocks take BUY signals (not indices; not F&O stocks while options replace shares);
-    options both sides, on F&O underlyings. Order
-    problems are logged and sent to Telegram; they never stop the scanner."""
+def trade(new_keys: list[str], market: str = "IN") -> None:
+    """Automatic Kotak orders: entries for new signals (only while Auto-trade is ON), then bring every live trade
+    up to date. India: stocks take BUY signals (not indices; not F&O stocks while options replace shares);
+    options both sides, on F&O underlyings. MCX: options on the minis, both sides. Order problems are logged and
+    sent to Telegram; they never stop the scanner."""
     from algotrade import options_auto, orders
-    orders.trade_new(options_auto.share_keys(new_keys))
-    if options_auto.trade_new(new_keys) and not orders._watching.is_set():
+    if market == "IN":
+        orders.trade_new(options_auto.share_keys(new_keys))
+    if options_auto.trade_new(new_keys, market) and not orders._watching.is_set():
         options_auto.step_all()   # --once: no watcher thread, so one pass now
 
 

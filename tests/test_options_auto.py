@@ -34,7 +34,7 @@ def opt(monkeypatch):
     fake = FakeKotak()
     monkeypatch.setattr(broker, "call", fake)
     mkt = FakeMarket()
-    monkeypatch.setattr(oa, "_mkt", lambda: mkt)
+    monkeypatch.setattr(oa, "_mkt", lambda t=None: mkt)
     msgs = []
     monkeypatch.setattr(orders, "_notify", lambda text, kind=None: msgs.append(text))
     for k, v in dict(OPTIONS_AUTO_TRADE=True, OPTIONS_OTM_STEPS=2, OPTIONS_MIN_DAYS=5, OPTIONS_MAX_PREMIUM=10000.0,
@@ -46,7 +46,7 @@ def opt(monkeypatch):
     fake.quote = {"bid": 9.9, "ask": 10.0, "ltp": 9.95}
     fake.picked = []
     monkeypatch.setattr(fno, "underlyings", lambda: [{"name": "NIFTY"}, {"name": "RELIANCE"}])
-    monkeypatch.setattr(oa, "_spot", lambda u: fake.spot.get(u))
+    monkeypatch.setattr(oa, "_spot", lambda t: fake.spot.get(t["underlying"]))
 
     def otm(u, o, spot_px, steps, min_days):
         fake.picked.append((u, o, spot_px, steps, min_days))
@@ -422,3 +422,97 @@ def test_mis_intraday_option_after_its_day_is_left_to_kotak(opt, monkeypatch):
     _held_yesterday(key, "MIS")
     oa.step_all()
     assert opt.placed == [] and oa._get(key)["state"] == "CLOSED"   # Kotak squared off the MIS position
+
+
+# ---- MCX: options on the minis ----------------------------------------------------------------------
+
+@pytest.fixture
+def mcx_opt(opt, monkeypatch):
+    """opt, plus Gold mini options: lot 100 (grams), premium per 10 g (mult 0.1), tick ₹0.50."""
+    from algotrade import mcx
+    monkeypatch.setattr(config, "MCX_AUTO_TRADE", True)
+    monkeypatch.setattr(config, "MCX_LOTS", 1)
+    monkeypatch.setattr(mcx, "has_options", lambda s: s == "GOLDM")
+
+    def otm(sym, o, steps, min_days):
+        opt.picked.append((sym, o, steps, min_days))
+        return {"tsym": f"{sym}22OCT26154000{o}", "expiry": "2026-10-28", "strike": 154000.0, "lot": 100,
+                "tick": 0.5, "mult": 0.1, "future": f"{sym}05NOV26FUT", "u_price": 153100.0}
+    monkeypatch.setattr(mcx, "otm_option", otm)
+    monkeypatch.setattr(mcx, "option_quote", lambda tsym: dict(opt.quote))
+    monkeypatch.setattr(mcx, "option_contract", lambda tsym: {"tick": 0.5})
+    opt.spot["GOLDM"] = 153200.0
+    opt.quote = {"bid": 495.0, "ask": 500.0, "ltp": 498.0}
+    return opt
+
+
+def gold_signal(**kw):
+    return signal("GOLDM", market="MCX", entry=153000.0, stop_loss=152500.0, targets=[153750.0, 154500.0], **kw)
+
+
+def test_mcx_signal_buys_one_lot_of_the_mini_option(mcx_opt, monkeypatch):
+    monkeypatch.setattr(config, "OPTIONS_MAX_PREMIUM", 100000.0)    # room for many lots: still one
+    key = gold_signal()
+    t = oa.trade_new([key], "MCX")[0]
+    assert (t["market"], t["opt"], t["state"], t["product"]) == ("MCX", "CE", "WAIT", "NRML")
+    oa.step_all()
+    assert mcx_opt.placed == []                                      # 153,200 > the 153,000 limit entry
+    mcx_opt.spot["GOLDM"] = 152990.0
+    oa.step_all()
+    t, p = oa._get(key), mcx_opt.placed[0]
+    # ask 500 + 5% = 525; one lot = 525 × 100 g × 0.1 = ₹5,250
+    assert (t["state"], t["lots"], t["qty"], t["buy_price"], t["mult"]) == ("BUYING", 1, 100, 525.0, 0.1)
+    assert {k: p[k] for k in ("exchange_segment", "product", "price", "quantity", "transaction_type")} == \
+        {"exchange_segment": "mcx_fo", "product": "NRML", "price": "525.00", "quantity": "100",
+         "transaction_type": "B"}
+    assert "GOLDM05NOV26FUT" in mcx_opt.msgs[0] and "₹5,250 premium" in mcx_opt.msgs[0]
+    assert oa.open_premium() == 5250.0
+
+
+def test_mcx_option_exits_on_the_target_with_rupee_pnl(mcx_opt):
+    key = gold_signal()
+    oa.trade_new([key], "MCX")
+    mcx_opt.spot["GOLDM"] = 152990.0
+    oa.step_all()
+    mcx_opt.fill("101", 100, 520.0)
+    oa.step_all()
+    assert oa._get(key)["state"] == "OPEN"
+    mcx_opt.spot["GOLDM"] = 153800.0                                 # past target 1 (153,750)
+    mcx_opt.quote = {"bid": 700.0, "ask": 705.0}
+    oa.step_all()
+    p = mcx_opt.placed[-1]
+    assert (p["transaction_type"], p["exchange_segment"], p["price"]) == ("S", "mcx_fo", "665.00")
+    mcx_opt.fill(p["oid"], 100, 665.0)
+    oa.step_all()
+    t = oa._get(key)
+    assert t["state"] == "CLOSED" and oa.plan(t)["pnl"] == 1450.0     # (665 − 520) × 100 × 0.1
+    assert "P&L ₹1,450" in mcx_opt.msgs[-1]
+
+
+def test_mcx_option_sold_the_evening_before_expiry(mcx_opt):
+    key = gold_signal()
+    oa.trade_new([key], "MCX")
+    mcx_opt.spot["GOLDM"] = 152990.0
+    oa.step_all()
+    mcx_opt.fill("101", 100, 520.0)
+    oa.step_all()
+    oa._save(key, expiry="2026-10-22")                                 # tomorrow
+    oa.step_all()
+    assert oa._get(key)["state"] == "OPEN"
+    mcx_opt.mkt.at = mcx_opt.mkt.at.replace(hour=23, minute=1)         # MCX_SQUARE_OFF 23:00
+    oa.step_all()
+    t = oa._get(key)
+    assert t["state"] == "SELLING" and "expiry near" in t["note"]
+
+
+def test_mcx_options_need_their_switch_and_skip_the_share_trader(mcx_opt, monkeypatch):
+    import main
+    monkeypatch.setattr(orders, "trade_new", lambda keys, manage=True: pytest.fail("no shares for MCX"))
+    monkeypatch.setattr(config, "MCX_AUTO_TRADE", False)
+    key = gold_signal()
+    main.trade([key], "MCX")
+    assert oa.all_trades() == []
+    monkeypatch.setattr(config, "MCX_AUTO_TRADE", True)
+    main.trade([key], "MCX")
+    assert [(t["key"], t["market"]) for t in oa.all_trades()] == [(key, "MCX")]
+    assert oa.trade_new([key]) == []                                   # an MCX key isn't an India signal

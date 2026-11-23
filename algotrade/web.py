@@ -166,13 +166,14 @@ def _real_trades(code: str) -> dict[str, dict]:
 
 
 def _option_trades(code: str) -> dict:
-    """The Options Auto-trade trade of each India signal (options_auto.plan): the contract bought, or the one
-    planned while it waits for the entry."""
-    if code != "IN":
+    """The Options Auto-trade trade of each India / MCX signal (options_auto.plan): the contract bought, or the
+    one planned while it waits for the entry."""
+    if code not in ("IN", "MCX"):
         return {}
     from . import options_auto
     try:
-        return {t["key"]: options_auto.plan(t) for t in options_auto.all_trades()}
+        return {t["key"]: options_auto.plan(t) for t in options_auto.all_trades()
+                if (t.get("market") or "IN") == code}
     except Exception:
         log.exception("Option trades unavailable")
         return {}
@@ -181,7 +182,7 @@ def _option_trades(code: str) -> dict:
 def _skipped(code: str) -> dict[str, str]:
     """Signal key -> why Auto-trade skipped it, for India signals it decided not to trade at all (a share or option
     trade SKIPPED and none taken). An intraday signal parked only until the market opens isn't skipped."""
-    if code != "IN":
+    if code not in ("IN", "MCX"):
         return {}
     from . import options_auto, orders
     try:
@@ -827,7 +828,7 @@ def _scan_timeframes(timeframes: list[str], **kw) -> dict:
     return total
 
 
-def _auto_trade(new_keys: list[str]) -> dict | None:
+def _auto_trade(new_keys: list[str], market: str = "IN") -> dict | None:
     """Hand an India dashboard scan's new signals to Auto-trade, like the scanner does. Only while the scanner
     is running: it places the stop-loss after a fill and watches the exits, so without it a filled entry would
     sit unprotected. None when Auto-trade is off or there is nothing new."""
@@ -838,8 +839,8 @@ def _auto_trade(new_keys: list[str]) -> dict | None:
         log.warning("Dashboard scan: %d new signals not traded, the scanner isn't running", len(new_keys))
         return {"placed": [], "skipped": [], "blocked": "the scanner (run.bat) isn't running, and it is what "
                 "places the stop-loss after a fill. Start run.bat, then scan again"}
-    made = orders.trade_new(options_auto.share_keys(new_keys), manage=False)   # the scanner's watchers take over
-    opts = options_auto.trade_new(new_keys)   # waits for the entry; the scanner's option watcher buys
+    made = orders.trade_new(options_auto.share_keys(new_keys), manage=False) if market == "IN" else []
+    opts = options_auto.trade_new(new_keys, market)   # waits for the entry; the scanner's option watcher buys
     return {"placed": [f"{t['symbol']} × {t['qty']}" for t in made if t and t["entry_order"]]
                       + [f"{t['underlying']} {t['opt']} (waiting for entry)" for t in opts if t["state"] == "WAIT"],
             "skipped": [f"{t['symbol']}: {t['note']}" for t in made if t and not t["entry_order"]]
@@ -877,9 +878,10 @@ def api_scan():
             out["result"] = _scan_timeframes([v for v, _ in TIMEFRAMES] if timeframe == ALL_TF else [timeframe],
                                              send=bool(body.get("send", False)), strategies=strategies,
                                              min_score=min_score, market=mkt.code, filters=filters)
-            if mkt.code == "IN":
-                # Auto-trade: stocks take the BUYs, options both sides (intraday ones when switched on in Settings)
-                at = _auto_trade([s["key"] for s in state.all_signals("IN") if s["key"] not in before])
+            if mkt.code in ("IN", "MCX"):
+                # Auto-trade: stocks take the BUYs, options both sides (intraday ones when switched on in Settings);
+                # MCX: options on the minis
+                at = _auto_trade([s["key"] for s in state.all_signals(mkt.code) if s["key"] not in before], mkt.code)
                 if at:
                     out["result"]["auto_trade"] = at
         except ScanStopped:

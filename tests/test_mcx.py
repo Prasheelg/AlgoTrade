@@ -220,7 +220,9 @@ def test_alert_shows_lots_contract_and_estimated_prices(master, monkeypatch):
                       extra={"lot": 100, "point_value": 100.0, "lot_risk": 3000.0, "data": "proxy"})
     text = telegram_bot.format_signal(sig)
     assert "CRUDEOIL18DEC26FUT" in text and "Lots" in text and "₹9,000" in text
-    assert "world-market prices scaled to MCX" in text and "alert only, no orders" in text
+    assert "world-market prices scaled to MCX" in text and "Auto-trade buys 1 lot of an OTM put" in text
+    monkeypatch.setattr(config, "MCX_AUTO_TRADE", False)
+    assert "alert only, no orders" in telegram_bot.format_signal(sig)
     assert "Short: intraday cash" not in text
 
 
@@ -235,12 +237,40 @@ def test_alert_warns_when_one_lot_is_too_big(master, monkeypatch):
     assert "risks" not in telegram_bot.format_signal(small)
 
 
-def test_mcx_never_auto_trades():
+def test_new_mcx_signals_go_to_auto_trade():
     import main
-    assert "MCX" in markets.MARKETS
-    # main.run_scan hands new signals to Auto-trade only for India
     src = open(main.__file__, encoding="utf-8").read()
-    assert 'if code == "IN" and (new := [' in src
+    assert 'if code in ("IN", "MCX") and (new := [' in src and "trade(new, code)" in src
+
+
+OPTIONS = """pSymbol,pInstType,pSymbolName,pTrdSymbol,lLotSize,dTickSize,dGenNum,dGenDen,dPriceNum,dPriceDen
+495300,FUTCOM,GOLDM,GOLDM04DEC26FUT,100,100,1,10,1,1
+495301,FUTCOM,GOLDM,GOLDM05JAN27FUT,100,100,1,10,1,1
+700001,OPTFUT,GOLDM,GOLDM27NOV26153000CE,100,50,1,10,1,1
+700002,OPTFUT,GOLDM,GOLDM29DEC26153000CE,100,50,1,10,1,1
+700003,OPTFUT,GOLDM,GOLDM29DEC26153500CE,100,50,1,10,1,1
+700004,OPTFUT,GOLDM,GOLDM29DEC26154000CE,100,50,1,10,1,1
+700005,OPTFUT,GOLDM,GOLDM29DEC26152500PE,100,50,1,10,1,1
+700006,OPTFUT,GOLDM,GOLDM29DEC26152000PE,100,50,1,10,1,1
+700007,OPTFUT,GOLD,GOLD29DEC26153000CE,1,100,100,1,1,1
+"""
+
+
+def test_mini_options_are_picked_off_their_own_future(monkeypatch):
+    futs, opts = mcx.parse_contracts(OPTIONS), mcx.parse_options(OPTIONS)
+    monkeypatch.setattr(mcx, "contracts", lambda: futs)
+    monkeypatch.setattr(mcx, "options", lambda: opts)
+    assert set(opts["symbol"]) == {"GOLDM"}                       # options on the minis only
+    row = opts.set_index("tsym").loc["GOLDM29DEC26153500CE"]
+    assert (row["strike"], row["opt"], row["lot"], row["tick"], row["mult"]) == (153500, "CE", 100, 0.5, 0.1)
+    prices = {"495300": 152800.0, "495301": 153100.0}             # the Jan future trades above the Dec one
+    now = datetime(2026, 11, 23, 12, 0, tzinfo=IST)
+    c = mcx.otm_option("GOLDM", "CE", 2, 5, now=now, price=prices.get)
+    # the 27 Nov expiry is under 5 days away; Dec 29 options are on the Jan future (153,100): 2nd strike above
+    assert (c["tsym"], c["future"], c["u_price"]) == ("GOLDM29DEC26154000CE", "GOLDM05JAN27FUT", 153100.0)
+    assert mcx.otm_option("GOLDM", "PE", 1, 5, now=now, price=prices.get)["tsym"] == "GOLDM29DEC26152500PE"
+    assert mcx.otm_option("GOLDM", "PE", 3, 5, now=now, price=prices.get) is None
+    assert mcx.otm_option("GOLDM", "CE", 1, 5, now=now, price=lambda tok: None) is None   # no price: no pick
 
 
 def test_scanner_starts_with_every_market(monkeypatch):

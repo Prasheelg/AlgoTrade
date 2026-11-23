@@ -2691,18 +2691,18 @@ const PORT_TABS = [
   ], ["No automatic trades yet", "Trades the app places on Kotak (Auto-trade) are tracked here."]],
   ["otrades", "Option trades", p => p.option_trades ?? [], [
     ["Day", t => esc(t.created_day)],
-    ["Signal", t => `<span class="sym" data-chart="${esc(t.underlying)}" data-tf="${esc(t.timeframe)}">${esc(t.underlying)}</span><div class="sub">${esc(t.side)} · ${esc(t.timeframe)}</div>`],
+    ["Signal", t => `<span class="sym" data-chart="${esc(t.underlying)}" data-tf="${esc(t.timeframe)}">${esc(t.underlying)}</span><div class="sub">${t.market === "MCX" ? "MCX · " : ""}${esc(t.side)} · ${esc(t.timeframe)}</div>`],
     ["Option", t => t.tsym ? `<span class="sym" data-chart="${esc(t.tsym)}">${esc(t.tsym)}</span><div class="sub">exp ${esc(t.expiry)}</div>` : `<span class="flat">${t.opt === "CE" ? "call" : "put"}, picked at entry</span>`],
     ["State", t => `<span class="pstate ${esc(t.state)}">${esc(OPT_STATE[t.state] ?? t.state)}</span>`],
     ["Lots", t => t.lots ? `${t.lots}<div class="sub">${qtyFmt(t.qty)}</div>` : "–", 1],
     ["Underlying entry", t => `${rupee(t.u_entry)}<div class="sub">${esc(t.u_entry_type)}</div>`, 1],
     ["Stop / target", t => `${rupee(t.u_stop)}<div class="sub">${rupee(t.u_target)}</div>`, 1],
     ["Bought", t => rupee(t.fill_price ?? t.buy_price), 1], ["Sold", t => rupee(t.exit_price), 1],
-    ["P&L", t => t.exit_price != null && t.fill_price != null ? signedRupee((t.exit_price - t.fill_price) * t.qty) : "–", 1],
+    ["P&L", t => t.exit_price != null && t.fill_price != null ? signedRupee((t.exit_price - t.fill_price) * t.qty * (t.mult ?? 1)) : "–", 1],
     ["Note", t => `<div class="note">${esc(t.note)}</div>`],
     ["", t => ["WAIT", "BUYING", "OPEN"].includes(t.state)
       ? `<button type="button" class="btn close-trade" data-oclose="${esc(t.key)}">${t.state === "OPEN" ? "Close" : "Cancel"}</button>` : ""],
-  ], ["No option trades yet", "With Auto-trade options on (Settings), signals on F&O stocks and indices buy an OTM call or put; they're tracked here."]],
+  ], ["No option trades yet", "With Auto-trade options on (Settings), signals on F&O stocks, indices and MCX minis buy an OTM call or put; they're tracked here."]],
 ];
 const OPT_STATE = { WAIT: "Waiting for entry", BUYING: "Buying", OPEN: "Open", SELLING: "Selling", CLOSED: "Closed",
                     CANCELLED: "Cancelled", REJECTED: "Rejected", SKIPPED: "Skipped" };
@@ -4889,6 +4889,9 @@ async function openSettings() {
   if (st) renderSt();
 }
 const ST_GROUPS = [["Sizing", ["CAPITAL", "RISK_PER_TRADE_PCT", "MAX_OPEN_RISK_PCT", "US_CAPITAL"]],
+  ["Auto-trade", ["INTRADAY_AUTO_TRADE", "OPTIONS_AUTO_TRADE", "OPTIONS_INSTEAD_OF_SHARES", "MCX_AUTO_TRADE"]],
+  ["Auto-trade options", ["OPTIONS_OTM_STEPS", "OPTIONS_MIN_DAYS", "OPTIONS_MAX_PREMIUM", "OPTIONS_MAX_OPEN_PREMIUM",
+                          "OPTIONS_MAX_SPREAD_PCT"]],
   ["Order limits", ["MAX_ORDER_VALUE", "STOCK_MAX_ORDER_VALUE", "OPTIONS_MAX_LOTS"]],
   ["Market orders (sent as limits)", ["MARKET_PROTECTION_PCT", "OPTION_PROTECTION_PCT"]],
   ["Signals and Telegram", ["EVENT_WINDOW_DAYS", "DAILY_SUMMARY", "TELEGRAM_COMMANDS", "LIVE_FEED", "DB_BACKUP"]]];

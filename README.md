@@ -26,13 +26,24 @@ Credentials and settings go in `.env` (see `.env.example`).
 Add `--market IN`, `--market US` or `--market MCX` to any command to limit it to one market; by default all are
 scanned. `--symbols` needs `--market IN` or `US`.
 
-### MCX commodities (alerts only)
+### MCX commodities
 The **MCX** tab scans the **mini** commodity futures (Crude Oil mini `CRUDEOILM`, Natural Gas mini `NATGASMINI`,
 Gold mini `GOLDM`, Silver mini `SILVERM`) 09:00–23:55 IST on every timeframe except backtests, with the same
-strategies, scan panel and Telegram alerts. Copper has no mini on MCX, so it isn't scanned. It never places
-orders. Each alert names the front-month contract (rolled 3 days before expiry) and plans **one lot** (`MCX_LOTS`,
+strategies, scan panel and Telegram alerts. Copper has no mini on MCX, so it isn't scanned. Each alert names the front-month contract (rolled 3 days before expiry) and plans **one lot** (`MCX_LOTS`,
 default 1), with its rupee risk to the stop (Gold mini counts ×10: 100 g quoted per 10 g), and warns when that
 risks more than `RISK_PER_TRADE_PCT` of `MCX_CAPITAL` (default `CAPITAL`). Futures alerts can be SELLs.
+
+**MCX Auto-trade** (Settings > Auto-trade MCX options, `MCX_AUTO_TRADE`, on by default; also needs the Auto-trade
+switch ON) trades the signals like India's F&O stocks: a BUY buys an OTM call and a SELL an OTM put, **one lot**
+(`MCX_LOTS`) on the mini, once the future reaches the signal's entry. The strike is the `OPTIONS_OTM_STEPS`-th out
+of the money from the price of the future that option is written on (MCX options expire a few days before their
+future, and the Dec options of Gold mini are on its Jan future, for example), on the nearest expiry at least
+`OPTIONS_MIN_DAYS` away. It is sold when the scanned future reaches the stop or target 1, when the signal closes,
+for intraday signals from `MCX_SQUARE_OFF` (23:00; entries until `MCX_LAST_ENTRY`, 22:30), and from
+`MCX_SQUARE_OFF` the evening before the option's expiry (commodity options in the money at expiry turn into futures
+positions). NRML, limit orders off the bid / ask like India's options; `OPTIONS_MAX_PREMIUM`,
+`OPTIONS_MAX_OPEN_PREMIUM` (shared with India) and `OPTIONS_MAX_SPREAD_PCT` apply. The futures themselves are never
+ordered. Trades show under Portfolio > Option trades and under each MCX signal.
 
 Kotak gives live MCX prices but no MCX price history (and Yahoo has none), so the dashboard **records 5-minute
 bars** from Kotak's live stream while it runs (`mcx_bars` in `signals.db`, backed up with it). Until a timeframe

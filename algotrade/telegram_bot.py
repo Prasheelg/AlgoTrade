@@ -193,8 +193,10 @@ def format_signal(sig) -> str:
                          f"more than the {config.RISK_PER_TRADE_PCT:g}% per trade")
         from . import mcx
         src = sig.extra.get("data", "mcx")
+        auto = (f" · Auto-trade buys {config.MCX_LOTS} lot{'s' if config.MCX_LOTS > 1 else ''} of an OTM "
+                f"{'call' if sig.side == 'BUY' else 'put'}" if config.MCX_AUTO_TRADE else " · alert only, no orders")
         lines.append(("ℹ️ " if src != "mcx" else "") + f"<i>Prices: {html.escape(mcx.SOURCE_TEXT.get(src, src))}"
-                     " · alert only, no orders</i>")
+                     f"{auto}</i>")
     if sig.entry_type != "market":
         bars = config.ENTRY_VALID_BARS
         unit = "sessions" if sig.timeframe == "1d" else "bars, today only"

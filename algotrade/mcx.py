@@ -1,4 +1,5 @@
-"""MCX commodity futures (market "MCX"): the mini contracts, scanned like a market, alerts only (no orders).
+"""MCX commodity futures (market "MCX"): the mini contracts, scanned like a market. Auto-trade buys options on
+them (options_auto.py, MCX_AUTO_TRADE); the futures themselves are never ordered.
 
 The scan trades the minis (GOLDM, SILVERM, CRUDEOILM, NATGASMINI), one lot a signal: the same prices as the
 full-size contracts at a fraction of the size. Copper has no mini on MCX, so it isn't scanned.
@@ -65,6 +66,8 @@ EPOCH_1980 = 315532800
 # ---------------- contracts ----------------
 
 _contracts = {"day": None, "df": None}
+_options = {"day": None, "df": None}
+OPTION_TSYM = r"^([A-Z]+?)(\d{2}[A-Z]{3}\d{2})(\d+(?:\.\d+)?)(CE|PE)$"   # GOLDM27NOV26144500CE
 
 
 def parse_contracts(csv_text: str) -> pd.DataFrame:
@@ -88,6 +91,99 @@ def contracts() -> pd.DataFrame:
         from . import fno
         _contracts.update(day=today, df=parse_contracts(fno._master_text(SEGMENT)))
     return _contracts["df"]
+
+
+def _num(m: pd.DataFrame, col: str, default: float) -> pd.Series:
+    return pd.to_numeric(m[col], errors="coerce").fillna(default) if col in m else pd.Series(default, index=m.index)
+
+
+def parse_options(csv_text: str) -> pd.DataFrame:
+    """Options on the scanned minis' futures from Kotak's mcx_fo scrip master: symbol, opt, strike, expiry, token,
+    tsym, lot, tick (rupees) and mult (rupees per rupee of premium per unit of quantity: Gold mini's quantity is in
+    grams, its premium per 10 g -> 0.1)."""
+    m = pd.read_csv(io.StringIO(csv_text), dtype=str, low_memory=False)
+    m.columns = [c.strip().rstrip(";") for c in m.columns]
+    m = m[(m["pInstType"].str.strip() == "OPTFUT") & m["pSymbolName"].str.strip().isin(COMMODITIES)]
+    parts = m["pTrdSymbol"].str.strip().str.extract(OPTION_TSYM)
+    out = pd.DataFrame({
+        "symbol": m["pSymbolName"].str.strip(), "opt": parts[3],
+        "strike": pd.to_numeric(parts[2], errors="coerce"),
+        "expiry": pd.to_datetime(parts[1], format="%d%b%y", errors="coerce").dt.date,
+        "token": m["pSymbol"].str.strip(), "tsym": m["pTrdSymbol"].str.strip(),
+        "lot": pd.to_numeric(m["lLotSize"], errors="coerce").fillna(0).astype(int),
+        "tick": _num(m, "dTickSize", 5) / 100,              # in paise
+        "mult": (_num(m, "dGenNum", 1) / _num(m, "dGenDen", 1).replace(0, 1)
+                 * _num(m, "dPriceNum", 1) / _num(m, "dPriceDen", 1).replace(0, 1)),
+    })
+    return out.dropna(subset=["expiry", "strike", "opt"]).reset_index(drop=True)
+
+
+def options() -> pd.DataFrame:
+    """Today's options on the minis (downloaded once a day with the futures list)."""
+    today = date.today()
+    if _options["day"] != today:
+        from . import fno
+        _options.update(day=today, df=parse_options(fno._master_text(SEGMENT)))
+    return _options["df"]
+
+
+def has_options(symbol: str) -> bool:
+    try:
+        return symbol in COMMODITIES and bool((options()["symbol"] == symbol).any())
+    except Exception:
+        log.exception("MCX option list unavailable")
+        return False
+
+
+def option_contract(tsym: str) -> dict | None:
+    df = options()
+    hit = df[df["tsym"] == tsym]
+    return None if hit.empty else hit.iloc[0].to_dict()
+
+
+def option_future(symbol: str, expiry: date, df: pd.DataFrame | None = None) -> dict | None:
+    """The futures contract an option is written on: the first one expiring on or after the option (MCX options
+    expire a few days before their future)."""
+    df = contracts() if df is None else df
+    rows = df[(df["symbol"] == symbol) & (df["expiry"] >= expiry)].sort_values("expiry")
+    return None if rows.empty else rows.iloc[0].to_dict()
+
+
+def otm_option(symbol: str, opt: str, steps: int = 2, min_days: float = 5, now: datetime | None = None,
+               price=None) -> dict | None:
+    """The option Auto-trade buys on a mini: on the nearest expiry at least `min_days` away, the `steps`-th strike
+    out of the money from the live price of the future that option is on (price: token -> ltp, for tests).
+    The row comes back with "future" and "u_price" (that future and its price). None if there is no such option
+    or no price."""
+    from . import fno
+    df = options()
+    rows = df[(df["symbol"] == symbol) & (df["opt"] == opt)]
+    exps = sorted(e for e in rows["expiry"].unique() if fno.days_to_expiry(e, now) >= min_days)
+    if not exps:
+        return None
+    rows = rows[rows["expiry"] == exps[0]]
+    fut = option_future(symbol, exps[0])
+    px = (price or ltp)(fut["token"]) if fut else None
+    if not px:
+        return None
+    strikes = sorted(rows["strike"].unique())
+    otm = [k for k in strikes if k > px] if opt == "CE" else [k for k in reversed(strikes) if k < px]
+    if len(otm) < max(steps, 1):
+        return None
+    return {**rows[rows["strike"] == otm[max(steps, 1) - 1]].iloc[0].to_dict(), "future": fut["tsym"],
+            "u_price": px}
+
+
+def option_quote(tsym: str) -> dict:
+    """Live quote of an MCX option: ltp, best bid / ask (as fno.option_quote)."""
+    from . import fno
+    c = option_contract(tsym)
+    if c is None:
+        raise ValueError(f"Unknown MCX option contract {tsym}")
+    res = fno._quotes([c["token"]], SEGMENT)
+    if not res:
+        raise RuntimeError(f"No quote for {tsym}")
+    return fno.parse_option_quote(res[0])
 
 
 def front(symbol: str, today: date | None = None, df: pd.DataFrame | None = None) -> dict | None:
@@ -318,24 +414,24 @@ def proxy(symbol: str, timeframe: str) -> pd.DataFrame:
     return to_mcx_hours(df, timeframe)
 
 
-def live_price(symbol: str) -> float | None:
-    """The front contract's last price (Kotak REST quote), or None if it can't be had. Kotak answers quotes with a
-    plain list, which broker.call's dict check rejects, so the client is called directly."""
-    from . import broker
-    c = front(symbol)
-    if not c:
-        return None
+def ltp(token: str) -> float | None:
+    """Last price of an mcx_fo contract (the live stream where it has it, else a Kotak quote), or None."""
+    from . import fno
     try:
-        res = broker.login().quotes(
-            instrument_tokens=[{"instrument_token": c["token"], "exchange_segment": SEGMENT}], quote_type="ltp")
+        rows = fno._quotes([str(token)], SEGMENT)
     except Exception as exc:
-        log.warning("MCX %s live price failed: %s", symbol, exc)
+        log.warning("MCX live price of %s failed: %s", token, exc)
         return None
-    rows = res if isinstance(res, list) else (res or {}).get("data") or []
     for r in rows:
-        if str(r.get("exchange_token")) == str(c["token"]) and r.get("ltp"):
+        if str(r.get("exchange_token")) == str(token) and fno._f(r.get("ltp")):
             return float(r["ltp"])
     return None
+
+
+def live_price(symbol: str) -> float | None:
+    """The front contract's last price (the one the scan's signals are on), or None if it can't be had."""
+    c = front(symbol)
+    return ltp(c["token"]) if c else None
 
 
 def combine(real: pd.DataFrame, prox: pd.DataFrame, anchor: float | None = None) -> tuple[pd.DataFrame, str]:

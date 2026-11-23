@@ -127,6 +127,12 @@ US_MIN_AVG_TURNOVER = 2e7  # avg 20d turnover < $20M
 # (one by default); the alert warns when that risks more than RISK_PER_TRADE_PCT of MCX_CAPITAL
 MCX_CAPITAL = float(_get("MCX_CAPITAL", "") or CAPITAL)
 MCX_LOTS = max(int(_get("MCX_LOTS", "1") or 1), 1)
+# MCX Auto-trade (options_auto.py): a signal on a mini buys MCX_LOTS lot(s) of an OTM call (BUY) or put (SELL) on
+# it, like India's F&O stocks; also needs the dashboard's Auto-trade switch ON. Intraday signals enter until
+# MCX_LAST_ENTRY and are sold from MCX_SQUARE_OFF (IST; MCX closes 23:30 / 23:55)
+MCX_AUTO_TRADE = _get("MCX_AUTO_TRADE", "true").lower() in ("1", "true", "yes")
+MCX_LAST_ENTRY = _get("MCX_LAST_ENTRY", "22:30")
+MCX_SQUARE_OFF = _get("MCX_SQUARE_OFF", "23:00")
 
 DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)

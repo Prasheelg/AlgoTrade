@@ -139,7 +139,7 @@ def test_loop_skips_a_market_that_is_off(monkeypatch):
     monkeypatch.setattr(telegram_bot, "send_message", lambda text: True)
     monkeypatch.setattr(tracker, "update_all", lambda market=None, **k: None)
     monkeypatch.setattr(main, "housekeeping", health.beat)
-    monkeypatch.setattr(main, "trade", lambda keys: None)
+    monkeypatch.setattr(main, "trade", lambda keys, market="IN": None)
     monkeypatch.setattr(markets.Market, "now", lambda self: datetime(2024, 1, 1, 10, 0, tzinfo=ZoneInfo(self.tz)))
     monkeypatch.setattr(markets.Market, "in_scan_window", lambda self, now=None: True)
     monkeypatch.setattr(runner, "STOP_POLL_SEC", 0.01)
@@ -178,7 +178,7 @@ def test_loop_exits_on_the_off_switch(monkeypatch):
 def test_a_stopped_scan_skips_auto_trade(monkeypatch):
     from algotrade.scanner import ScanStopped
     monkeypatch.setattr(main, "scan_and_alert", lambda **kw: (_ for _ in ()).throw(ScanStopped("IN scan stopped")))
-    monkeypatch.setattr(main, "trade", lambda keys: pytest.fail("a stopped scan must not trade"))
+    monkeypatch.setattr(main, "trade", lambda keys, market="IN": pytest.fail("a stopped scan must not trade"))
     main.run_scan("IN")
     st = get_status("IN")
     assert st["running"] is False and st["error"] is None

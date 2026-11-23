@@ -24,6 +24,9 @@ EDITABLE = {
     "OPTIONS_AUTO_TRADE": (bool, None, None, "Auto-trade options",
                            "Signals on F&O stocks and indices buy an OTM call (BUY) or put (SELL), exited on the "
                            "underlying's stop / target; needs the Auto-trade switch"),
+    "MCX_AUTO_TRADE": (bool, None, None, "Auto-trade MCX options",
+                       "MCX signals on the minis (Gold, Silver, Crude oil, Natural gas) buy one lot of an OTM call "
+                       "(BUY) or put (SELL), exited on the future's stop / target; needs the Auto-trade switch"),
     "OPTIONS_INSTEAD_OF_SHARES": (bool, None, None, "Options instead of shares",
                                   "With Auto-trade options on, F&O stocks are traded only as options, not also as "
                                   "shares; stocks without options still trade as shares"),

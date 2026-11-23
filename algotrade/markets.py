@@ -1,4 +1,5 @@
-"""Per-market settings: India (NSE), US (NYSE / Nasdaq) and MCX (Indian commodity futures, alerts only)."""
+"""Per-market settings: India (NSE), US (NYSE / Nasdaq) and MCX (Indian commodity futures: the minis, traded as
+options by Auto-trade)."""
 from dataclasses import dataclass
 from datetime import datetime, time
 from zoneinfo import ZoneInfo

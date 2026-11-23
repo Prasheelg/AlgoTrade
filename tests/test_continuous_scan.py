@@ -94,7 +94,7 @@ def scans(monkeypatch):
         return {"found": len(sigs), "new": len(sigs), "sent": 0, "symbols": [f"{s.side} {s.symbol}" for s in sigs]}
     monkeypatch.setattr(main, "scan_and_alert", fake)
     traded = []
-    monkeypatch.setattr(main, "trade", lambda keys: traded.append(keys))
+    monkeypatch.setattr(main, "trade", lambda keys, market="IN": traded.append(keys))
     return script, calls, traded
 
 
