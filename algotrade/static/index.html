@@ -570,11 +570,14 @@
   /* Strategy Builder sub-tabs */
   #optView > .opt-top { padding-bottom: 0; }
   .opt-tabs { display: flex; gap: 4px; margin: 14px -16px 0; padding: 0 12px; border-top: 1px solid var(--line-2); }
+  #optPick[hidden] { display: none; }
+  #optPick[hidden] + .opt-tabs { margin-top: -6px; border-top: 0; }
   .opt-tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 500;
                      padding: 11px 12px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 7px; }
   .opt-tabs button:hover { color: var(--ink); }
   .opt-tabs button.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
   .opt-tabs svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .opt-tabs .n:empty { display: none; }
   .opt-tabs .n { font-size: 11px; color: var(--muted); background: var(--neutral-bg); border-radius: 9px; padding: 0 6px; font-weight: 600; }
   /* Option chain: CALLS / PUTS group heads, tighter rows, softer in-the-money wash */
   table.chain thead tr.grp th { padding: 8px 10px 4px; font-size: 11px; letter-spacing: .12em; color: var(--ink-2); border-bottom: 0; }
@@ -1603,7 +1606,7 @@
   </div>
 
   <div id="optView" class="perf" hidden>
-    <section class="card scan opt-top"><div class="scan-row">
+    <section class="card scan opt-top"><div class="scan-row" id="optPick">
       <div class="ctl"><span class="lbl">Underlying</span>
         <input id="optU" class="opt-input" list="optUList" placeholder="NIFTY, BANKNIFTY, RELIANCE…" autocomplete="off" spellcheck="false">
         <datalist id="optUList"></datalist></div>
@@ -1616,7 +1619,7 @@
       <button type="button" data-ot="build" role="tab"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Builder &amp; chain</button>
       <button type="button" data-ot="oi" role="tab"><svg viewBox="0 0 24 24"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8"/></svg>OI change</button>
       <button type="button" data-ot="condor" role="tab"><svg viewBox="0 0 24 24"><path d="M3 18h4l3-10h4l3 10h4"/></svg>0DTE Condor</button>
-      <button type="button" data-ot="orders" role="tab"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Recent orders <span class="n" id="optRecentN">0</span></button>
+      <button type="button" data-ot="orders" role="tab"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Recent orders <span class="n" id="optRecentN"></span></button>
     </nav></section>
     <div class="notice err" id="optErr" hidden></div>
     <section class="card opt-ticket" id="optTicket" data-ot="build" hidden></section>
@@ -3577,6 +3580,7 @@ function setOptTab(t) {
   if (!["build", "oi", "condor", "orders"].includes(t)) t = "build";
   optTab = t;
   try { localStorage.setItem("optTab", t); } catch (e) {}
+  optEl("optPick").hidden = t === "condor" || t === "orders";   // the underlying / expiry pick drives the chain and OI only
   optEl("optTabs").querySelectorAll("button").forEach(b => { const on = b.dataset.ot === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
   document.querySelectorAll("#optView > [data-ot]").forEach(el => {
     if (el.id === "optTicket") el.style.display = t === "build" ? "" : "none";   // the ticket keeps its own hidden state
