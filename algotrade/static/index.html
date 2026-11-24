@@ -235,6 +235,11 @@
   .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
   .kgroup { padding: 12px 0 14px; }
   .tiles.odd > .kgroup:last-child { grid-column: 1 / -1; }
+  /* Strategy health badge in the Closed trades card header */
+  .edge-badge { display: inline-block; margin-left: 8px; text-transform: none; letter-spacing: normal; line-height: 1.5; white-space: nowrap; border: 1px solid var(--line); background: var(--neutral-bg); color: var(--ink-2);
+            border-radius: 999px; padding: 1px 9px; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+  .edge-badge.ok { color: var(--up); } .edge-badge.warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+  .edge-badge.bad { color: var(--down); border-color: var(--down); }
   .khead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 16px 10px;
            margin-bottom: 12px; border-bottom: 1px solid var(--line-2); }
   .khead .lbl { color: var(--ink-2); }
@@ -1802,6 +1807,7 @@ const ORDER_TEXT = { limit: "limit", stop: "stop" };
 let data = [], tab = "pending", sortKey = "bar_time", sortDir = -1;
 // Until a tab is chosen (a click, or a link naming one), the list opens on the first tab with signals in it
 let tabPicked = false;
+let health = null;   // /api/signals' verdict on the live results after costs (performance.health)
 // Selected market ("IN" / "US" / "MCX"); each market has its own signals, scan settings and scan status
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
@@ -1930,11 +1936,31 @@ function renderTiles() {
   ];
   const closedHint = [hasNet ? "after costs" : "before costs", cancelled ? `${cancelled} cancelled, not traded` : ""]
     .filter(Boolean).join(" · ");
+  const badge = healthBadge();
 
   document.getElementById("tiles").innerHTML =
     kgroup("Open positions", `${plural(open.length + pending.length, "signal")} open`, openKpis) +
-    kgroup("Closed trades", closed.length ? closedHint : "", closedKpis);
+    kgroup(`Closed trades${badge}`, closed.length ? closedHint : "", closedKpis);
 }
+
+// Strategy health from the live results after costs; opens Performance
+function healthBadge() {
+  const h = health; if (!h || !h.trades) return "";
+  const r = v => sgn(v, 2, "R");
+  const bt = h.backtest_r != null ? ` · backtest ${r(h.backtest_r)}` : "";
+  const [cls, text, tip] = {
+    early: ["", `Early · ${h.trades} of ${h.min_trades} trades`, `Too few closed trades to judge yet (avg ${r(h.avg_r)} after costs)`],
+    bad: ["bad", "Losing after costs", `Avg ${r(h.avg_r)} per trade after costs${bt}; last ${h.recent_n}: ${r(h.recent_r)}`],
+    warn: ["warn", h.recent_r < 0 ? `Last ${h.recent_n} losing` : "Below backtest",
+           `Avg ${r(h.avg_r)} per trade after costs${bt}; last ${h.recent_n}: ${r(h.recent_r)}`],
+    ok: ["ok", "On track", `Avg ${r(h.avg_r)} per trade after costs${bt}; last ${h.recent_n}: ${r(h.recent_r)}`],
+  }[h.level] ?? [];
+  if (!text) return "";
+  return ` <button type="button" class="edge-badge ${cls}" data-health title="${esc(tip)}. Click for Performance">${esc(text)}</button>`;
+}
+document.getElementById("tiles").addEventListener("click", e => {
+  if (e.target.closest("[data-health]")) setView("performance");
+});
 
 function renderTabs() {
   document.getElementById("tabs").innerHTML = TABS.map(([id, label, f]) =>
@@ -1998,7 +2024,7 @@ function render() { renderTiles(); renderTabs(); renderTable(); setHash(); }
 
 function show(j) {
   if (j.market !== market) return;  // response for a market that is no longer selected
-  data = j.signals; cfg = j.config; lastRefresh = j.last_refresh;
+  data = j.signals; cfg = j.config; lastRefresh = j.last_refresh; health = j.health ?? null;
   if (!tabPicked && !data.some(TABS.find(x => x[0] === tab)[2])) {
     tab = (TABS.find(([id, , f]) => id !== "all" && data.some(f)) ?? TABS[0])[0];
   }

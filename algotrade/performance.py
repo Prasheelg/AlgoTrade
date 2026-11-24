@@ -89,6 +89,33 @@ def backtest_reference(market: str) -> dict | None:
             "avg_r": round(float(bt.net_R.mean()), 3)}
 
 
+RECENT_TRADES = 20     # the "lately" window of the health check
+BELOW_BACKTEST_R = 0.1  # live avg R after costs this far under the backtest's counts as lagging it
+
+
+def health(market: str, trades: list[dict] | None = None) -> dict:
+    """One-glance verdict on the live results after costs, for the Signals page:
+    early (too few trades to judge), bad (losing after costs), warn (the last RECENT_TRADES are losing, or it lags
+    the backtest by BELOW_BACKTEST_R or more) or ok. trades: closed_trades(market), if already at hand."""
+    trades = closed_trades(market) if trades is None else trades
+    rs = [t["net_r"] for t in trades]
+    recent = rs[-RECENT_TRADES:]
+    avg = round(sum(rs) / len(rs), 3) if rs else None
+    recent_avg = round(sum(recent) / len(recent), 3) if recent else None
+    bt = backtest_reference(market)
+    bt_r = bt["avg_r"] if bt else None
+    if len(rs) < MIN_TRADES:
+        level = "early"
+    elif avg < 0:
+        level = "bad"
+    elif recent_avg < 0 or (bt_r is not None and avg < bt_r - BELOW_BACKTEST_R):
+        level = "warn"
+    else:
+        level = "ok"
+    return {"level": level, "trades": len(rs), "min_trades": MIN_TRADES, "avg_r": avg,
+            "recent_r": recent_avg, "recent_n": len(recent), "backtest_r": bt_r}
+
+
 # ---- strategy scorecard ---------------------------------------------------------------------------
 
 OFF_KEY = "scanner_strategies_off"   # {market: [strategy names the continuous scanner leaves out]}

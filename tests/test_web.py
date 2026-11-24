@@ -35,6 +35,7 @@ def test_signals_payload_shape(client):
     assert r.status_code == 200
     assert r.get_json() == {
         "market": "IN", "signals": [], "last_refresh": None,
+        "health": {**r.get_json()["health"], "level": "early", "trades": 0},
         "config": {"universe": "NIFTY100", "timeframe": "1d", "capital": 100000.0, "risk_pct": 1.0,
                    "currency": "₹", "locale": "en-IN", "tv_prefix": "NSE:", "live": None}}
     us = client.get("/api/signals?market=us").get_json()
@@ -529,4 +530,4 @@ def test_signals_still_load_when_costs_fail(client, monkeypatch):
     state.record([make_signal(symbol="A")])
     monkeypatch.setattr(performance, "closed_trades", lambda m: 1 / 0)
     r = client.get("/api/signals")
-    assert r.status_code == 200 and r.get_json()["signals"][0]["net_r"] is None
+    assert r.status_code == 200 and r.get_json()["signals"][0]["net_r"] is None and r.get_json()["health"] is None

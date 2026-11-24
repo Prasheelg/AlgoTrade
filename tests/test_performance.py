@@ -105,3 +105,31 @@ def test_api_performance(no_costs):
     assert c.get("/api/performance?market=IN&days=0").get_json()["days"] is None
     assert c.get("/api/performance?market=US").get_json()["trades"] == 0
     assert c.get("/api/performance?market=XX").status_code == 400
+
+
+# ---- health: the Signals page's verdict on the live results after costs ----
+
+def _trades(*rs):
+    return [{"net_r": r} for r in rs]
+
+
+@pytest.mark.parametrize("rs,bt,level", [
+    ([1.0] * 29, None, "early"),                          # under MIN_TRADES
+    ([-0.5] * 30, None, "bad"),                           # losing after costs
+    ([1.0] * 20 + [-0.5] * 20, None, "warn"),             # +ve overall, last 20 losing
+    ([0.3] * 40, {"avg_r": 0.5}, "warn"),                 # lags the backtest by 0.2R
+    ([0.3] * 40, {"avg_r": 0.35}, "ok"),                  # within 0.1R of it
+    ([0.3] * 40, None, "ok"),
+])
+def test_health_levels(monkeypatch, rs, bt, level):
+    monkeypatch.setattr(performance, "backtest_reference", lambda m: bt)
+    h = performance.health("IN", _trades(*rs))
+    assert h["level"] == level and h["trades"] == len(rs) and h["min_trades"] == performance.MIN_TRADES
+    assert h["recent_n"] == min(len(rs), performance.RECENT_TRADES)
+    assert h["backtest_r"] == (bt["avg_r"] if bt else None)
+
+
+def test_health_without_trades(monkeypatch):
+    monkeypatch.setattr(performance, "backtest_reference", lambda m: None)
+    assert performance.health("IN", []) == {"level": "early", "trades": 0, "min_trades": performance.MIN_TRADES,
+                                            "avg_r": None, "recent_r": None, "recent_n": 0, "backtest_r": None}
