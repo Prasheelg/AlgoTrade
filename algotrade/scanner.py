@@ -249,12 +249,13 @@ def fill_missing_days(data: dict[str, pd.DataFrame], index_close: pd.Series | No
     return data, index_close
 
 
-def fetch_index(timeframe: str, market: str, period: str | None = None) -> pd.Series | None:
-    """Close of the market's index on this timeframe, or None if it can't be downloaded (or the market has none)."""
+def fetch_index(timeframe: str, market: str, period: str | None = None, live: bool = False) -> pd.Series | None:
+    """Close of the market's index on this timeframe, or None if it can't be downloaded (or the market has none).
+    live: the scanner's bars (today's from Kotak for India intraday), so the index lines up with the stocks."""
     sym = markets.get(market).index_symbol
     if not sym:
         return None
-    df = fetch_ohlcv([sym], timeframe, period=period, market=market).get(sym)
+    df = fetch_ohlcv([sym], timeframe, period=period, market=market, **({"live": True} if live else {})).get(sym)
     if df is None:
         log.warning("No %s index data; market filters are skipped", sym)
         return None
@@ -295,10 +296,10 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
     if unknown:
         raise ValueError(f"Unknown filters: {', '.join(sorted(unknown))}")
     check_stop(market)
-    data = fetch_ohlcv(symbols, timeframe, market=market, stop=lambda: check_stop(market))
+    data = fetch_ohlcv(symbols, timeframe, market=market, stop=lambda: check_stop(market), live=True)
     check_stop(market)
     check_data_coverage(len(data), len(symbols), market, timeframe)
-    index_close = fetch_index(timeframe, market)
+    index_close = fetch_index(timeframe, market, live=True)
     try:
         data, index_close = fill_missing_days(data, index_close, timeframe, market)
     except Exception as exc:   # never let the gap filler stop a scan

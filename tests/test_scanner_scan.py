@@ -507,3 +507,11 @@ def test_scan_raises_when_download_returns_nothing(monkeypatch):
     monkeypatch.setattr(scanner, "fetch_index", lambda *a, **k: None)
     with pytest.raises(scanner.DataUnavailable):
         scanner.scan(syms, "1d", market="IN")
+
+
+def test_scan_asks_for_live_bars_for_stocks_and_index(monkeypatch):
+    """The scanner's bars (stocks and the index alike) take today's part from Kotak where livebars applies."""
+    seen = []
+    monkeypatch.setattr(scanner, "fetch_ohlcv", lambda syms, tf, **kw: seen.append((list(syms), kw.get("live"))) or {})
+    scanner.scan(["A"], "15m", market="IN")
+    assert seen == [(["A"], True), (["^NSEI"], True)]

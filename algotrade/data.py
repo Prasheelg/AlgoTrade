@@ -1,4 +1,5 @@
-"""Market data via Yahoo Finance (free, ~15 min delayed for intraday)."""
+"""Market data via Yahoo Finance (free, ~15 min delayed for intraday). The scanner's India intraday bars take
+today's part from Kotak in real time (livebars.py)."""
 import logging
 
 import pandas as pd
@@ -14,14 +15,27 @@ PERIOD_FOR = {"1d": "2y", "1h": "730d", "30m": "60d", "15m": "60d", "5m": "60d"}
 
 
 def fetch_ohlcv(symbols: list[str], timeframe: str = "1d", period: str | None = None,
-                batch_size: int = 50, market: str = "IN", stop=None) -> dict[str, pd.DataFrame]:
+                batch_size: int = 50, market: str = "IN", stop=None, live: bool = False) -> dict[str, pd.DataFrame]:
     """Download OHLCV for many symbols. Returns {symbol: DataFrame[Open,High,Low,Close,Volume]}
     with naive timestamps in the market's exchange timezone. stop(), if given, is called before each batch
     and may raise to abandon the download (a batch itself can't be interrupted). MCX: recorded MCX bars and
-    the world-market proxy (mcx.fetch_ohlcv); Yahoo has no MCX prices."""
-    if markets.get(market).code == "MCX":
+    the world-market proxy (mcx.fetch_ohlcv); Yahoo has no MCX prices. live (the scanner): India intraday bars
+    during the session get today's part from Kotak (livebars.fetch)."""
+    code = markets.get(market).code
+    if code == "MCX":
         from . import mcx
         return mcx.fetch_ohlcv(symbols, timeframe, stop=stop)
+    if live and period is None:
+        from . import livebars
+        now = markets.get(code).now().replace(tzinfo=None)
+        if livebars.active(timeframe, code, now):
+            yahoo = lambda syms, tf, stop=None: _yahoo(syms, tf, None, batch_size, code, stop)
+            return livebars.fetch(symbols, timeframe, now, yahoo, stop=stop)
+    return _yahoo(symbols, timeframe, period, batch_size, code, stop)
+
+
+def _yahoo(symbols: list[str], timeframe: str, period: str | None, batch_size: int, market: str,
+           stop) -> dict[str, pd.DataFrame]:
     tz = markets.get(market).tz
     period = period or PERIOD_FOR.get(timeframe, "1y")
     out: dict[str, pd.DataFrame] = {}

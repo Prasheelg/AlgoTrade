@@ -102,7 +102,7 @@ def _nearest_contract(text: str) -> dict | None:
     return None if hit.empty else hit.sort_values("expiry").iloc[0].to_dict()
 
 
-def _kotak_history(neosymbol: str, interval: str, days: int, today: date) -> pd.DataFrame:
+def kotak_history(neosymbol: str, interval: str, days: int, today: date) -> pd.DataFrame:
     with _lock:
         wait = KOTAK_GAP_SEC - (time.monotonic() - _last_call[0])
         if wait > 0:
@@ -160,7 +160,7 @@ def _fetch(inst: dict, tf: str, market: str) -> tuple[pd.DataFrame, str]:
     if use_kotak and kotak_tf:
         try:
             interval, days = kotak_tf
-            df = _kotak_history(inst["kotak"], interval, days, today)
+            df = kotak_history(inst["kotak"], interval, days, today)
             if not df.empty:
                 return df, "Kotak Neo, live"
         except Exception as exc:
@@ -169,7 +169,7 @@ def _fetch(inst: dict, tf: str, market: str) -> tuple[pd.DataFrame, str]:
         if not use_kotak:
             raise RuntimeError("Option charts need the Kotak login")
         if tf == "1d":
-            df = _kotak_history(inst["kotak"], "30min", 60, today)
+            df = kotak_history(inst["kotak"], "30min", 60, today)
             if not df.empty:
                 return _daily_from(df), "Kotak Neo, live (daily from 30 min bars)"
         raise RuntimeError(f"Kotak has no {tf} history for {inst['symbol']} (no trades yet?)")

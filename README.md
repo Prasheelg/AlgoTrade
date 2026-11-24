@@ -181,8 +181,13 @@ dashboard shows live prices ("Live · Kotak Neo" in the status bar).
 - The NSE symbol list is downloaded once a day (cached in `data/`). If Kotak fails, tracking falls back to Yahoo
   and retries Kotak after 5 minutes.
 - A fill seen on a live price stays filled; a refresh never moves a signal back (e.g. Active to Pending).
-- Scans still use Yahoo history (scans ignore the still-forming bar, so live candles would add little), and US
-  stocks stay on Yahoo.
+- India intraday scans (5m / 15m / 30m / 1h) during the session take **today's bars from Kotak** in real time
+  (`algotrade/livebars.py`): Yahoo's history up to yesterday is downloaded once a day, and today's 5-minute bars
+  come from Kotak, one request per symbol (about 2 minutes for NIFTY100, reused by every timeframe of the same
+  scan round); 15m / 30m / 1h bars are built from them, aligned to 09:15. A symbol Kotak can't serve (no bars, an
+  error, or the negative volume Kotak's history shows near the close) gets Yahoo's bars; if the first 5 symbols all
+  fail (a holiday, an outage) Kotak is skipped for 15 minutes. `scanner.log` says how many symbols came from each.
+  Daily scans, the backtest and US stocks stay on Yahoo.
 
 ### Automatic orders (Kotak)
 `algotrade/broker.py` logs in to Kotak Neo by itself each day (TOTP generated from the stored secret, then MPIN)
@@ -621,8 +626,8 @@ set ALGOTRADE_UPDATE_GOLDEN=
 If a golden test fails when you did not mean to change behaviour, that is a regression. Do not regenerate.
 
 ## Notes
-- History comes from Yahoo Finance (free), delayed by up to about 15 minutes intraday. Indian prices for tracking
-  can be real-time via Kotak Neo (see above).
+- History comes from Yahoo Finance (free), delayed by up to about 15 minutes intraday. Indian prices for tracking,
+  and today's bars in India intraday scans, can be real-time via Kotak Neo (see above).
 - Yahoo sometimes publishes a finished India session late (a row with no close, dropped by the loader), so its
   newest daily bar is a day old. India daily scans then fill that session's bars from Kotak quotes (logged as
   "Yahoo was missing the latest session ... filled from Kotak quotes"), NIFTY included, so the end-of-day scan
@@ -632,8 +637,9 @@ If a golden test fails when you did not mean to change behaviour, that is a regr
 - NSE and US market holidays are not handled; on a holiday the scanner runs but finds no new bars.
 - Scans (CLI, continuous loop and dashboard) ignore the still-forming last bar. During the session, a daily scan
   evaluates yesterday's completed bar, and an intraday scan evaluates the last bar whose interval has ended
-  (exchange clock). Yahoo intraday data is delayed, so the newest "completed" intraday bar can still be missing
-  its last minutes. Signal tracking still uses the live bar, so fills and stops during the session register.
+  (exchange clock). Yahoo intraday data is delayed, so on Yahoo's bars (US, or an India symbol Kotak couldn't
+  serve) the newest "completed" intraday bar can still be missing its last minutes. India bars built from Kotak's
+  5-minute ones are dropped until all their pieces are in. Signal tracking still uses the live bar, so fills and stops during the session register.
 - If the end-of-day scan fails, it is retried on the next loop. Its Telegram header is sent only once per market per day.
 - If Yahoo returns a single-ticker (flat) frame for a multi-symbol download, that batch is skipped and an error is logged.
   Without this check, every symbol in the batch would get the same prices.
