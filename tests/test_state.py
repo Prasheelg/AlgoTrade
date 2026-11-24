@@ -66,9 +66,22 @@ def test_migration_backfills_null_columns_on_every_connect():
     con.commit()
     con.close()
     r = state.all_signals()[0]
-    # bar_date = last 10 chars of key, status/timeframe/market reset to defaults (market 'IN', even for a US key)
+    # bar_date = last 10 chars of key, status/timeframe reset to defaults, market taken from the key prefix
     assert (r["bar_date"], r["status"], r["timeframe"], r["market"], r["bar_time"]) == \
-        ("2024-01-02", "ACTIVE", "1d", "IN", "2024-01-02T00:00:00")
+        ("2024-01-02", "ACTIVE", "1d", "US", "2024-01-02T00:00:00")
+
+
+@pytest.mark.parametrize("key,market", [
+    ("US|X|BUY|2024-01-02", "US"), ("MCX|GOLDM|SELL|1h|2024-01-02", "MCX"), ("RELIANCE|BUY|2024-01-02", "IN"),
+])
+def test_migration_market_backfill_follows_key_prefix(key, market):
+    """B2 fixed: a row without a market gets the one its key names; unprefixed keys are India's."""
+    state.all_signals()
+    con = sqlite3.connect(config.STATE_DB)
+    con.execute("INSERT INTO signals (key, symbol, side, market) VALUES (?, 'X', 'BUY', NULL)", (key,))
+    con.commit()
+    con.close()
+    assert state.all_signals()[0]["market"] == market
 
 
 def test_record_limit_and_market_rows():

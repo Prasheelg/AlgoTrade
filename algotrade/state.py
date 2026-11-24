@@ -46,6 +46,9 @@ def _conn():
     con.execute("UPDATE signals SET bar_date = substr(key, -10) WHERE bar_date IS NULL")
     con.execute("UPDATE signals SET status = 'ACTIVE' WHERE status IS NULL")
     con.execute("UPDATE signals SET timeframe = '1d' WHERE timeframe IS NULL")
+    # The key names the market ("US|...", "MCX|..."); India keys carry no prefix
+    for code in ("US", "MCX"):
+        con.execute("UPDATE signals SET market = ? WHERE market IS NULL AND key LIKE ?", (code, f"{code}|%"))
     con.execute("UPDATE signals SET market = 'IN' WHERE market IS NULL")
     con.execute("UPDATE signals SET bar_time = bar_date || 'T00:00:00' WHERE bar_time IS NULL")
     con.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)")
