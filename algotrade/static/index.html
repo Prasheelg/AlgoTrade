@@ -1799,6 +1799,8 @@ const PHONE = matchMedia("(max-width: 640px)");  // phone layout (matches the CS
 
 const ORDER_TEXT = { limit: "limit", stop: "stop" };
 let data = [], tab = "pending", sortKey = "bar_time", sortDir = -1;
+// Until a tab is chosen (a click, or a link naming one), the list opens on the first tab with signals in it
+let tabPicked = false;
 // Selected market ("IN" / "US" / "MCX"); each market has its own signals, scan settings and scan status
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
@@ -1810,11 +1812,13 @@ let view = "signals";  // "signals" or "performance"
 {
   const [m, t] = location.hash.slice(1).split("/");
   if (["IN", "US", "MCX"].includes(m)) market = m;
-  if (TABS.some(x => x[0] === t)) tab = t;
+  if (TABS.some(x => x[0] === t)) { tab = t; tabPicked = true; }
   if (["performance", "portfolio", "options", "watchlist", "chart"].includes(t)) view = t;
   else if (!t && ["performance", "portfolio", "options", "watchlist", "chart"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
 }
-const setHash = () => history.replaceState(null, "", `#${market}/${view === "signals" ? tab : view}`);
+// A tab picked automatically isn't put in the link, so a reload picks again from the signals it then finds
+const setHash = () => history.replaceState(null, "",
+  view !== "signals" ? `#${market}/${view}` : tabPicked ? `#${market}/${tab}` : `#${market}`);
 let cfg = { currency: "₹", locale: "en-IN", tv_prefix: "NSE:" };
 // The Auto-trade order actually sent to Kotak for a signal, under the tracker's paper status
 const realTrade = t => !t ? "" : `<div class="sub" title="${esc(t.note ?? "")}">Kotak: ${esc(TRADE_STATE[t.state] ?? t.state)}` +
@@ -1994,6 +1998,9 @@ function render() { renderTiles(); renderTabs(); renderTable(); setHash(); }
 function show(j) {
   if (j.market !== market) return;  // response for a market that is no longer selected
   data = j.signals; cfg = j.config; lastRefresh = j.last_refresh;
+  if (!tabPicked && !data.some(TABS.find(x => x[0] === tab)[2])) {
+    tab = (TABS.find(([id, , f]) => id !== "all" && data.some(f)) ?? TABS[0])[0];
+  }
   renderStatus();
   render();
 }
@@ -2236,7 +2243,7 @@ async function load(path = "/api/signals", opts) {
 
 document.getElementById("tabs").onclick = e => {
   const b = e.target.closest("[data-tab]"); if (!b) return;
-  tab = b.dataset.tab; render();
+  tab = b.dataset.tab; tabPicked = true; render();
 };
 document.getElementById("head").onclick = e => {
   const k = e.target.closest("th")?.dataset.sort; if (!k) return;
@@ -2513,7 +2520,7 @@ async function loadMeta() {
 document.getElementById("markets").onclick = e => {
   const b = e.target.closest("[data-market]"); if (!b || b.dataset.market === market) return;
   market = b.dataset.market; store.set("market", market);
-  data = []; tab = "pending"; render();
+  data = []; tab = "pending"; tabPicked = false; render();
   renderMarkets(); renderNotice();
   if (META) { opts = optsFor(market); renderScanPanel(); loadScanSettings(market); }
   load();
