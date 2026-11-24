@@ -512,3 +512,21 @@ def test_dashboard_script_declares_each_top_level_name_once():
     html = (Path(__file__).parent.parent / "algotrade" / "static" / "index.html").read_text(encoding="utf-8")
     names = re.findall(r"^(?:const|let|var|function|async function|class)\s+([A-Za-z_$][\w$]*)", html, re.M)
     assert [n for n, c in Counter(names).items() if c > 1] == []
+
+
+def test_signals_carry_r_after_costs_for_closed_trades(client, monkeypatch):
+    """The Signals page's Closed trades card leads with R after costs, the same figure as Performance."""
+    from algotrade import performance
+    open_, done = make_signal(symbol="OPEN"), make_signal(symbol="DONE")
+    state.record([open_, done])
+    monkeypatch.setattr(performance, "closed_trades", lambda m: [{"key": done.key, "net_r": -1.12}])
+    rows = {s["symbol"]: s for s in client.get("/api/signals").get_json()["signals"]}
+    assert rows["DONE"]["net_r"] == -1.12 and rows["OPEN"]["net_r"] is None
+
+
+def test_signals_still_load_when_costs_fail(client, monkeypatch):
+    from algotrade import performance
+    state.record([make_signal(symbol="A")])
+    monkeypatch.setattr(performance, "closed_trades", lambda m: 1 / 0)
+    r = client.get("/api/signals")
+    assert r.status_code == 200 and r.get_json()["signals"][0]["net_r"] is None

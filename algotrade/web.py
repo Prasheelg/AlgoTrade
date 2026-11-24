@@ -230,10 +230,15 @@ def _signals_payload(mkt: markets.Market) -> dict:
     real = _real_trades(mkt.code)
     opts = _option_trades(mkt.code)
     skipped = _skipped(mkt.code)
+    try:   # R after costs of each closed trade, so the Signals cards match Performance
+        net = {t["key"]: t["net_r"] for t in performance.closed_trades(mkt.code)}
+    except Exception:
+        log.exception("Costs for the closed signals failed")
+        net = {}
     return {
         "market": mkt.code,
         "signals": [{**_enrich(s), "trade": real.get(s["key"]), "option": opts.get(s["key"]),
-                     "skipped": skipped.get(s["key"])} for s in sigs],
+                     "skipped": skipped.get(s["key"]), "net_r": net.get(s["key"])} for s in sigs],
         "last_refresh": _last_refresh["at"],
         "config": {"universe": mkt.universe, "timeframe": config.TIMEFRAME, "capital": mkt.capital,
                    "risk_pct": config.RISK_PER_TRADE_PCT, "currency": mkt.currency, "locale": mkt.locale,

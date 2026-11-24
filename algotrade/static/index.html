@@ -225,6 +225,10 @@
   .notice { display: flex; gap: 10px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line);
             border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
   .notice.err { border-left-color: var(--down); }
+  /* Scanner off while the market is open or about to open: hard to miss, with the switch right there */
+  .notice.warn { border-left-color: var(--warn); background: var(--warn-bg); align-items: center; }
+  .notice.warn b { color: var(--warn); }
+  .notice.warn button { margin-left: auto; flex: none; }
 
   /* ---- KPIs ---- */
   /* KPI groups: two cards (open positions / closed trades), four figures each, divided like the status bar */
@@ -1438,6 +1442,8 @@
   <section class="card opt-ticket" id="stTicket" hidden aria-label="Settings"></section>
   <datalist id="bsList"></datalist>
 
+  <div class="notice warn" id="scanWarn" role="alert" hidden><span id="scanWarnTxt"></span>
+    <button type="button" class="btn" id="scanWarnOn">Turn on</button></div>
   <div id="sigView">
   <section class="card scan" id="scanPanel">
     <div class="scan-row">
@@ -1894,26 +1900,35 @@ function renderTiles() {
       open.length ? `hi ${sgn(Math.max(...pnls), 1, "%")} · lo ${sgn(Math.min(...pnls), 1, "%")}` : ""),
   ];
 
-  // Closed trades (cancelled orders never traded, so they are left out of the results)
-  const won = count(closed, s => s.pnl_r > 0), lost = count(closed, s => s.pnl_r < 0);
-  const totalR = sum(closed, "pnl_r");
-  const grossW = closed.filter(s => s.pnl_r > 0).reduce((a, s) => a + s.pnl_r, 0);
-  const grossL = -closed.filter(s => s.pnl_r < 0).reduce((a, s) => a + s.pnl_r, 0);
-  const pf = grossL ? grossW / grossL : null;
+  // Closed trades (cancelled orders never traded, so they are left out of the results). Results lead with R after
+  // costs (brokerage, taxes, slippage: the server's net_r, as on Performance); before costs is the smaller line
+  const stats = rs => {
+    const w = rs.filter(r => r > 0), l = rs.filter(r => r < 0);
+    const gw = w.reduce((a, r) => a + r, 0), gl = -l.reduce((a, r) => a + r, 0);
+    return { won: w.length, lost: l.length, total: gw - gl, gw, gl, pf: gl ? gw / gl : null };
+  };
+  const pfText = st => st.pf == null ? (st.gw ? "∞" : "–") : st.pf.toFixed(2);
+  const gross = stats(closed.map(s => s.pnl_r));
+  const hasNet = closed.length && closed.every(s => s.net_r != null);
+  const net = hasNet ? stats(closed.map(s => s.net_r)) : gross;
+  const before = txt => hasNet ? `before costs ${txt}` : "";
   const closedKpis = [
     kpi("Closed trades", closed.length, closed.length
-      ? `${won} won · ${lost} lost · ${closed.length - won - lost} flat` : "Nothing closed yet"),
-    kpi("Win rate", closed.length ? `${Math.round(won / closed.length * 100)}%` : "–",
-      closed.length ? `${won} of ${plural(closed.length, "trade")}` : "", closed.length ? meter(won / closed.length) : ""),
-    kpi("Total R", closed.length ? signed(totalR, 1, "R") : "–",
-      closed.length ? `avg ${sgn(totalR / closed.length, 2, "R")} per trade` : ""),
-    kpi("Profit factor", pf == null ? (closed.length && grossW ? "∞" : "–") : pf.toFixed(2),
-      closed.length ? `+${grossW.toFixed(1)}R won · −${grossL.toFixed(1)}R lost` : ""),
+      ? `${net.won} won · ${net.lost} lost · ${closed.length - net.won - net.lost} flat` : "Nothing closed yet"),
+    kpi("Win rate", closed.length ? `${Math.round(net.won / closed.length * 100)}%` : "–",
+      closed.length ? before(`${Math.round(gross.won / closed.length * 100)}%`) || `${net.won} of ${plural(closed.length, "trade")}` : "",
+      closed.length ? meter(net.won / closed.length) : ""),
+    kpi("Total R", closed.length ? signed(net.total, 1, "R") : "–",
+      closed.length ? before(sgn(gross.total, 1, "R")) || `avg ${sgn(net.total / closed.length, 2, "R")} per trade` : ""),
+    kpi("Profit factor", closed.length ? pfText(net) : "–",
+      closed.length ? before(pfText(gross)) || `+${net.gw.toFixed(1)}R won · −${net.gl.toFixed(1)}R lost` : ""),
   ];
+  const closedHint = [hasNet ? "after costs" : "before costs", cancelled ? `${cancelled} cancelled, not traded` : ""]
+    .filter(Boolean).join(" · ");
 
   document.getElementById("tiles").innerHTML =
     kgroup("Open positions", `${plural(open.length + pending.length, "signal")} open`, openKpis) +
-    kgroup("Closed trades", cancelled ? `${cancelled} cancelled, not traded` : "", closedKpis);
+    kgroup("Closed trades", closed.length ? closedHint : "", closedKpis);
 }
 
 function renderTabs() {
@@ -1966,7 +1981,7 @@ function renderTable() {
     <td class="lv">${rangeBar(s)}<div class="lvls"><span>SL ${num(s.stop_loss)}</span><span>Target ${num(s.target1)}</span></div></td>
     <td><div class="tags"><b class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</b>${tags.slice(0, TAGS_SHOWN).map(r => `<span>${esc(r)}</span>`).join("")}` +
       `${tags.length > TAGS_SHOWN ? `<span class="more" title="${esc(tags.slice(TAGS_SHOWN).join(", "))}">+${tags.length - TAGS_SHOWN}</span>` : ""}</div></td>
-    <td><div class="row-acts v">${market === "IN" ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
+    <td><div class="row-acts v">${market === "IN" && s.open ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
       `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button>` : ""}` +
       `<button type="button" class="btn ic" data-sdet="${esc(s.key)}" title="Details: strategies, journal, levels" aria-label="${esc(s.symbol)} details">ⓘ</button>` +
       `<button type="button" class="btn ic sig-del" data-sdel="${esc(s.key)}" title="Delete this signal" aria-label="Delete ${esc(s.symbol)} signal">✕</button></div></td>
@@ -2368,7 +2383,28 @@ function renderScanState() {
   el.className = "scan-state " + cls;
   el.title = tip;
   el.lastElementChild.textContent = text;
+  renderScanWarn();
 }
+
+// A banner on every view while the market on screen is open, or opens within SCAN_WARN_MIN, and isn't being scanned
+const SCAN_WARN_MIN = 30;
+function renderScanWarn() {
+  const w = document.getElementById("scanWarn"), m = META?.markets.find(x => x.code === market);
+  const rn = scanRunner ?? {}, on = !!(scanAlive || rn.starting) && !rn.stopping && scanStat[market]?.on !== false;
+  let show = false, ms = null;
+  if (m?.session && scanAlive != null && !on) {
+    ms = marketState(m);
+    const soon = !ms.open && ms.now.day >= 1 && ms.now.day <= 5 && toMin(m.session[0]) - ms.now.mins <= SCAN_WARN_MIN;
+    show = ms.open || soon;
+  }
+  w.hidden = !show;
+  if (show) {
+    const ex = EXCHANGE[market]?.[0] ?? m.name;
+    document.getElementById("scanWarnTxt").innerHTML = `<b>${esc(m.name)} isn't being scanned.</b> ` +
+      `${esc(ex)} ${ms.open ? "is open" : ms.when}; no new signals${market === "US" ? "" : " or Auto-trade orders"} until you turn scanning on.`;
+  }
+}
+document.getElementById("scanWarnOn").onclick = () => document.getElementById("scanSw").click();
 
 async function loadScanStatus() {
   let j;
