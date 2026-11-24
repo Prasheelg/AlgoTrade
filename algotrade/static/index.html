@@ -863,15 +863,18 @@
     .brand { border-right: 0; padding-right: 0; }
     .sbar { padding: 0 14px 0 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   }
-  /* ---- Health banner (all views) ---- */
-  .health { display: flex; gap: 10px; align-items: flex-start; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
+  /* ---- Alert bar (all views): the server's health problems and the scanner-off warning, one line each ---- */
+  .health { display: flex; gap: 10px; align-items: flex-start; border-radius: 10px; padding: 6px 12px; margin-bottom: 12px;
             font-size: 13px; background: var(--warn-bg); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
   .health.critical { background: var(--down-bg); color: var(--down); border-color: color-mix(in srgb, var(--down) 40%, transparent); }
   .health b { font-weight: 700; }
-  .health ul { margin: 0; padding-left: 18px; }
-  .health li + li { margin-top: 3px; }
-  .health ul:has(> li:only-child) { list-style: none; padding-left: 0; }
-  .health .x { margin-left: auto; color: inherit; opacity: .7; font-size: 12px; white-space: nowrap; }
+  .health > b { line-height: 24px; }
+  .health ul { margin: 0; padding: 0; list-style: none; flex: 1; min-width: 0; }
+  .health li { display: flex; align-items: center; gap: 10px; min-height: 24px; }
+  .health li .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .health li .t b { font-weight: 700; }
+  .health li .btn { flex: none; padding: 2px 10px; font-size: 12px; min-height: 22px; }
+  .health li .x { color: inherit; opacity: .7; font-size: 12px; white-space: nowrap; }
 
   /* ---- Watchlist ---- */
   .wl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
@@ -1448,8 +1451,6 @@
   <section class="card opt-ticket" id="stTicket" hidden aria-label="Settings"></section>
   <datalist id="bsList"></datalist>
 
-  <div class="notice warn" id="scanWarn" role="alert" hidden><span id="scanWarnTxt"></span>
-    <button type="button" class="btn" id="scanWarnOn">Turn on</button></div>
   <div id="sigView">
   <section class="card scan" id="scanPanel">
     <div class="scan-row">
@@ -2433,25 +2434,43 @@ function renderScanState() {
   renderScanWarn();
 }
 
-// A banner on every view while the market on screen is open, or opens within SCAN_WARN_MIN, and isn't being scanned
+// The scanner-off line of the alert bar: while the market on screen is open, or opens within SCAN_WARN_MIN, and isn't
+// being scanned
 const SCAN_WARN_MIN = 30;
+let scanWarn = null;   // the line's text, or null
 function renderScanWarn() {
-  const w = document.getElementById("scanWarn"), m = META?.markets.find(x => x.code === market);
+  const m = META?.markets.find(x => x.code === market);
   const rn = scanRunner ?? {}, on = !!(scanAlive || rn.starting) && !rn.stopping && scanStat[market]?.on !== false;
-  let show = false, ms = null;
+  let warn = null;
   if (m?.session && scanAlive != null && !on) {
-    ms = marketState(m);
+    const ms = marketState(m);
     const soon = !ms.open && ms.tradingDay && toMin(m.session[0]) - ms.now.mins <= SCAN_WARN_MIN && ms.now.mins < toMin(m.session[0]);
-    show = ms.open || soon;
+    if (ms.open || soon) {
+      const ex = EXCHANGE[market]?.[0] ?? m.name;
+      warn = `<b>${esc(m.name)} isn't being scanned.</b> ${esc(ex)} ${ms.open ? "is open" : ms.when}; ` +
+        `no new signals${market === "US" ? "" : " or Auto-trade orders"} until you turn scanning on.`;
+    }
   }
-  w.hidden = !show;
-  if (show) {
-    const ex = EXCHANGE[market]?.[0] ?? m.name;
-    document.getElementById("scanWarnTxt").innerHTML = `<b>${esc(m.name)} isn't being scanned.</b> ` +
-      `${esc(ex)} ${ms.open ? "is open" : ms.when}; no new signals${market === "US" ? "" : " or Auto-trade orders"} until you turn scanning on.`;
-  }
+  if (warn !== scanWarn) { scanWarn = warn; renderAlerts(); }
 }
-document.getElementById("scanWarnOn").onclick = () => document.getElementById("scanSw").click();
+
+// One bar for everything that needs attention: the scanner being off (with its switch) and the server's health problems
+let healthProblems = [], healthAt = "";
+function renderAlerts() {
+  const box = document.getElementById("healthBox");
+  const items = [...healthProblems.map(x => ({ level: x.level, html: esc(x.text), tip: x.text }))];
+  if (scanWarn) items.push({ level: "warning", html: scanWarn, tip: scanWarn.replace(/<[^>]+>/g, ""), scan: true });
+  box.hidden = !items.length;
+  if (!items.length) return;
+  const crit = items.some(x => x.level === "critical");
+  box.className = "health" + (crit ? " critical" : "");
+  box.innerHTML = `<b>${crit ? "⚠" : "!"}</b><ul>${items.map((x, i) => `<li><span class="t" title="${esc(x.tip)}">${x.html}</span>` +
+    (x.scan ? `<button type="button" class="btn" data-scan-on>Turn on</button>` : "") +
+    (i === 0 && healthAt && healthProblems.length ? `<span class="x">checked ${esc(healthAt)}</span>` : "") + `</li>`).join("")}</ul>`;
+}
+document.getElementById("healthBox").addEventListener("click", e => {
+  if (e.target.closest("[data-scan-on]")) document.getElementById("scanSw").click();
+});
 
 async function loadScanStatus() {
   let j;
@@ -4628,13 +4647,10 @@ document.getElementById("tradeSw").onclick = async e => {
 // ---- Health banner: problems the server found (health.py); also posted to Telegram ----
 async function loadHealth() {
   try {
-    const j = await (await fetch("/api/health")).json(), box = document.getElementById("healthBox"), p = j.problems ?? [];
+    const j = await (await fetch("/api/health")).json();
     feedLive = !!j.feed?.connected;
-    box.hidden = !p.length;
-    if (!p.length) return;
-    box.className = "health" + (p.some(x => x.level === "critical") ? " critical" : "");
-    box.innerHTML = `<b>${p.some(x => x.level === "critical") ? "⚠" : "!"}</b><ul>${p.map(x => `<li>${esc(x.text)}</li>`).join("")}</ul>` +
-      `<span class="x">checked ${esc((j.at ?? "").slice(11, 16))}</span>`;
+    healthProblems = j.problems ?? []; healthAt = (j.at ?? "").slice(11, 16);
+    renderAlerts();
   } catch {}
 }
 setInterval(() => { if (!document.hidden) loadHealth(); }, 60000);
