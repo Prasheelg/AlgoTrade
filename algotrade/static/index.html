@@ -1696,14 +1696,14 @@
 
       <div class="cd-box" id="cdLegsWrap">
         <div class="cd-box-h"><h4>Live position</h4><span class="cd-tag" id="cdPosAt"></span>
-          <div class="right"><button type="button" class="btn sm" id="cdClosePE">Close put side</button>
-            <button type="button" class="btn sm" id="cdCloseCE">Close call side</button>
+          <div class="right"><button type="button" class="btn sm" id="cdClosePE" hidden>Close put side</button>
+            <button type="button" class="btn sm" id="cdCloseCE" hidden>Close call side</button>
             <button type="button" class="btn sm danger" id="cdExitBtn" hidden>Close all legs</button></div></div>
-        <div class="cd-pos-empty" id="cdPosEmpty"></div>
-        <div class="tablewrap" id="cdPosTable"><table class="cd-pos"><thead><tr><th>Leg</th><th class="num">Qty</th>
+        <div class="cd-pos-empty" id="cdPosEmpty"><span class="cd-empty-ic">◇</span><div>Loading the position…</div></div>
+        <div class="tablewrap" id="cdPosTable" hidden><table class="cd-pos"><thead><tr><th>Leg</th><th class="num">Qty</th>
           <th class="num">Entry</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mark</th><th class="num">P&amp;L</th><th></th></tr></thead>
           <tbody id="cdLegs"></tbody><tfoot id="cdLegsFoot"></tfoot></table></div>
-        <p class="hint cd-note" id="cdPosNote">Mark = mid of bid and ask. Leg P&amp;L is before charges; the day P&amp;L above includes closed legs
+        <p class="hint cd-note" id="cdPosNote" hidden>Mark = mid of bid and ask. Leg P&amp;L is before charges; the day P&amp;L above includes closed legs
           and charges. A wing can't be closed alone (its short would be uncovered).</p></div>
 
       <div id="cdPlan"></div>
