@@ -71,6 +71,7 @@ class Signal:
 BARS_PER_DAY = {"1d": 1, "1h": 7, "30m": 13, "15m": 25, "5m": 75}
 # Structural stops (zone / level) are used only if they sit 0.3-3 ATR from entry
 MIN_STOP_ATR, MAX_STOP_ATR = 0.3, 3.0
+STOP_EPS = 1e-9  # float slack on those bounds: 99.0 - 98.4 is 0.5999999..., still "exactly" 0.3 ATR
 # Entries are pending orders away from the signal-bar close, so there is time to place them:
 # bounce setups wait for a pullback (limit order), momentum setups for a break of the bar (stop order).
 PULLBACK_STRATEGIES = {"RSI Pullback", "RSI(2) Reversion", "Support-Resistance", *FAMILIES}
@@ -163,7 +164,8 @@ def evaluate(symbol: str, df: pd.DataFrame, i: int = -1, min_score: int | None =
     risk = config.ATR_SL_MULT * atr_val
     # Prefer a structural stop (zone / level) if it is on the right side and sensibly sized
     structural = [sign * (entry - s) for s in stops[side]]
-    structural = [d for d in structural if MIN_STOP_ATR * atr_val <= d <= MAX_STOP_ATR * atr_val]
+    structural = [d for d in structural
+                  if MIN_STOP_ATR * atr_val - STOP_EPS <= d <= MAX_STOP_ATR * atr_val + STOP_EPS]
     if structural:
         risk = max(structural)  # widest valid structural stop is the safest
     if risk <= 0:
@@ -259,6 +261,22 @@ def fetch_index(timeframe: str, market: str, period: str | None = None) -> pd.Se
     return df["Close"]
 
 
+class DataUnavailable(RuntimeError):
+    """Too few symbols came back from the price download (the data source is down or failing)."""
+
+
+MIN_DATA_SHARE = 0.5   # below this share of symbols with data, the scan is treated as failed
+MIN_DATA_CHECK = 10    # ...for universe-sized lists; a short manual list may simply hold bad tickers
+
+
+def check_data_coverage(got: int, wanted: int, market: str, timeframe: str) -> None:
+    """Raise DataUnavailable when a download outage would otherwise pass for a scan with no setups, so the
+    caller records an error and the end-of-day scan is retried on the next loop."""
+    if wanted >= MIN_DATA_CHECK and got < MIN_DATA_SHARE * wanted:
+        raise DataUnavailable(f"{market} {timeframe}: price data for only {got}/{wanted} symbols "
+                              "(data source down?)")
+
+
 def scan(symbols: list[str] | None = None, timeframe: str | None = None,
          strategies: list[str] | None = None, min_score: int | None = None,
          market: str = "IN", filters=None) -> list[Signal]:
@@ -279,6 +297,7 @@ def scan(symbols: list[str] | None = None, timeframe: str | None = None,
     check_stop(market)
     data = fetch_ohlcv(symbols, timeframe, market=market, stop=lambda: check_stop(market))
     check_stop(market)
+    check_data_coverage(len(data), len(symbols), market, timeframe)
     index_close = fetch_index(timeframe, market)
     try:
         data, index_close = fill_missing_days(data, index_close, timeframe, market)

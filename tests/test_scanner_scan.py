@@ -485,3 +485,25 @@ def test_fetch_ohlcv_calls_stop_before_each_batch(monkeypatch):
     with pytest.raises(scanner.ScanStopped):
         data.fetch_ohlcv([f"S{i}" for i in range(5)], batch_size=2, stop=stop)
     assert len(downloads) == 2
+
+
+# --- C3: a download outage fails the scan instead of passing for "no setups" ---
+
+@pytest.mark.parametrize("got,wanted,raises", [
+    (0, 20, True), (9, 20, True), (10, 20, False), (20, 20, False),
+    (0, 9, False), (0, 0, False),   # short manual lists never raise
+])
+def test_check_data_coverage(got, wanted, raises):
+    if raises:
+        with pytest.raises(scanner.DataUnavailable, match=f"{got}/{wanted}"):
+            scanner.check_data_coverage(got, wanted, "IN", "1d")
+    else:
+        scanner.check_data_coverage(got, wanted, "IN", "1d")
+
+
+def test_scan_raises_when_download_returns_nothing(monkeypatch):
+    syms = [f"S{i}" for i in range(12)]
+    monkeypatch.setattr(scanner, "fetch_ohlcv", lambda *a, **k: {})
+    monkeypatch.setattr(scanner, "fetch_index", lambda *a, **k: None)
+    with pytest.raises(scanner.DataUnavailable):
+        scanner.scan(syms, "1d", market="IN")

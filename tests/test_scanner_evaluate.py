@@ -205,7 +205,7 @@ def test_invalid_structural_stops_fall_back_to_atr(stop):
 
 
 @pytest.mark.parametrize("stop,expected_sl", [
-    (98.4, 96.0),   # FLOAT QUIRK: 99.0 - 98.4 = 0.59999999 < 0.6 -> rejected despite being "exactly" 0.3 ATR
+    (98.4, 98.4),   # 99.0 - 98.4 = 0.59999999: exactly 0.3 ATR, accepted (float slack, was quirk B1)
     (98.375, 98.38),  # 0.625 below entry: accepted (SL then rounded to 2 dp)
     (93.0, 93.0),   # 6.0 = 3.0 ATR exactly: upper bound inclusive
 ])
