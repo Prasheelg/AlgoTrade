@@ -2746,10 +2746,18 @@ function drawEquity() {
     svg += `<line class="${z ? "zero" : "grid"}" x1="${M.l}" x2="${W - M.r}" y1="${yy}" y2="${yy}"/>` +
       `<text class="axis" x="${M.l - 8}" y="${yy}" text-anchor="end" dominant-baseline="middle">${z ? "0" : sgn(+v.toFixed(2), step < 1 ? 1 : 0)}R</text>`;
   }
+  // x axis: the date of the trade at each tick (the tooltip gives its number); a date only once, even if several
+  // trades closed that day
   const xs = Math.max(1, Math.round(niceStep(n, W < 560 ? 3 : 6)));
-  for (let i = 0; i <= n; i += xs)
-    svg += `<text class="axis" x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${i}</text>`;
-  if (W >= 560) svg += `<text class="axis" x="${M.l}" y="${H - 8}" text-anchor="end" dx="-8">trade</text>`;
+  const dLbl = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  const tick = (i, lbl) => { svg += `<text class="axis" x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="${i === n && M.r < 30 ? "end" : "middle"}">${lbl}</text>`; };
+  let placed = n ? dLbl(pts[0].date) : "";
+  if (n) tick(0, placed);                                    // the first trade's day under the start
+  for (let i = xs; i < n - xs / 2; i += xs) {                // the end keeps its own label: no tick right before it
+    const lbl = dLbl(pts[i - 1].date);
+    if (lbl !== placed) { tick(i, lbl); placed = lbl; }
+  }
+  if (n && dLbl(pts[n - 1].date) !== placed) tick(n, dLbl(pts[n - 1].date));
   for (const s of [...series].reverse()) {  // net drawn last, on top
     const d = Array.from({ length: n + 1 }, (_, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(val(s, i)).toFixed(1)}`).join("");
     svg += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
