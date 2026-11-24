@@ -399,7 +399,7 @@
                 border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--muted); }
   .range.pending .dot { background: var(--accent) !important; }
 
-  .empty { padding: 56px 16px; text-align: center; color: var(--muted); }
+  .empty { padding: 32px 16px; text-align: center; color: var(--muted); }
   .empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
 
   /* ---- Auto-trade switch (top bar): quiet when off, unmistakable when live ---- */
@@ -443,6 +443,7 @@
   .port-head .acct { font-weight: 600; }
   .port-head .hint { margin-left: 0; }
   .port-head .btn { margin-left: auto; }
+  .port-head .btn + .btn { margin-left: 0; }   /* Buy and Reload together at the right end */
   .pstate { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--neutral-bg); color: var(--ink-2); }
   .pstate.OPEN, .pstate.ENTRY, .pstate.EXITING { background: var(--accent-soft); color: var(--accent); }
   .pstate.CLOSED { background: var(--up-bg); color: var(--up); }
