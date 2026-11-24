@@ -234,6 +234,7 @@
   /* KPI groups: two cards (open positions / closed trades), four figures each, divided like the status bar */
   .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
   .kgroup { padding: 12px 0 14px; }
+  .tiles.odd > .kgroup:last-child { grid-column: 1 / -1; }
   .khead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 16px 10px;
            margin-bottom: 12px; border-bottom: 1px solid var(--line-2); }
   .khead .lbl { color: var(--ink-2); }
@@ -2921,21 +2922,22 @@ function renderPort() {
       "orders every 5 s while one is pending.";
   }
   const has = t.count > 0;
-  document.getElementById("portTiles").innerHTML =
-    kgroup("Holdings", has ? `${t.count} stock${t.count === 1 ? "" : "s"}` : "", [
-      kpi("Current value", has ? rupee(t.value, 0) : "–", has ? `invested ${rupee(t.invested, 0)}` : "No holdings"),
-      kpi("Total P&L", has ? signedRupee(t.pnl) : "–", has && t.pnl_pct != null ? sgn(t.pnl_pct, 2, "%") : ""),
+  // Kotak's account category ("CLIENT_MTF") as words: "MTF account"; the raw value is in the tooltip
+  const cat = f?.category ? String(f.category).replace(/^CLIENT_?/i, "").replace(/_/g, " ").trim() : "";
+  const holdings = has ? kgroup("Holdings", `${t.count} stock${t.count === 1 ? "" : "s"}`, [
+      kpi("Current value", rupee(t.value, 0), `invested ${rupee(t.invested, 0)}`),
+      kpi("Total P&L", signedRupee(t.pnl), t.pnl_pct != null ? sgn(t.pnl_pct, 2, "%") : ""),
       kpi("Day P&L", t.day_pnl != null ? signedRupee(t.day_pnl) : "–", t.day_pnl != null ? "vs previous close" : ""),
       kpi("Open app trades", p.trades.filter(x => ["NEW", "ENTRY", "OPEN", "EXITING"].includes(x.state)).length,
         `${p.trades.length} tracked in total`),
-    ]) +
-    kgroup("Funds", f?.category ? esc(f.category) : "", [
+    ]) : "";   // no holdings: the card would be all dashes; the Holdings tab says so
+  const funds = kgroup("Funds", cat ? `<span title="${esc(f.category)}">${esc(cat)} account</span>` : "", [
       kpi("Available cash", f ? rupee(f.available, 0) : "–", f ? "free to trade" : ""),
       kpi("Margin used", f ? rupee(f.margin_used, 0) : "–"),
       kpi("Collateral", f ? rupee(f.collateral, 0) : "–"),
       kpi("Pay-in today", f ? rupee(f.payin, 0) : "–"),
-    ]) +
-    (riskData ? kgroup("Risk", `limit ${riskData.limit_pct}% of capital`, [
+    ]);
+  const risk = riskData ? kgroup("Risk", `limit ${riskData.limit_pct}% of capital`, [
       kpi("At risk at stops", rupee(riskData.at_risk, 0), `${riskData.at_risk_pct ?? 0}% of ${rupee(riskData.capital, 0)}`,
           meter(Math.min(1, riskData.limit ? riskData.at_risk / riskData.limit : 0))),
       kpi("Room left", rupee(riskData.room, 0), `${Math.floor(riskData.room / (riskData.risk_per_trade || 1))} more trades at ${rupee(riskData.risk_per_trade, 0)}`),
@@ -2943,7 +2945,11 @@ function renderPort() {
           riskData.unprotected ? "holdings without a stop-loss" : "every position has a stop"),
       kpi("Largest sector", riskData.largest_sector ? `${riskData.largest_sector.pct}%` : "–",
           riskData.largest_sector ? esc(riskData.largest_sector.sector) : ""),
-    ]) : "");
+    ]) : "";
+  const tiles = document.getElementById("portTiles");
+  tiles.innerHTML = holdings + funds + risk;
+  // An odd card out (holdings, funds and risk) takes the full row instead of leaving half of it empty
+  tiles.classList.toggle("odd", tiles.children.length % 2 === 1);
   renderPortTable();
 }
 
