@@ -122,14 +122,27 @@ def quote_time(q: dict) -> datetime | None:
     return datetime.fromtimestamp(sec, IST).replace(tzinfo=None) if sec > 0 else None
 
 
+def prev_close(q: dict) -> float | None:
+    """The previous session's close. Kotak's ohlc.close is that during the session, but after the close (and on a
+    holiday) a stock's becomes today's close = ltp; its net change still holds, so prev = ltp - change then."""
+    def f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+    ltp, close, change = f(q.get("ltp")), f((q.get("ohlc") or {}).get("close")), f(q.get("change"))
+    if close and ltp and close == ltp and change and ltp - change > 0:
+        return round(ltp - change, 4)
+    return close if close and close > 0 else None
+
+
 def parse_quote(q: dict) -> dict:
     ohlc = q.get("ohlc") or {}
     ts = quote_time(q)
-    prev = ohlc.get("close")
     return {"ltp": float(q["ltp"]), "open": float(ohlc.get("open") or q["ltp"]),
             "high": float(ohlc.get("high") or q["ltp"]), "low": float(ohlc.get("low") or q["ltp"]),
             "volume": float(q.get("last_volume") or 0), "time": ts,
-            "prev_close": float(prev) if prev not in (None, "") and float(prev) > 0 else None}
+            "prev_close": prev_close(q)}
 
 
 def quotes(symbols: list[str]) -> dict[str, dict]:
@@ -183,9 +196,7 @@ def index_quote(name: str) -> dict | None:
     except Exception as exc:
         log.warning("Kotak index quote for %s failed (%s)", name, exc)
         return None
-    prev = (q.get("ohlc") or {}).get("close")
-    ts = quote_time(q)
-    return {"ltp": float(q["ltp"]), "prev_close": float(prev) if prev not in (None, "") else None, "time": ts}
+    return {"ltp": float(q["ltp"]), "prev_close": prev_close(q), "time": quote_time(q)}
 
 
 def index_quotes(names: list[str]) -> dict[str, dict]:
@@ -208,9 +219,9 @@ def index_quotes(names: list[str]) -> dict[str, dict]:
     asked = {n.lower(): n for n in names}
     out = {}
     for q in res:
-        name, prev = asked.get(str(q.get("exchange_token")).lower()), (q.get("ohlc") or {}).get("close")
+        name = asked.get(str(q.get("exchange_token")).lower())
         if name and q.get("ltp") not in (None, ""):
-            out[name] = {"ltp": float(q["ltp"]), "prev_close": float(prev) if prev not in (None, "") else None}
+            out[name] = {"ltp": float(q["ltp"]), "prev_close": prev_close(q)}
     return out
 
 

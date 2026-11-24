@@ -304,3 +304,14 @@ def test_never_traded_contract_has_no_time():
     assert kotak.quote_time({"lstup_time": "Mon Jan 01 1900 05:21:10 GMT+0521 (India Standard Time)"}) is None
     assert kotak.quote_time({"lstup_time": "0"}) is None and kotak.quote_time({}) is None
     assert kotak.quote_time({"lstup_time": "1792146583"}) == datetime(2026, 10, 16, 15, 59, 43)
+
+
+@pytest.mark.parametrize("q,prev", [
+    ({"ltp": "1351", "change": "-26.5", "ohlc": {"close": "1351"}}, 1377.5),       # after the close / holiday
+    ({"ltp": "1351", "change": "-26.5", "ohlc": {"close": "1377.5"}}, 1377.5),     # during the session
+    ({"ltp": "1351", "change": "0", "ohlc": {"close": "1351"}}, 1351.0),           # really unchanged
+    ({"ltp": "1351", "ohlc": {"close": "1351"}}, 1351.0),                          # no change field
+    ({"ltp": "1351", "change": "", "ohlc": {}}, None),
+])
+def test_prev_close_after_the_close_comes_from_the_net_change(q, prev):
+    assert kotak.prev_close(q) == prev
