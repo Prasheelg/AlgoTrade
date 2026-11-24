@@ -310,6 +310,10 @@
   table.sigt td .sub { white-space: normal; }
   table.sigt td.st { white-space: normal; min-width: 115px; max-width: 220px; }
   table.sigt td.st .sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .sd-orders { margin: 10px 0 0; font-size: 12.5px; }
+  .sd-orders .lbl { display: block; margin-bottom: 2px; }
+  .sd-orders .sub { font-size: 12.5px; margin-top: 2px; }
+  table.sigt td.st .sub.opt1 { -webkit-line-clamp: 1; word-break: break-all; }
   table.sigt td.num .sub { max-width: 120px; margin-left: auto; }
   table.sigt td.lv { min-width: 150px; white-space: normal; }
   table.sigt td.lv .range { width: 100%; }
@@ -1841,7 +1845,8 @@ const realTrade = t => !t ? "" : `<div class="sub" title="${esc(t.note ?? "")}">
 // (OPT_STATE is defined with the Options Auto-trade panel below)
 const optTrade = (o, s) => {
   if (!o) return "";
-  const name = o.tsym ?? `${s.symbol} ${o.opt}`;
+  // the row already names the stock: show the contract as "50,500 CE" (the full trading symbol is in the tooltip)
+  const name = o.strike != null ? `${o.strike.toLocaleString(cfg.locale)} ${o.opt}` : o.tsym ?? `${s.symbol} ${o.opt}`;
   const exp = o.expiry ? new Date(o.expiry + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
   const contract = o.strike != null ? `${o.strike.toLocaleString(cfg.locale)} ${o.opt}${exp ? ` · exp ${exp}` : ""}` : "";
   let line;
@@ -1856,9 +1861,10 @@ const optTrade = (o, s) => {
       (o.exit_price != null ? ` → ${inr(o.exit_price)}` : "") +
       (o.pnl != null ? ` <span class="${cls(o.pnl)}">${o.pnl > 0 ? "+" : ""}${inr(o.pnl)}</span>` : "");
   }
-  const tip = [contract, o.product, o.planned ? "Estimate from the live ask; the contract is picked when the entry is reached" : "",
+  const tip = [o.tsym, contract, o.product, o.planned ? "Estimate from the live ask; the contract is picked when the entry is reached" : "",
                o.plan_note, o.note].filter(Boolean).join(" · ");
-  return `<div class="sub" title="${esc(tip)}">${line}${o.plan_note || (o.note && o.state !== "WAIT") ? ` <span class="flat">(${esc(o.plan_note || o.note)})</span>` : ""}</div>`;
+  const why = o.plan_note || (o.state !== "WAIT" ? o.note : "");
+  return `<div class="sub opt1" title="${esc(tip)}">${line}</div>` + (why ? `<div class="sub opt1 flat" title="${esc(why)}">${esc(why)}</div>` : "");
 };
 // "SILVERM30NOV26FUT" -> "30NOV26 FUT" (an MCX signal's futures contract, under its commodity name)
 const futName = (tsym, sym) => tsym.startsWith(sym) ? `${tsym.slice(sym.length).replace(/FUT$/, "")} FUT` : tsym;
@@ -4942,6 +4948,8 @@ function renderSd() {
     <div class="sd-stats">${stat("Entry", inr(s.entry) + (s.entry_type ? ` <span class="tf">${esc(s.entry_type)}</span>` : ""))}${stat(s.open ? "LTP" : "Exit", inr(s.current))}
       ${stat("P&L", noPos ? "–" : `<span class="${cls(s.pnl_pct)}">${sgn(s.pnl_pct, 2, "%")}</span><div class="sub ${cls(s.pnl_r)}">${sgn(s.pnl_r)}R</div>`)}
       ${stat("Stop", inr(s.stop_loss))}${stat("Target", inr(s.target1))}</div>
+    ${s.trade || s.option || s.skipped ? `<div class="sd-orders"><span class="lbl">Orders</span>${realTrade(s.trade)}${optTrade(s.option, s)}` +
+      `${s.skipped && !s.trade && !s.option ? `<div class="sub flat">Skipped: ${esc(s.skipped)}</div>` : ""}</div>` : ""}
     ${sd.ev ? `<div class="evline ${sd.ev.warning ? "warn" : ""}">${sd.ev.warning ? `⚠ ${esc(sd.ev.warning)}: prices can jump` :
       [sd.ev.results ? `Results ${esc(sd.ev.results)}` : "", sd.ev.ex_dividend ? `ex-dividend ${esc(sd.ev.ex_dividend)}` : ""].filter(Boolean).join(" · ") || "No upcoming results or dividend known"}</div>` : ""}
     <ul class="sd-strats">${reasons.map(r => `<li><b>${esc(r)}</b>${desc(r) ? ` · ${esc(desc(r))}` : ""}</li>`).join("")}</ul>
