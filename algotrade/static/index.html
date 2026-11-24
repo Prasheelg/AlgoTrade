@@ -954,6 +954,7 @@
   .ch-quote:empty { display: none; }
   .ch-quote .nm { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
   .ch-quote .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; align-self: center; }
+  .ch-quote .tag.closed { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
   .ch-quote .px { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
   .ch-quote .chg { font-size: 13.5px; font-weight: 600; }
   .ch-quote .chg small { font-weight: 500; color: var(--muted); margin-left: 4px; }
@@ -5672,6 +5673,17 @@ function chApply(fresh) {
     chApi.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - (PHONE.matches ? 70 : 150)), to: n + 4 });
   }
 }
+// An option's trading symbol in words: "NIFTY26D0125350CE" -> "NIFTY 25350 CE · 1 Dec",
+// "HINDUNILVR26DEC2060CE" -> "HINDUNILVR 2060 CE · Dec"; anything else is shown as it is
+const MONS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+function optLabel(sym) {
+  const cap = w => w[0] + w.slice(1).toLowerCase();
+  let m = /^([A-Z&-]+?)\d{2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d+(?:\.\d+)?)(CE|PE)$/.exec(sym);
+  if (m) return `${m[1]} ${m[3]} ${m[4]} · ${cap(m[2])}`;
+  m = /^([A-Z&-]+?)\d{2}([1-9OND])(\d{2})(\d+(?:\.\d+)?)(CE|PE)$/.exec(sym);
+  if (m) return `${m[1]} ${m[4]} ${m[5]} · ${+m[3]} ${cap(MONS["123456789OND".indexOf(m[2])])}`;
+  return sym;
+}
 // The quote header: name, kind, the latest price and its change on the day (against the previous session's close)
 function chQuote() {
   const box = document.getElementById("chQuote");
@@ -5682,9 +5694,14 @@ function chQuote() {
   else { const day = last.t.slice(0, 10);
          for (let i = chBars.length - 1; i >= 0; i--) if (chBars[i].t.slice(0, 10) !== day) { prev = chBars[i].c; break; } }
   const diff = prev ? last.c - prev : null;
+  // "today" only while the latest bar is from today's session; otherwise say which session it was, and that it's shut
+  const mk = META?.markets.find(m => m.code === market), st = mk && marketState(mk), lastDay = last.t.slice(0, 10);
+  const shut = st && !st.open, dayLbl = new Date(`${lastDay}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  const onDay = d.tf === "1d" || (st && lastDay === st.now.date) ? (shut ? "last session" : "today") : dayLbl;
   box.innerHTML = `<span class="nm">${esc(d.label)}</span>${d.kind && d.kind !== "stock" ? `<span class="tag">${esc(d.kind)}</span>` : ""}` +
     `<span class="px">${f(last.c)}</span>` +
-    (diff != null ? `<span class="chg ${cls(diff)}">${diff > 0 ? "+" : diff < 0 ? "−" : ""}${f(Math.abs(diff))} (${sgn(diff / prev * 100, 2, "%")})<small>today</small></span>` : "");
+    (diff != null ? `<span class="chg ${cls(diff)}">${diff > 0 ? "+" : diff < 0 ? "−" : ""}${f(Math.abs(diff))} (${sgn(diff / prev * 100, 2, "%")})<small>${onDay}</small></span>` : "") +
+    (shut ? `<span class="tag closed" title="${esc(st.when)}">Market closed${st.holiday ? ` · ${esc(st.holiday)}` : ""}</span>` : "");
 }
 // Under it: the hovered candle (the newest when the mouse is off the chart) and the indicators that are on
 function chLegend(i) {
@@ -5709,7 +5726,7 @@ function chRender() {
     `<button type="button" data-ind="${k}" class="${ch.ind.has(k) ? "on" : ""}">${label}</button>`).join("");
   const recent = store.get(`chRecent_${market}`) ?? [];
   document.getElementById("chRecent").innerHTML = recent.map(s =>
-    `<button type="button" data-sym="${esc(s)}" class="${s === ch.sym ? "on" : ""}">${esc(s)}</button>`).join("");
+    `<button type="button" data-sym="${esc(s)}" class="${s === ch.sym ? "on" : ""}" title="${esc(s)}">${esc(optLabel(s))}</button>`).join("");
   const inp = document.getElementById("chSym");
   if (document.activeElement !== inp) inp.value = ch.sym;
   const shown = ch.data && ch.key === chKey();
