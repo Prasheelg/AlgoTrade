@@ -149,16 +149,16 @@ def minutes_left(now: datetime) -> float:
 
 
 def trading_minutes_to(expiry: date, now: datetime) -> float:
-    """Trading minutes from now until 15:30 on expiry day (weekdays; NSE holidays not removed)."""
+    """Trading minutes from now until 15:30 on expiry day (NSE trading days only)."""
     today = now.date()
     if expiry < today:
         return 0.0
     if expiry == today:
         return minutes_left(now)
-    left = minutes_left(now) if today.weekday() < 5 else 0.0
+    left = minutes_left(now) if markets.get("IN").trading_day(today) else 0.0
     d = today + timedelta(days=1)
     while d <= expiry:
-        if d.weekday() < 5:
+        if markets.get("IN").trading_day(d):
             left += SESSION_MIN
         d += timedelta(days=1)
     return left

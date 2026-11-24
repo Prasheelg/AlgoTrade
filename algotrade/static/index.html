@@ -2041,27 +2041,40 @@ function pinStrip() {
 }
 new ResizeObserver(pinStrip).observe(document.querySelector(".top"));
 
-// ---- Exchange clock (regular hours, weekdays; holidays aren't known) ----
+// ---- Exchange clock (regular hours on trading days: weekends, the exchange's holidays and early closes known) ----
 const EXCHANGE = { IN: ["NSE", "IST"], US: ["NYSE · Nasdaq", "ET"] };
 let lastRefresh = null;
 const quotes = {};  // market -> latest /api/index quote
 const toMin = hhmm => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
 const dur = mins => mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function exchangeNow(m) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: m.tz, weekday: "short",
+    year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map(p => [p.type, p.value]));
-  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(parts.weekday);
-  return { day, mins: +parts.hour * 60 + +parts.minute, time: `${parts.hour}:${parts.minute}:${parts.second}` };
+  const day = DAYS.indexOf(parts.weekday);
+  return { day, date: `${parts.year}-${parts.month}-${parts.day}`, mins: +parts.hour * 60 + +parts.minute,
+           time: `${parts.hour}:${parts.minute}:${parts.second}` };
 }
 
+// Calendar arithmetic on "YYYY-MM-DD" exchange dates (UTC noon, so no DST edge)
+const addDays = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const isoDay = iso => new Date(`${iso}T12:00:00Z`).getUTCDay();
+const tradingDay = (m, iso) => isoDay(iso) % 6 !== 0 && !m.holidays?.[iso];
+const closeOn = (m, iso) => m.early_close?.[iso] ?? m.session[1];
+
 function marketState(m) {
-  const now = exchangeNow(m), open = toMin(m.session[0]), close = toMin(m.session[1]);
-  const weekday = now.day >= 1 && now.day <= 5;
-  if (weekday && now.mins >= open && now.mins <= close) return { open: true, when: `closes in ${dur(close - now.mins)}`, now };
-  if (weekday && now.mins < open) return { open: false, when: `opens in ${dur(open - now.mins)}`, now };
-  const next = now.day === 5 || now.day === 6 ? "Mon" : now.day === 0 ? "Mon" : "tomorrow";
-  return { open: false, when: `opens ${next} ${m.session[0]}`, now };
+  const now = exchangeNow(m), open = toMin(m.session[0]), close = toMin(closeOn(m, now.date));
+  const today = tradingDay(m, now.date), holiday = m.holidays?.[now.date] ?? null;
+  if (today && now.mins >= open && now.mins <= close) return { open: true, when: `closes in ${dur(close - now.mins)}`, now };
+  if (today && now.mins < open) return { open: false, when: `opens in ${dur(open - now.mins)}`, now };
+  let next = addDays(now.date, 1), n = 1;
+  while (!tradingDay(m, next) && n < 15) { next = addDays(next, 1); n++; }
+  const label = n === 1 ? "tomorrow" : n < 7 ? DAYS[isoDay(next)]
+    : new Date(`${next}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  return { open: false, when: `${holiday ? `holiday · ${holiday} · ` : ""}opens ${label} ${m.session[0]}`, now, holiday,
+           tradingDay: today };
 }
 
 const minsSince = ts => ts ? Math.round((Date.now() - new Date(ts.replace(" ", "T"))) / 60000) : null;
@@ -2083,7 +2096,7 @@ function renderStatus() {
     const st = marketState(m), [ex, tz] = EXCHANGE[m.code] ?? [m.name, ""];
     parts.push(seg("", `<span class="pill ${st.open ? "open" : "closed"}" id="sbSess">${st.open ? "Open" : "Closed"}</span>` +
       `<span class="sv">${esc(ex)}</span><span class="sv dim" id="sbWhen">${st.when}</span>`, "sess",
-      `Regular hours ${m.session[0]}–${m.session[1]} ${tz}, Mon–Fri (holidays not included)`));
+      `Regular hours ${m.session[0]}–${m.session[1]} ${tz}, Mon–Fri, exchange holidays excluded`));
     parts.push(seg(tz, `<span class="sv" id="sbClock">${st.now.time}</span>`, "", "Exchange time"));
   }
   const q = quotes[market];
@@ -2428,7 +2441,7 @@ function renderScanWarn() {
   let show = false, ms = null;
   if (m?.session && scanAlive != null && !on) {
     ms = marketState(m);
-    const soon = !ms.open && ms.now.day >= 1 && ms.now.day <= 5 && toMin(m.session[0]) - ms.now.mins <= SCAN_WARN_MIN;
+    const soon = !ms.open && ms.tradingDay && toMin(m.session[0]) - ms.now.mins <= SCAN_WARN_MIN && ms.now.mins < toMin(m.session[0]);
     show = ms.open || soon;
   }
   w.hidden = !show;

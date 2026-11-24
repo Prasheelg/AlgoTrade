@@ -8,7 +8,7 @@ import pytest
 from algotrade import condor, strategy
 
 IST = ZoneInfo("Asia/Kolkata")
-EXP = date(2026, 11, 24)   # a Tuesday
+EXP = date(2026, 12, 1)    # a Tuesday (not a holiday)
 
 
 def at(h, m, d=EXP):

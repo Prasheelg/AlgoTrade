@@ -35,11 +35,11 @@ _skip_until: list = [None]
 
 def active(timeframe: str, market: str, now: datetime) -> bool:
     """Is the hybrid feed used for this scan? India, an intraday timeframe, Kotak set up, a weekday session that
-    has opened, and Kotak not found empty in the last SKIP_MIN minutes."""
+    has opened (not a holiday), and Kotak not found empty in the last SKIP_MIN minutes."""
     if market != "IN" or timeframe not in TIMEFRAMES or not kotak.enabled():
         return False
     m = markets.get("IN")
-    if now.weekday() >= 5 or now.time() < m.session[0]:
+    if not m.trading_day(now.date()) or now.time() < m.session[0]:
         return False
     return _skip_until[0] is None or now >= _skip_until[0]
 

@@ -78,3 +78,36 @@ def test_market_is_frozen():
     import dataclasses
     with pytest.raises(dataclasses.FrozenInstanceError):
         IN.capital = 1
+
+
+# ---- holidays (quirk 2 fixed for the years listed) ----
+
+def test_nse_holiday_is_closed_all_day():
+    now = at(IN, 2026, 11, 24, 11, 0)   # Guru Nanak Jayanti, a Tuesday
+    assert IN.holiday(now.date()) == "Guru Nanak Jayanti"
+    assert not IN.is_open(now) and not IN.in_scan_window(now) and not IN.is_after_close(at(IN, 2026, 11, 24, 16, 0))
+    assert IN.is_open(at(IN, 2026, 11, 25, 11, 0))
+
+
+def test_next_trading_day_skips_holidays_and_weekends():
+    from datetime import date
+    assert IN.next_trading_day(date(2026, 11, 23)) == date(2026, 11, 25)
+    assert IN.next_trading_day(date(2026, 12, 24)) == date(2026, 12, 28)   # Christmas Fri, then the weekend
+    assert not IN.trading_day(date(2026, 11, 28)) and IN.trading_day(date(2026, 11, 27))
+
+
+def test_us_holiday_and_early_close():
+    assert not US.is_open(at(US, 2026, 11, 26, 12, 0))                  # Thanksgiving
+    assert US.is_open(at(US, 2026, 11, 27, 12, 59))
+    assert not US.is_open(at(US, 2026, 11, 27, 13, 1))                  # 1:00 p.m. close
+    assert US.is_after_close(at(US, 2026, 11, 27, 13, 1)) and not US.in_scan_window(at(US, 2026, 11, 27, 14, 0))
+
+
+def test_mcx_has_no_holiday_list():
+    assert markets.MARKETS["MCX"].holidays == {}
+
+
+def test_holidays_are_weekdays():
+    from datetime import date
+    for m in (IN, US):
+        assert all(date.fromisoformat(d).weekday() < 5 for d in m.holidays), m.code

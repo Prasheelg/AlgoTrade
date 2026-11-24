@@ -823,7 +823,10 @@ def api_meta():
         "timeframes": [{"value": v, "label": l} for v, l in TIMEFRAMES] + [{"value": ALL_TF, "label": "All"}],
         "markets": [{"code": m.code, "name": m.name, "tz": m.tz,
                      "session": [t.strftime("%H:%M") for t in m.session],
-                     "scan_window": [t.strftime("%H:%M") for t in m.scan_window]} for m in markets.MARKETS.values()],
+                     "scan_window": [t.strftime("%H:%M") for t in m.scan_window],
+                     "holidays": m.holidays,
+                     "early_close": {d: t.strftime("%H:%M") for d, t in m.early_close.items()}}
+                    for m in markets.MARKETS.values()],
         "defaults": {"timeframe": config.TIMEFRAME, "min_score": config.MIN_SCORE},
         "scan": {"interval_min": config.SCAN_INTERVAL_MIN, "timeframes": config.SCAN_TIMEFRAMES},
     })

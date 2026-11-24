@@ -134,12 +134,12 @@ def build(now: datetime | None = None) -> str:
 
 
 def daily(now: datetime | None = None) -> bool:
-    """Send today's summary if it's due (weekday, after SUMMARY_AFTER) and not sent yet."""
+    """Send today's summary if it's due (an NSE trading day, after SUMMARY_AFTER) and not sent yet."""
     if not config.DAILY_SUMMARY:
         return False
     now = now or datetime.now(ZoneInfo(markets.get("IN").tz))
     day = now.date().isoformat()
-    if now.weekday() >= 5 or now.time() < SUMMARY_AFTER or (state.get_setting(KEY, {})[0] or {}).get("day") == day:
+    if not markets.get("IN").trading_day(now.date()) or now.time() < SUMMARY_AFTER or (state.get_setting(KEY, {})[0] or {}).get("day") == day:
         return False
     state.set_setting(KEY, {"day": day})   # first, so the other process doesn't send it too
     text = build(now)

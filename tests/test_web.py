@@ -114,6 +114,9 @@ def test_meta_shape(client):
     assert [f["name"] for f in m["filters"]] == ["trend", "rs", "events"]
     assert [t["value"] for t in m["timeframes"]] == ["5m", "15m", "30m", "1h", "1d", "all"]
     assert m["timeframes"][-1] == {"value": "all", "label": "All"}
+    cal = [(mk.pop("holidays"), mk.pop("early_close")) for mk in m["markets"]]
+    assert cal[0][0]["2026-11-24"] == "Guru Nanak Jayanti" and cal[1][1]["2026-11-27"] == "13:00"
+    assert cal[2] == ({}, {})
     assert m["markets"] == [
         {"code": "IN", "name": "India", "tz": "Asia/Kolkata", "session": ["09:15", "15:30"],
          "scan_window": ["09:00", "15:30"]},
