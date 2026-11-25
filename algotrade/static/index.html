@@ -1376,6 +1376,13 @@
     .sbar .sseg.pnl .caret { position: absolute; right: 12px; top: 50%; margin-top: -6px; }
     .sbar .sseg.pnl .sv.dim { font-size: 11px; }
     .sbar .sseg.end { grid-column: 1 / -1; border-top: 1px solid var(--line-2); }
+    /* All (NSE + MCX): the two sessions side by side, then the two quotes side by side (the ticker), P&L under them */
+    .sbar .sseg.sess:has(+ .sseg.sess), .sbar .sseg.sess + .sseg.sess { grid-column: auto; flex-wrap: wrap; row-gap: 2px; }
+    .sbar .sseg.sess:has(+ .sseg.sess) .sv.dim, .sbar .sseg.sess + .sseg.sess .sv.dim { flex-basis: 100%; margin-left: 0; font-size: 11px; }
+    .sbar .sseg.sess + .sseg.sess, .sbar .sseg.idx + .sseg.idx { border-left: 1px solid var(--line-2); }
+    .sbar .sseg.idx:has(+ .sseg.idx), .sbar .sseg.idx + .sseg.idx { grid-column: auto; }
+    .sbar .sseg.idx:has(+ .sseg.idx) .sv:not(.chg), .sbar .sseg.idx + .sseg.idx .sv:not(.chg) { font-size: 15px; }
+    .sbar .sseg.idx + .sseg.idx + .sseg.pnl { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line-2); }
 
     /* Tabs: equal columns, the count big on top and the name under it, all on one line of the card */
     .list-head .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; }
@@ -1432,6 +1439,57 @@
          display: grid; place-items: center; opacity: 0; transform: translateY(-60px); pointer-events: none; }
   #ptr svg { width: 18px; height: 18px; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
   #ptr.go svg { animation: spin .8s linear infinite; }
+  .sd-acts .sig-del { color: var(--down); }
+  /* Phone signals: dense rows, not cards. Three lines per signal, the outcome stripe down the left:
+       [exch] SYMBOL side ................ P&L %
+       entry → LTP   time tf day ......... R
+       status · order / option note ...... ★★★
+     The range bar, the strategy names and the ⓘ / ✕ buttons go: tapping the row opens its details (with Delete). */
+  @media (max-width: 640px) {
+    .tablewrap table.sigt.cards #rows { display: block; gap: 0; padding: 0; }
+    .tablewrap table.sigt.cards #rows tr, .tablewrap table.sigt.cards #rows tr:last-child {
+      display: grid; grid-template-columns: max-content max-content minmax(0, 1fr) auto; gap: 3px 8px; align-items: baseline;
+      padding: 9px 12px 9px 15px; margin: 0; border: 0; border-top: 1px solid var(--line-2); border-radius: 0;
+      background: transparent; box-shadow: inset 3px 0 0 var(--stripe, transparent); cursor: pointer; }
+    .tablewrap table.sigt.cards #rows tr:first-child { border-top: 0; }
+    .tablewrap table.sigt.cards #rows tr:active { background: var(--panel-2); }
+    .tablewrap table.sigt.cards #rows td { order: 0; margin: 0; font-size: 12px; min-width: 0; max-width: none;
+                                           justify-self: stretch; align-self: baseline; text-align: left; }
+    .tablewrap table.sigt.cards #rows td::before { display: none; }
+    .tablewrap table.sigt.cards #rows td:nth-child(7), .tablewrap table.sigt.cards #rows td:nth-child(9),
+    .tablewrap table.sigt.cards #rows td:nth-child(1) .sub, .tablewrap table.sigt.cards #rows td:nth-child(4) .sub { display: none; }
+    /* line 1: exchange tag first, then symbol and side */
+    .tablewrap table.sigt.cards #rows td:nth-child(1) { grid-area: 1 / 1 / 2 / 4; font-size: 14px; }
+    .tablewrap table.sigt.cards #rows td:nth-child(1) .stock { flex-wrap: nowrap; gap: 6px; }
+    .tablewrap table.sigt.cards #rows td:nth-child(1) .exch { order: -1; }
+    .tablewrap table.sigt.cards #rows td:nth-child(1) .sym { font-size: 14px; }
+    /* P&L: the % on line 1, R under it on line 2 */
+    .tablewrap table.sigt.cards #rows td:nth-child(6) { grid-area: 1 / 4 / 3 / 5; text-align: right; align-self: start; justify-self: end; }
+    .tablewrap table.sigt.cards #rows td:nth-child(6) .pnl { font: 700 14px/1.3 var(--mono); }
+    .tablewrap table.sigt.cards #rows td:nth-child(6) .sub { font: 11px/1.3 var(--mono); margin: 2px 0 0; }
+    /* line 2: entry → LTP, then when */
+    .tablewrap table.sigt.cards #rows td:nth-child(4), .tablewrap table.sigt.cards #rows td:nth-child(5) {
+      font: 12px var(--mono); color: var(--ink-2, var(--ink)); white-space: nowrap; text-align: left; }
+    .tablewrap table.sigt.cards #rows td:nth-child(4) { grid-area: 2 / 1; }
+    .tablewrap table.sigt.cards #rows td:nth-child(5) { grid-area: 2 / 2; }
+    .tablewrap table.sigt.cards #rows td:nth-child(5)::before { display: inline; content: "→ "; color: var(--muted); font: inherit; margin: 0; }
+    .tablewrap table.sigt.cards #rows td:nth-child(5) .sub { display: inline; margin-left: 4px; font-size: 10.5px; color: var(--muted); }
+    .tablewrap table.sigt.cards #rows td:nth-child(2) { grid-area: 2 / 3; color: var(--muted); font-size: 11px; white-space: nowrap;
+                                                        overflow: hidden; text-overflow: ellipsis; }
+    .tablewrap table.sigt.cards #rows td:nth-child(2) .t { font: 11px var(--mono); }
+    .tablewrap table.sigt.cards #rows td:nth-child(2) .sub { display: inline; margin: 0 0 0 4px; font-size: 11px; white-space: nowrap; }
+    /* line 3: status and the order / option note on one line, the agreeing-strategy stars at the end */
+    .tablewrap table.sigt.cards #rows td:nth-child(3) { grid-area: 3 / 1 / 4 / 4; display: flex; align-items: center; gap: 6px;
+                                                        justify-content: flex-start;
+                                                        overflow: hidden; white-space: nowrap; }
+    .tablewrap table.sigt.cards #rows td:nth-child(3) .pill { flex: none; margin: 0; padding: 1px 7px; font-size: 10.5px; }
+    .tablewrap table.sigt.cards #rows td:nth-child(3) > :not(.pill), .tablewrap table.sigt.cards #rows td:nth-child(3) .sub {
+      display: block; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px;
+      -webkit-line-clamp: unset; }
+    .tablewrap table.sigt.cards #rows td:nth-child(8) { grid-area: 3 / 4; justify-self: end; align-self: center; }
+    .tablewrap table.sigt.cards #rows td:nth-child(8) .tags > :not(.stars) { display: none; }
+    .tablewrap table.sigt.cards #rows td:nth-child(8) .stars { font-size: 10px; color: var(--muted); margin: 0; }
+  }
 </style>
 </head>
 <body>
@@ -2137,8 +2195,8 @@ function renderStatus() {
     const tz = EXCHANGE[ms[0].code]?.[1] ?? "";
     parts.push(seg(tz, `<span class="sv" id="sbClock">${marketState(ms[0]).now.time}</span>`, "", "Exchange time"));
   }
-  const q = quotes[market];
-  if (q) {
+  // one quote per market shown (in All: NIFTY and the MCX headline future side by side, a small ticker)
+  for (const q of ms.map(m => quotes[m.code]).filter(Boolean)) {
     const dir = q.change > 0 ? "up" : q.change < 0 ? "down" : "";
     parts.push(seg(esc(q.name), q.last == null ? `<span class="sv dim">unavailable</span>`
       : `<span class="sv">${num(q.last)}</span><span class="sv chg ${dir}">${q.change > 0 ? "▲" : q.change < 0 ? "▼" : ""} ` +
@@ -2300,7 +2358,7 @@ function tickStatus() {
 async function loadIndex(mk = market) {
   try {
     const q = await (await fetch(`/api/index?market=${mk}`)).json();
-    if (q.market) { quotes[mk] = q; if (mk === market) renderStatus(); }
+    if (q.market) { quotes[mk] = q; if (sbMarkets().some(m => m.code === mk)) renderStatus(); }
   } catch {}
 }
 setInterval(tickStatus, 1000);
@@ -2313,6 +2371,7 @@ setInterval(() => {
   indexTick++;
   const live = market === "IN" && feedLive && !pushOk && !document.hidden;
   if (indexTick % (live ? INDEX_LIVE_SEC : 60) === 0) loadIndex();
+  if (indexTick % 60 === 0) sbMarkets().forEach(m => m.code !== market && loadIndex(m.code));  // the rest of the ticker
 }, 1000);
 
 async function load(path = "/api/signals", opts) {
@@ -2604,6 +2663,7 @@ async function loadMeta() {
   STRATS = m.strategies;
   opts = optsFor(market);
   renderMarkets();
+  sbMarkets().forEach(m => m.code !== market && loadIndex(m.code));  // the ticker's other quotes (All)
   loadScanSettings(market); loadScanStatus();
   // One card per kind; the supply/demand zone patterns get their own card since they share one vote.
   // Strategies added later that no card names go in an "Other" card, so nothing disappears.
@@ -2632,7 +2692,8 @@ document.getElementById("markets").onclick = e => {
   if (pick === "ALL" || (sig && allMk && pick === market)) {   // All on, or off again to just this market
     if (pick === "ALL" && allMk) return;
     allMk = pick === "ALL"; store.set("allMk", allMk);
-    data = []; tab = "pending"; tabPicked = false; render(); renderMarkets(); renderStatus(); load(); return;
+    data = []; tab = "pending"; tabPicked = false; render(); renderMarkets(); renderStatus(); load();
+    sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code)); return;
   }
   if (pick === market) return;
   if (sig) { allMk = false; store.set("allMk", false); }
@@ -2643,7 +2704,7 @@ document.getElementById("markets").onclick = e => {
   load();
   if (view === "performance") { perf = null; loadPerf(); }
   if (view === "chart") chOpen();
-  if (!quotes[market]) loadIndex();
+  sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code));
 };
 
 document.getElementById("filters").onchange = () => {
@@ -2668,8 +2729,8 @@ function setView(v) {
   const wasAll = view === "signals" && allMk;
   view = v;
   store.set("view", v);
-  renderMarkets();
-  if (view === "signals" && allMk && !wasAll) load();
+  renderMarkets(); renderStatus();
+  if (view === "signals" && allMk && !wasAll) { load(); sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code)); }
   document.querySelectorAll("#views button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   document.getElementById("sigView").hidden = view !== "signals";
   document.getElementById("perfView").hidden = view !== "performance";
@@ -3319,16 +3380,19 @@ document.getElementById("rows").addEventListener("click", e => {
   const sell = e.target.closest("[data-ssell]");
   if (sell) { openSell(sell.dataset.ssell); return; }
   const del = e.target.closest("[data-sdel]");
-  if (del) {
-    const s = data.find(x => x.key === del.dataset.sdel); if (!s) return;
-    const what = `${s.side} ${s.symbol} (${STATUS_TEXT[s.status] ?? s.status}, ${signalTime(s)})`;
-    if (confirm(`Delete the ${what} signal?\n\nA later scan can add it again if the setup still qualifies.`)) deleteSignals([s.key], del);
-    return;
+  if (del) { const s = data.find(x => x.key === del.dataset.sdel); if (s) confirmDelete(s, del); return; }
+  const b = e.target.closest("[data-sbuy]");
+  if (b) { const s = data.find(x => x.key === b.dataset.sbuy); if (s) signalBuy(s); return; }
+  // phones: the row is the button (dense rows carry no ⓘ / ✕); a tap anywhere but a link opens the details
+  if (PHONE.matches && !e.target.closest("a, button")) {
+    const s = data.find(x => x.key === e.target.closest("tr")?.querySelector("[data-sdet]")?.dataset.sdet);
+    if (s) openDetail(s);
   }
-  const b = e.target.closest("[data-sbuy]"); if (!b) return;
-  const s = data.find(x => x.key === b.dataset.sbuy); if (!s) return;
-  signalBuy(s);
 });
+function confirmDelete(s, btn) {
+  const what = `${s.side} ${s.symbol} (${STATUS_TEXT[s.status] ?? s.status}, ${signalTime(s)})`;
+  if (confirm(`Delete the ${what} signal?\n\nA later scan can add it again if the setup still qualifies.`)) deleteSignals([s.key], btn);
+}
 
 // Delete signals from the dashboard (not orders: Kotak is never touched). Ones with an Auto-trade order
 // still in progress are kept by the server so the app keeps tracking that order.
@@ -5013,10 +5077,11 @@ function renderSd() {
       [sd.ev.results ? `Results ${esc(sd.ev.results)}` : "", sd.ev.ex_dividend ? `ex-dividend ${esc(sd.ev.ex_dividend)}` : ""].filter(Boolean).join(" · ") || "No upcoming results or dividend known"}</div>` : ""}
     <ul class="sd-strats">${reasons.map(r => `<li><b>${esc(r)}</b>${desc(r) ? ` · ${esc(desc(r))}` : ""}</li>`).join("")}</ul>
     ${journalHtml()}
-    <div class="sd-acts"><a href="https://www.tradingview.com/chart/?symbol=${TV_PREFIX[s.market] ?? cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener">Open in TradingView ↗</a>
+    <div class="sd-acts"><a href="https://www.tradingview.com/chart/?symbol=${TV_PREFIX[s.market] ?? cfg.tv_prefix}${encodeURIComponent(s.symbol)}${s.market === "MCX" ? "1!" : ""}" target="_blank" rel="noopener">Open in TradingView ↗</a>
       <button type="button" class="btn" data-sd="chart">📈 Chart</button>
       <button type="button" class="btn" data-sd="size">🧮 Size</button>
-      ${market === "IN" ? `<button type="button" class="btn buy-more" data-sd="buy">Buy</button><button type="button" class="btn close-trade" data-sd="sell">Sell</button>` : ""}</div>`;
+      ${s.market === "IN" ? `<button type="button" class="btn buy-more" data-sd="buy">Buy</button><button type="button" class="btn close-trade" data-sd="sell">Sell</button>` : ""}
+      <button type="button" class="btn sig-del" data-sd="del">Delete</button></div>`;
 }
 sdBox.addEventListener("click", async e => {
   const tag = e.target.closest("[data-jtag]");
@@ -5050,6 +5115,7 @@ sdBox.addEventListener("click", async e => {
   if (b.dataset.sd === "sell") openSell(s.symbol);
   if (b.dataset.sd === "size") openCalc({ symbol: s.symbol, entry: s.entry, stop: s.stop_loss });
   if (b.dataset.sd === "chart") openChart(s.symbol, s.timeframe);
+  if (b.dataset.sd === "del") confirmDelete(s);
 });
 sdBox.addEventListener("input", e => {
   if (e.target.id === "jrNote" && sd?.jr) {
