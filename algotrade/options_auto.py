@@ -13,8 +13,7 @@ premium), never written. The option follows the signal on the underlying's live 
   for pullbacks, a stop for breakouts; or the tracker has filled the signal), the contract is picked on the spot
   (fno.otm_contract: nearest expiry at least OPTIONS_MIN_DAYS away, the OPTIONS_OTM_STEPS-th strike out of the
   money) and bought with a marketable limit off the best ask (OPTION_PROTECTION_PCT; SEBI allows no market
-  orders via the API). Lots = OPTIONS_MAX_PREMIUM / premium of one lot, at most OPTIONS_MAX_LOTS; the premium of
-  all open option trades stays under OPTIONS_MAX_OPEN_PREMIUM. A contract with no two-sided quote or a bid-ask
+  orders via the API). Lots = OPTIONS_MAX_PREMIUM / premium of one lot, at most OPTIONS_MAX_LOTS. A contract with no two-sided quote or a bid-ask
   spread over OPTIONS_MAX_SPREAD_PCT is skipped. Market hours only (no AMO: the price would be stale).
 - Exit: the option is sold (marketable limit off the best bid) when the underlying reaches the signal's stop or
   target 1, when the tracker closes the signal (time exit, or a stop / target it saw first), on the option's
@@ -398,15 +397,9 @@ def _buy(t: dict, u: float) -> None:
         px = protect(float(ask), "BUY", config.OPTION_PROTECTION_PCT, tick)
         one = px * lot * mult                      # ₹ premium of one lot
         lots = _lots(px, lot, mult, mk)
-        used = open_premium()
         if lots < 1:
             why = (f"one lot of {tsym} ({lot} × ₹{px:,.2f} = ₹{one:,.0f}) costs more than OPTIONS_MAX_PREMIUM "
                    f"₹{config.OPTIONS_MAX_PREMIUM:,.0f}")
-        elif used + one * lots > config.OPTIONS_MAX_OPEN_PREMIUM:
-            lots = int((config.OPTIONS_MAX_OPEN_PREMIUM - used) // one)
-            if lots < 1:
-                why = (f"open premium limit: ₹{used:,.0f} already in options, OPTIONS_MAX_OPEN_PREMIUM "
-                       f"₹{config.OPTIONS_MAX_OPEN_PREMIUM:,.0f}")
     contract = dict(tsym=tsym, expiry=str(c["expiry"]), strike=float(c["strike"]), lot=lot, mult=mult)
     if why:
         _save(key, **contract, state=SKIPPED, note=why)

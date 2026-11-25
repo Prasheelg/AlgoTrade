@@ -38,7 +38,7 @@ def opt(monkeypatch):
     msgs = []
     monkeypatch.setattr(orders, "_notify", lambda text, kind=None: msgs.append(text))
     for k, v in dict(OPTIONS_AUTO_TRADE=True, OPTIONS_OTM_STEPS=2, OPTIONS_MIN_DAYS=5, OPTIONS_MAX_PREMIUM=10000.0,
-                     OPTIONS_MAX_OPEN_PREMIUM=30000.0, OPTIONS_MAX_SPREAD_PCT=5.0, OPTION_PROTECTION_PCT=5.0,
+                     OPTIONS_MAX_SPREAD_PCT=5.0, OPTION_PROTECTION_PCT=5.0,
                      OPTIONS_MAX_LOTS=10, INTRADAY_AUTO_TRADE=False, OPTIONS_INSTEAD_OF_SHARES=False).items():
         monkeypatch.setattr(config, k, v)
     state.set_setting(broker.TRADING_KEY, {"enabled": True})
@@ -171,13 +171,15 @@ def test_skips_wide_spreads_and_costly_lots(opt, monkeypatch):
     assert opt.placed == []
 
 
-def test_open_premium_cap_cuts_lots(opt, monkeypatch):
-    monkeypatch.setattr(config, "OPTIONS_MAX_OPEN_PREMIUM", 6000.0)
-    key = signal()
-    oa.trade_new([key])
-    opt.spot["RELIANCE"] = 98.0
+def test_no_cap_on_premium_across_open_trades(opt, monkeypatch):
+    """Each trade is sized on its own: premium already open doesn't cut the next one."""
+    monkeypatch.setattr(config, "OPTIONS_MAX_PREMIUM", 20000.0)
+    keys = [signal(), signal("NIFTY")]
+    oa.trade_new(keys)
+    opt.spot["RELIANCE"] = opt.spot["NIFTY"] = 98.0
     oa.step_all()
-    assert oa._get(key)["lots"] == 2   # 2 × 2,625 fits under ₹6,000
+    assert [oa._get(k)["lots"] for k in keys] == [7, 7]   # 7 × ₹2,625 each
+    assert oa.open_premium() == 36750.0                   # over the ₹30,000 the old cap allowed
 
 
 def test_cancelled_when_signal_ends_or_price_past_stop(opt):

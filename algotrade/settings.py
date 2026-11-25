@@ -33,8 +33,6 @@ EDITABLE = {
     "OPTIONS_OTM_STEPS": (int, 1, 10, "Options: strikes out of the money", "1 = first strike past the spot"),
     "OPTIONS_MIN_DAYS": (int, 0, 60, "Options: min days to expiry", "The nearest expiry at least this far away"),
     "OPTIONS_MAX_PREMIUM": (float, 0, 1e7, "Options: max ₹ premium per trade", "Lots are cut to fit"),
-    "OPTIONS_MAX_OPEN_PREMIUM": (float, 0, 1e8, "Options: max ₹ premium open",
-                                 "Across all option trades; no new ones beyond it"),
     "OPTIONS_MAX_SPREAD_PCT": (float, 0.5, 50, "Options: max bid-ask spread (%)", "Wider contracts are skipped"),
     "STOCK_MAX_ORDER_VALUE": (float, 0, 1e7, "Manual stock order: max ₹", "Fat-finger cap on your own buys"),
     "OPTIONS_MAX_LOTS": (int, 1, 50, "Options: max lots per order", "Fat-finger cap on option orders"),

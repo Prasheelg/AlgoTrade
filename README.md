@@ -41,8 +41,8 @@ future, and the Dec options of Gold mini are on its Jan future, for example), on
 `OPTIONS_MIN_DAYS` away. It is sold when the scanned future reaches the stop or target 1, when the signal closes,
 for intraday signals from `MCX_SQUARE_OFF` (23:00; entries until `MCX_LAST_ENTRY`, 22:30), and from
 `MCX_SQUARE_OFF` the evening before the option's expiry (commodity options in the money at expiry turn into futures
-positions). NRML, limit orders off the bid / ask like India's options; `OPTIONS_MAX_PREMIUM`,
-`OPTIONS_MAX_OPEN_PREMIUM` (shared with India) and `OPTIONS_MAX_SPREAD_PCT` apply. The futures themselves are never
+positions). NRML, limit orders off the bid / ask like India's options; `OPTIONS_MAX_PREMIUM` and
+`OPTIONS_MAX_SPREAD_PCT` apply. The futures themselves are never
 ordered. Trades show under Portfolio > Option trades and under each MCX signal.
 
 Kotak gives live MCX prices but no MCX price history (and Yahoo has none), so the dashboard **records 5-minute
@@ -310,8 +310,8 @@ its premium.
   `OPTIONS_OTM_STEPS`-th (2nd) strike **out of the money**, skipping the one nearest the price. It is bought with a
   limit `OPTION_PROTECTION_PCT` above the best ask. A contract without a bid and ask, or with a spread wider than
   `OPTIONS_MAX_SPREAD_PCT` (5%), is skipped. Market hours only.
-- **Size:** as many lots as fit in `OPTIONS_MAX_PREMIUM` (₹25,000), at most `OPTIONS_MAX_LOTS`; the premium in all
-  open option trades stays under `OPTIONS_MAX_OPEN_PREMIUM` (₹30,000). A lot dearer than the cap is skipped.
+- **Size:** as many lots as fit in `OPTIONS_MAX_PREMIUM` (₹25,000), at most `OPTIONS_MAX_LOTS`. A lot dearer than the
+  cap is skipped. There is no cap on the premium across all open option trades.
 - **Exit** on the **underlying**, not the option's price: sold (limit `OPTION_PROTECTION_PCT` below the best bid)
   when the stock or index reaches the signal's stop or target 1, when the tracker closes the signal (time exit),
   and from `INTRADAY_SQUARE_OFF` (15:00) on the option's expiry day. Intraday signals (with *Auto-trade intraday
