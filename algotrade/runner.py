@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from time import monotonic
 
-from . import health, markets, state
+from . import config, health, markets, state
 
 log = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parent.parent
@@ -46,9 +46,10 @@ def clear_stop() -> None:
 
 
 def markets_on() -> dict[str, bool]:
-    """Which markets the scanner scans: {"IN": True, "US": False}."""
+    """Which markets the scanner scans: {"IN": True, "US": False}. A hidden market (HIDDEN_MARKETS) is always off."""
     saved = state.get_setting(MARKETS_KEY, {})[0] or {}
-    return {code: bool(saved.get(code, DEFAULT_ON.get(code, True))) for code in markets.MARKETS}
+    return {code: code not in config.HIDDEN_MARKETS and bool(saved.get(code, DEFAULT_ON.get(code, True)))
+            for code in markets.MARKETS}
 
 
 def market_on(code: str) -> bool:

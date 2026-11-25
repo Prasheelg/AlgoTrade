@@ -43,6 +43,36 @@ def test_signals_payload_shape(client):
     assert us["config"]["tv_prefix"] == "" and us["config"]["universe"] == "SP100"
 
 
+
+def test_all_merges_shown_markets_newest_first(client, monkeypatch):
+    """market=ALL: every market not in HIDDEN_MARKETS in one list, newest first; each signal keeps its market."""
+    from datetime import datetime as dt
+    times = iter([dt(2026, 1, 1, 9), dt(2026, 1, 1, 11), dt(2026, 1, 1, 10)])
+
+    class FakeDT(dt):
+        @classmethod
+        def now(cls, tz=None):
+            return next(times)
+    monkeypatch.setattr(state, "datetime", FakeDT)
+    state.record([make_signal(symbol="A")])
+    state.record([make_signal(symbol="B", market="MCX")])
+    state.record([make_signal(symbol="C", market="US")])
+    monkeypatch.setattr(config, "HIDDEN_MARKETS", {"US"})
+    j = client.get("/api/signals?market=all").get_json()
+    assert j["market"] == "ALL" and j["config"]["currency"] == "₹"
+    assert [(s["symbol"], s["market"]) for s in j["signals"]] == [("B", "MCX"), ("A", "IN")]
+    assert [m["code"] for m in client.get("/api/meta").get_json()["markets"]] == ["IN", "MCX"]
+
+
+def test_delete_from_all_reaches_every_market(client, monkeypatch):
+    from algotrade import access
+    monkeypatch.setattr(access, "can_trade", lambda: True)
+    monkeypatch.setattr(config, "HIDDEN_MARKETS", {"US"})
+    a, b = make_signal(symbol="A"), make_signal(symbol="B", market="MCX")
+    state.record([a, b])
+    j = client.post("/api/signals/delete?market=ALL", json={"keys": [a.key, b.key]}).get_json()
+    assert j["deleted"] == 2 and j["signals"] == [] and state.all_signals() == []
+
 def test_skipped_signals_are_marked_with_the_reason(monkeypatch):
     from algotrade import options_auto, orders
     monkeypatch.setattr(orders, "all_trades", lambda: [

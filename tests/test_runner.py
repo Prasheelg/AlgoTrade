@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 import main
-from algotrade import health, markets, runner, state, telegram_bot, tracker, web
+from algotrade import config, health, markets, runner, state, telegram_bot, tracker, web
 from algotrade.scanner import get_status, stop_requested as scan_stop_requested
 
 
@@ -214,3 +214,10 @@ def test_keep_alive_does_not_restart_in_a_loop(popen, monkeypatch):
     assert runner.keep_alive(now=1000.0) is True
     assert runner.keep_alive(now=1000.0 + runner.RESTART_GAP_SEC - 1) is False
     assert runner.keep_alive(now=1000.0 + runner.RESTART_GAP_SEC) is True and len(popen) == 2
+
+
+def test_hidden_market_is_never_scanned(monkeypatch):
+    """HIDDEN_MARKETS: off whatever was saved, and switching it on doesn't stick."""
+    monkeypatch.setattr(config, "HIDDEN_MARKETS", {"US"})
+    runner.set_markets({"US": True})
+    assert runner.markets_on()["US"] is False and runner.markets_on()["IN"] is True

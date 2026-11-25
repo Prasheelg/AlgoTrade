@@ -12,14 +12,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="AlgoTrade">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0b0e13">
+<meta name="theme-color" content="#07090c">
 <script>
   // Apply the saved theme before first paint (dark unless the user picked light)
   (function () {
     let t = "dark";
     try { t = localStorage.getItem("theme") === "light" ? "light" : "dark"; } catch {}
     document.documentElement.dataset.theme = t;
-    document.querySelector('meta[name="theme-color"]').content = t === "dark" ? "#0b0e13" : "#f4f5f8";
+    document.querySelector('meta[name="theme-color"]').content = t === "dark" ? "#07090c" : "#f4f5f8";
     // The Android app already keeps its WebView clear of the status and nav bars, but still hands the page those
     // insets: adding env(safe-area-inset-*) on top doubled the gap above the logo and under the tab bar
     if (/AlgoTradeApp\//.test(navigator.userAgent)) document.documentElement.classList.add("in-app");
@@ -31,7 +31,7 @@
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f4f5f8; --panel: #ffffff; --panel-2: #f8f9fb; --ink: #121722; --ink-2: #3b4352; --muted: #6b7486;
@@ -43,11 +43,11 @@
     color-scheme: light;
   }
   :root[data-theme="dark"] {
-    --bg: #0b0e13; --panel: #131820; --panel-2: #171d26; --ink: #e9ecf1; --ink-2: #c3c9d4; --muted: #8a93a3;
-    --line: #232a35; --line-2: #1b212b;
-    --up: #3dd08c; --up-bg: #10301f; --down: #ff6e66; --down-bg: #3a1715;
-    --warn: #f2b453; --warn-bg: #362710; --neutral-bg: #1f2631; --accent: #7d9bff; --accent-ink: #0b0e13;
-    --accent-soft: #1b2440; --shadow: none;
+    --bg: #07090c; --panel: #0d1117; --panel-2: #12161c; --ink: #e6e8eb; --ink-2: #c9ced6; --muted: #8b93a0;
+    --line: #1f252e; --line-2: #161b22;
+    --up: #3ccf8e; --up-bg: #0f2a1d; --down: #ff6b61; --down-bg: #2a0f0d;
+    --warn: #f5c26b; --warn-bg: #2a1f0b; --neutral-bg: #1a1f27; --accent: #f5a524; --accent-ink: #07090c;
+    --accent-soft: #2a1f0b; --shadow: none;
     --series-net: #3987e5; --series-gross: #d95926;
     color-scheme: dark;
   }
@@ -1403,6 +1403,19 @@
     .fold:not(.open) > :first-child { border-bottom: 0; }
     .fold:not(.open) > :first-child > :not(.lbl):not(.hint) { display: none; }
   }
+  /* ---- Terminal look: prices and figures in a monospaced face, tighter corners; exchange tags in All ---- */
+  :root { --mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace; }
+  td.num, .num, .pnl, .lvls, #sbClock, .sbar .sv.chg, .kpi .v, .range-lbl { font-family: var(--mono); font-feature-settings: normal;
+    letter-spacing: -.01em; }
+  :root[data-theme="dark"] .card { border-radius: 10px; }
+  :root[data-theme="dark"] .logo { background: var(--accent); }
+  :root[data-theme="dark"] .logo svg { stroke: var(--accent-ink); }
+  :root[data-theme="dark"] h1 { font-family: var(--mono); letter-spacing: .02em; }
+  .exch { font: 700 10px/1 var(--mono); padding: 3px 5px; border-radius: 3px; letter-spacing: .03em; }
+  .exch.IN { background: color-mix(in srgb, #4ca8ff 18%, transparent); color: #3f8fdb; }
+  .exch.MCX { background: var(--warn-bg); color: var(--warn); }
+  :root[data-theme="dark"] .exch.IN { color: #7cc4ff; }
+  #markets [data-market="ALL"] { font-weight: 700; }
   /* Toasts (phone): results of an action, above the tab bar; tap to dismiss */
   #toasts { position: fixed; left: 12px; right: 12px; bottom: calc(76px + var(--sa-bottom)); z-index: 50;
             display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
@@ -1825,18 +1838,25 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 let market = ["US", "MCX"].includes(store.get("market")) ? store.get("market") : "IN";
+// "All": the Signals list shows every shown market's signals together (market stays the one the scan settings,
+// Performance, Chart and the rest are about). On by default
+let allMk = store.get("allMk") ?? true;
+const MK_LABEL = { IN: "NSE", MCX: "MCX", US: "US" };
+const TV_PREFIX = { IN: "NSE:", MCX: "MCX:", US: "" };
 let view = "signals";  // "signals" or "performance"
 // A link like #US/active opens that market and tab; #IN/performance opens the performance view
 {
   const [m, t] = location.hash.slice(1).split("/");
-  if (["IN", "US", "MCX"].includes(m)) market = m;
+  if (["IN", "US", "MCX"].includes(m)) { market = m; allMk = false; }
+  else if (m === "ALL") allMk = true;
   if (TABS.some(x => x[0] === t)) { tab = t; tabPicked = true; }
   if (["performance", "portfolio", "options", "watchlist", "chart"].includes(t)) view = t;
   else if (!t && ["performance", "portfolio", "options", "watchlist", "chart"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
 }
 // A tab picked automatically isn't put in the link, so a reload picks again from the signals it then finds
+const sigMk = () => allMk ? "ALL" : market;   // what the Signals list shows
 const setHash = () => history.replaceState(null, "",
-  view !== "signals" ? `#${market}/${view}` : tabPicked ? `#${market}/${tab}` : `#${market}`);
+  view !== "signals" ? `#${market}/${view}` : tabPicked ? `#${sigMk()}/${tab}` : `#${sigMk()}`);
 let cfg = { currency: "₹", locale: "en-IN", tv_prefix: "NSE:" };
 // The Auto-trade order actually sent to Kotak for a signal, under the tracker's paper status
 const realTrade = t => !t ? "" : `<div class="sub" title="${esc(t.note ?? "")}">Kotak: ${esc(TRADE_STATE[t.state] ?? t.state)}` +
@@ -2011,8 +2031,8 @@ function renderTable() {
     const tags = String(s.reasons ?? "").split(", ").filter(Boolean), TAGS_SHOWN = 2;
     const intraday = s.timeframe !== "1d" && s.bar_time;
     return `<tr class="${outcome}">
-    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}${s.market === "MCX" ? "1!" : ""}" target="_blank" rel="noopener" title="Chart${s.contract ? ` of ${esc(s.contract)}` : ""} (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
-      <span class="side ${s.side}">${s.side}</span></div>${s.contract ? `<div class="sub">${esc(futName(s.contract, s.symbol))}</div>` : ""}</td>
+    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${TV_PREFIX[s.market] ?? cfg.tv_prefix}${encodeURIComponent(s.symbol)}${s.market === "MCX" ? "1!" : ""}" target="_blank" rel="noopener" title="Chart${s.contract ? ` of ${esc(s.contract)}` : ""} (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
+      <span class="side ${s.side}">${s.side}</span>${allMk ? `<span class="exch ${esc(s.market)}">${esc(MK_LABEL[s.market] ?? s.market)}</span>` : ""}</div>${s.contract ? `<div class="sub">${esc(futName(s.contract, s.symbol))}</div>` : ""}</td>
     <td class="when" title="${esc(signalTime(s))}"><span class="t">${intraday ? esc(s.bar_time.slice(11, 16)) : esc(dayText(s.bar_date))}</span> <span class="tf">${esc(s.timeframe)}</span>` +
       `<div class="sub">${intraday ? esc(dayText(s.bar_time)) : ""}${s.closed_at ? `${intraday ? " · " : ""}closed${dayText(s.closed_at) === dayText(intraday ? s.bar_time : s.bar_date) ? "" : ` ${esc(dayText(s.closed_at))}`}` : ""}</div></td>
     <td class="st"><span class="pill s-${s.status}" title="Tracker result: as if filled at the entry">${STATUS_TEXT[s.status] ?? s.status}</span>${realTrade(s.trade)}${optTrade(s.option, s)}${s.skipped && !s.trade && !s.option ? `<div class="sub flat">Skipped: ${esc(s.skipped)}</div>` : ""}</td>
@@ -2025,7 +2045,7 @@ function renderTable() {
     <td class="lv">${rangeBar(s)}<div class="lvls"><span>SL ${num(s.stop_loss)}</span><span>Target ${num(s.target1)}</span></div></td>
     <td><div class="tags"><b class="stars" title="${s.score} strategy votes agree">${"★".repeat(s.score)}</b>${tags.slice(0, TAGS_SHOWN).map(r => `<span>${esc(r)}</span>`).join("")}` +
       `${tags.length > TAGS_SHOWN ? `<span class="more" title="${esc(tags.slice(TAGS_SHOWN).join(", "))}">+${tags.length - TAGS_SHOWN}</span>` : ""}</div></td>
-    <td><div class="row-acts v">${market === "IN" && s.open ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
+    <td><div class="row-acts v">${s.market === "IN" && s.open ? `<button type="button" class="btn buy-more" data-sbuy="${esc(s.key)}" title="Buy ${esc(s.symbol)} on Kotak (your own order)">Buy</button>` +
       `<button type="button" class="btn close-trade" data-ssell="${esc(s.symbol)}" title="Sell ${esc(s.symbol)} from your holdings">Sell</button>` : ""}` +
       `<button type="button" class="btn ic" data-sdet="${esc(s.key)}" title="Details: strategies, journal, levels" aria-label="${esc(s.symbol)} details">ⓘ</button>` +
       `<button type="button" class="btn ic sig-del" data-sdel="${esc(s.key)}" title="Delete this signal" aria-label="Delete ${esc(s.symbol)} signal">✕</button></div></td>
@@ -2036,7 +2056,7 @@ function renderTable() {
 function render() { renderTiles(); renderTabs(); renderTable(); setHash(); }
 
 function show(j) {
-  if (j.market !== market) return;  // response for a market that is no longer selected
+  if (j.market !== sigMk()) return;  // response for a market that is no longer selected
   data = j.signals; cfg = j.config; lastRefresh = j.last_refresh; health = j.health ?? null;
   if (!tabPicked && !data.some(TABS.find(x => x[0] === tab)[2])) {
     tab = (TABS.find(([id, , f]) => id !== "all" && data.some(f)) ?? TABS[0])[0];
@@ -2055,7 +2075,9 @@ function pinStrip() {
 new ResizeObserver(pinStrip).observe(document.querySelector(".top"));
 
 // ---- Exchange clock (regular hours on trading days: weekends, the exchange's holidays and early closes known) ----
-const EXCHANGE = { IN: ["NSE", "IST"], US: ["NYSE · Nasdaq", "ET"] };
+const EXCHANGE = { IN: ["NSE", "IST"], US: ["NYSE · Nasdaq", "ET"], MCX: ["MCX", "IST"] };
+// The sessions the status strip shows: every shown market's in All on the Signals view, else the selected one's
+const sbMarkets = () => (META?.markets ?? []).filter(x => view === "signals" && allMk ? true : x.code === market);
 let lastRefresh = null;
 const quotes = {};  // market -> latest /api/index quote
 const toMin = hhmm => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
@@ -2103,14 +2125,17 @@ const num = (v, d = 2) => Number(v).toLocaleString(cfg.locale, { minimumFraction
 
 // Full status strip; the clock and countdown are refreshed in place every second by tickStatus()
 function renderStatus() {
-  const m = META?.markets.find(x => x.code === market);
+  const ms = sbMarkets();
   const parts = [];
-  if (m) {
+  for (const m of ms) {
     const st = marketState(m), [ex, tz] = EXCHANGE[m.code] ?? [m.name, ""];
-    parts.push(seg("", `<span class="pill ${st.open ? "open" : "closed"}" id="sbSess">${st.open ? "Open" : "Closed"}</span>` +
-      `<span class="sv">${esc(ex)}</span><span class="sv dim" id="sbWhen">${st.when}</span>`, "sess",
+    parts.push(seg("", `<span class="pill ${st.open ? "open" : "closed"}" data-sess="${m.code}">${st.open ? "Open" : "Closed"}</span>` +
+      `<span class="sv">${esc(ex)}</span><span class="sv dim" data-when="${m.code}">${st.when}</span>`, "sess",
       `Regular hours ${m.session[0]}–${m.session[1]} ${tz}, Mon–Fri, exchange holidays excluded`));
-    parts.push(seg(tz, `<span class="sv" id="sbClock">${st.now.time}</span>`, "", "Exchange time"));
+  }
+  if (ms.length) {
+    const tz = EXCHANGE[ms[0].code]?.[1] ?? "";
+    parts.push(seg(tz, `<span class="sv" id="sbClock">${marketState(ms[0]).now.time}</span>`, "", "Exchange time"));
   }
   const q = quotes[market];
   if (q) {
@@ -2261,13 +2286,14 @@ document.addEventListener("keydown", e => {
 });
 
 function tickStatus() {
-  const m = META?.markets.find(x => x.code === market);
-  const clock = document.getElementById("sbClock");
-  if (!m || !clock) return;
-  const st = marketState(m);
-  if (st.open !== document.getElementById("sbSess").classList.contains("open")) return renderStatus();  // open/close flip
-  clock.textContent = st.now.time;
-  document.getElementById("sbWhen").textContent = st.when;
+  const ms = sbMarkets(), clock = document.getElementById("sbClock");
+  if (!ms.length || !clock) return;
+  for (const m of ms) {
+    const st = marketState(m), pill = document.querySelector(`#sbar [data-sess="${m.code}"]`);
+    if (!pill || st.open !== pill.classList.contains("open")) return renderStatus();  // open/close flip
+    document.querySelector(`#sbar [data-when="${m.code}"]`).textContent = st.when;
+  }
+  clock.textContent = marketState(ms[0]).now.time;
   document.getElementById("sbAgo").textContent = ago(lastRefresh);
 }
 
@@ -2290,8 +2316,10 @@ setInterval(() => {
 }, 1000);
 
 async function load(path = "/api/signals", opts) {
-  const res = await fetch(`${path}?market=${market}`, opts);
-  show(await res.json());
+  const res = await fetch(`${path}?market=${path === "/api/signals" ? sigMk() : market}`, opts);
+  const j = await res.json();
+  if (path !== "/api/signals" && allMk) return load();   // Refresh re-checks one market; then reload the whole list
+  show(j);
 }
 
 document.getElementById("tabs").onclick = e => {
@@ -2305,7 +2333,7 @@ document.getElementById("head").onclick = e => {
 document.getElementById("theme").onclick = () => {
   const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]').content = t === "dark" ? "#0b0e13" : "#f4f5f8";
+  document.querySelector('meta[name="theme-color"]').content = t === "dark" ? "#07090c" : "#f4f5f8";
   try { localStorage.setItem("theme", t); } catch {}  // raw value, read before first paint in <head>
 };
 document.getElementById("refresh").onclick = async e => {
@@ -2340,9 +2368,11 @@ function renderNotice() {
 }
 
 function renderMarkets() {
-  document.getElementById("markets").innerHTML = (META?.markets ?? [{ code: "IN", name: "India" }, { code: "US", name: "US" }, { code: "MCX", name: "MCX" }])
-    .map(m => `<button type="button" data-market="${m.code}" class="${m.code === market ? "on" : ""}">` +
-      `<span class="flag">${FLAGS[m.code] ?? ""}</span>${esc(m.name)}` +
+  const all = view === "signals" && allMk;
+  document.getElementById("markets").innerHTML = (view === "signals" ? `<button type="button" data-market="ALL" class="${all ? "on" : ""}" title="NSE and MCX signals in one list">All</button>` : "") +
+    (META?.markets ?? [{ code: "IN", name: "India" }, { code: "MCX", name: "MCX" }])
+    .map(m => `<button type="button" data-market="${m.code}" class="${!all && m.code === market ? "on" : ""}">` +
+      `${esc(MK_LABEL[m.code] ?? m.name)}` +
       (scanStat[m.code]?.running ? `<span class="busy" title="Scan running"></span>`
         : `<span class="mdot" data-m="${m.code}" title="Market open / closed"></span>`) + `</button>`).join("");
   renderStatus();
@@ -2412,7 +2442,7 @@ function renderScanState() {
   const win = m ? `${m.scan_window[0]}–${m.scan_window[1]} ${EXCHANGE[market]?.[1] ?? ""}, Mon–Fri` : "";
   const r = st.result, last = st.finished_at
     ? `Last scan ${hhmm(st.finished_at)}${r ? `: ${r.found} setup${r.found === 1 ? "" : "s"}, ${r.new} new` : ""}` : "No scan yet";
-  const rn = scanRunner ?? {}, box = document.getElementById("scanOn"), name = m?.name ?? market;
+  const rn = scanRunner ?? {}, box = document.getElementById("scanOn"), name = MK_LABEL[market] ?? m?.name ?? market;
   const mkOn = st.on !== false, others = Object.entries(scanStat).some(([k, s]) => k !== market && s.on !== false);
   box.checked = !!(scanAlive || rn.starting) && !rn.stopping && mkOn;
   document.getElementById("scanLbl").textContent = `Scan ${name}`;
@@ -2597,8 +2627,16 @@ async function loadMeta() {
 }
 
 document.getElementById("markets").onclick = e => {
-  const b = e.target.closest("[data-market]"); if (!b || b.dataset.market === market) return;
-  market = b.dataset.market; store.set("market", market);
+  const b = e.target.closest("[data-market]"); if (!b) return;
+  const pick = b.dataset.market, sig = view === "signals";
+  if (pick === "ALL" || (sig && allMk && pick === market)) {   // All on, or off again to just this market
+    if (pick === "ALL" && allMk) return;
+    allMk = pick === "ALL"; store.set("allMk", allMk);
+    data = []; tab = "pending"; tabPicked = false; render(); renderMarkets(); renderStatus(); load(); return;
+  }
+  if (pick === market) return;
+  if (sig) { allMk = false; store.set("allMk", false); }
+  market = pick; store.set("market", market);
   data = []; tab = "pending"; tabPicked = false; render();
   renderMarkets(); renderNotice();
   if (META) { opts = optsFor(market); renderScanPanel(); loadScanSettings(market); }
@@ -2627,8 +2665,11 @@ let perf = null, perfDays = [0, 30, 90].includes(store.get("perfDays")) ? store.
 let eqFocus = null;  // trade index under the crosshair / keyboard focus
 
 function setView(v) {
+  const wasAll = view === "signals" && allMk;
   view = v;
   store.set("view", v);
+  renderMarkets();
+  if (view === "signals" && allMk && !wasAll) load();
   document.querySelectorAll("#views button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   document.getElementById("sigView").hidden = view !== "signals";
   document.getElementById("perfView").hidden = view !== "performance";
@@ -3292,7 +3333,7 @@ document.getElementById("rows").addEventListener("click", e => {
 // Delete signals from the dashboard (not orders: Kotak is never touched). Ones with an Auto-trade order
 // still in progress are kept by the server so the app keeps tracking that order.
 async function deleteSignals(keys, btn) {
-  const mk = market;
+  const mk = sigMk();
   if (btn) btn.disabled = true;
   try {
     const res = await fetch(`/api/signals/delete?market=${mk}`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -3309,7 +3350,7 @@ async function deleteSignals(keys, btn) {
 document.getElementById("clearTab").onclick = e => {
   const f = TABS.find(t => t[0] === tab)[2];
   const keys = data.filter(f).map(s => s.key); if (!keys.length) return;
-  const name = META?.markets.find(m => m.code === market)?.name ?? market;
+  const name = allMk ? "" : MK_LABEL[market] ?? market;
   if (!confirm(`Delete all ${keys.length} ${tab === "all" ? "" : tab + " "}${name} signal${keys.length === 1 ? "" : "s"}?` +
                `\n\nThis can't be undone. Later scans can add setups again if they still qualify.` +
                (data.filter(f).some(s => !s.open) ? "\nClosed trades also leave the Performance stats." : ""))) return;
@@ -4972,7 +5013,7 @@ function renderSd() {
       [sd.ev.results ? `Results ${esc(sd.ev.results)}` : "", sd.ev.ex_dividend ? `ex-dividend ${esc(sd.ev.ex_dividend)}` : ""].filter(Boolean).join(" · ") || "No upcoming results or dividend known"}</div>` : ""}
     <ul class="sd-strats">${reasons.map(r => `<li><b>${esc(r)}</b>${desc(r) ? ` · ${esc(desc(r))}` : ""}</li>`).join("")}</ul>
     ${journalHtml()}
-    <div class="sd-acts"><a href="https://www.tradingview.com/chart/?symbol=${cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener">Open in TradingView ↗</a>
+    <div class="sd-acts"><a href="https://www.tradingview.com/chart/?symbol=${TV_PREFIX[s.market] ?? cfg.tv_prefix}${encodeURIComponent(s.symbol)}" target="_blank" rel="noopener">Open in TradingView ↗</a>
       <button type="button" class="btn" data-sd="chart">📈 Chart</button>
       <button type="button" class="btn" data-sd="size">🧮 Size</button>
       ${market === "IN" ? `<button type="button" class="btn buy-more" data-sd="buy">Buy</button><button type="button" class="btn close-trade" data-sd="sell">Sell</button>` : ""}</div>`;

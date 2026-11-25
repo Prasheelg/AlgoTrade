@@ -256,8 +256,23 @@ def _bad_request(exc):
     return jsonify({"error": str(exc)}), 400
 
 
+def _shown_markets() -> list[markets.Market]:
+    return [m for m in markets.MARKETS.values() if m.code not in config.HIDDEN_MARKETS]
+
+
+def _all_payload() -> dict:
+    """Signals of every shown market in one list (the dashboard's "All"), newest first. Health and config are
+    India's (the first market): each signal carries its own market."""
+    parts = [_signals_payload(m) for m in _shown_markets()]
+    out = {**parts[0], "market": "ALL",
+           "signals": sorted((s for p in parts for s in p["signals"]), key=lambda s: s.get("sent_at") or "", reverse=True)}
+    return out
+
+
 @app.get("/api/signals")
 def api_signals():
+    if (request.args.get("market") or "").upper() == "ALL":
+        return jsonify(_all_payload())
     return jsonify(_signals_payload(_market()))
 
 
@@ -826,7 +841,7 @@ def api_meta():
                      "scan_window": [t.strftime("%H:%M") for t in m.scan_window],
                      "holidays": m.holidays,
                      "early_close": {d: t.strftime("%H:%M") for d, t in m.early_close.items()}}
-                    for m in markets.MARKETS.values()],
+                    for m in markets.MARKETS.values() if m.code not in config.HIDDEN_MARKETS],
         "defaults": {"timeframe": config.TIMEFRAME, "min_score": config.MIN_SCORE},
         "scan": {"interval_min": config.SCAN_INTERVAL_MIN, "timeframes": config.SCAN_TIMEFRAMES},
     })
@@ -985,16 +1000,19 @@ def api_signals_delete():
     from . import orders
     if not access.can_trade():
         return jsonify({"error": access.TRADE_REFUSED}), 403
-    mkt = _market()
+    every = (request.args.get("market") or "").upper() == "ALL"
+    mkt = None if every else _market()
     keys = (request.get_json(silent=True) or {}).get("keys")
     if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
         raise ValueError('Send {"keys": ["<signal key>", ...]}')
     from . import options_auto
     busy = {t["key"] for t in orders.all_trades() if t["state"] in orders.ACTIVE_STATES} |            {t["key"] for t in options_auto.all_trades() if t["state"] in options_auto.ACTIVE_STATES}
     kept = [k for k in keys if k in busy]
-    n = state.delete_signals([k for k in keys if k not in busy], mkt.code)
-    log.info("Deleted %d %s signals from the dashboard%s", n, mkt.name, f" ({len(kept)} kept: Auto-trade)" if kept else "")
-    return jsonify({**_signals_payload(mkt), "deleted": n, "kept": kept})
+    go = [k for k in keys if k not in busy]
+    n = sum(state.delete_signals(go, m.code) for m in (_shown_markets() if every else [mkt]))
+    log.info("Deleted %d %s signals from the dashboard%s", n, "" if every else mkt.name,
+             f" ({len(kept)} kept: Auto-trade)" if kept else "")
+    return jsonify({**(_all_payload() if every else _signals_payload(mkt)), "deleted": n, "kept": kept})
 
 
 @app.post("/api/scan/stop")

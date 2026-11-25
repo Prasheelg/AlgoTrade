@@ -151,7 +151,7 @@ def _isolation(monkeypatch, tmp_path):
                      RISK_PER_TRADE_PCT=1.0, SCAN_INTERVAL_MIN=15, SCAN_TIMEFRAMES=["1d"], TELEGRAM_BOT_TOKEN="",
                      TELEGRAM_CHAT_ID="", KOTAK_CONSUMER_KEY="", UNIVERSE="NIFTY100", US_UNIVERSE="SP100",
                      MARKET_SCAN={"IN": {}, "US": {}}, KOTAK_MOBILE="", KOTAK_UCC="", KOTAK_MPIN="",
-                     KOTAK_TOTP_SECRET="").items():
+                     KOTAK_TOTP_SECRET="", HIDDEN_MARKETS=set()).items():
         monkeypatch.setattr(config, k, v)
     from algotrade import broker
     monkeypatch.setattr(broker, "_session", {"client": None, "day": None, "name": None})
