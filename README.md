@@ -557,15 +557,33 @@ The PC has to be on with the dashboard running; otherwise the app shows "Can't r
 dashboard to a cloud server later removes that need.
 
 ### AWS server
-The dashboard (with its scanner) runs on an EC2 server named `AlgoTrade` in Mumbai (`ap-south-1`) on the Elastic
-IP **65.2.173.90**, so Kotak always sees the same address. It is managed from `G:\Prasheel\Projects\aws`:
-**Start AlgoTrade.bat** starts (or launches) it and opens the dashboard, **Stop AlgoTrade.bat** stops it, and
-`--fresh` replaces it with a new server (backed up to S3 first). A new server clones this repo from GitHub, gets the
-`.env` files and the Cloudflare Tunnel from that folder, and runs `algotrade`, `nr7-trader` and `cloudflared` as services.
+The dashboard (with its scanner) runs on an EC2 server named `AlgoTrade` (`i-0d6c25adcb85f165a`) in Mumbai
+(`ap-south-1`) on the Elastic IP **65.2.173.90**, so Kotak always sees the same address. It is **kept** between
+sessions (stopped, not deleted), so starting and stopping needs no PC:
+- **Schedule** (AWS EventBridge Scheduler, role `algotrade-scheduler`): `algotrade-start` at 08:30 IST Mon–Fri and
+  `algotrade-stop` at 00:05 IST Tue–Sat (after MCX's 23:55 close). Change or pause them in the EventBridge Scheduler
+  console (Mumbai region). NSE holidays aren't skipped: MCX's evening session trades on most of them.
+- **Power page**: https://algo.trendywork.in/_power (behind the same Cloudflare Access login) shows the server's state
+  with Start and Stop; while the server is off, opening the dashboard (browser or phone app) shows it instead of an
+  error. It is the Cloudflare Worker in `cloud/power/` (deploy: `cd cloud/power && npx wrangler deploy`), using the
+  IAM user `algotrade-power`, which can only start / stop this instance and read its state. Settings > Server links to it.
+- **On boot** the `algotrade` service fast-forwards `~/AlgoTrade` to `origin/main` before it starts (systemd drop-in
+  `algotrade.service.d/git-pull.conf`), so a pushed change runs from the next start or restart. New Python packages
+  still need `~/venv/bin/pip install -r requirements.txt` by hand.
+- Stopping (any way) runs the server's shutdown backup of the databases to S3 (`algotrade-backup-on-stop`).
+- Cost: compute only while running (t4g.small, ~$3.85/month on this schedule), plus the disk (~$1.80) and the IP
+  (~$3.65) all month.
+
+From `G:\Prasheel\Projects\aws` (optional now): **Start AlgoTrade.bat** starts it and opens the dashboard,
+**Stop AlgoTrade.bat** stops it (`--delete` backs up and deletes it, the old behaviour), and `--fresh` replaces it
+with a new server (backed up to S3 first). A new server clones this repo from GitHub, gets the `.env` files and the
+Cloudflare Tunnel from that folder, and runs `algotrade`, `nr7-trader` and `cloudflared` as services. **A new server
+has a new instance id**: update it in the two schedules, the `algotrade-power` and `algotrade-scheduler` policies and
+`cloud/power/wrangler.toml`, and add the git-pull drop-in again.
 - **https://algo.trendywork.in**: Cloudflare Access login (email one-time PIN), then `DASHBOARD_PIN`; orders work
   from the phone, since requests carry the Cloudflare Access token.
 - SSH: `ssh -i G:\Prasheel\Projects\aws\algotrade-key.pem ubuntu@65.2.173.90` (or `python manage_app.py status|logs`).
-- Update the running server after a push: `cd ~/AlgoTrade && git pull && sudo systemctl restart algotrade`.
+- Run a push on the server now (not at the next start): `sudo systemctl restart algotrade` (it pulls first).
 - Run the dashboard on **one** machine only: the PC and the server together mean double scans, double Telegram
   alerts and, with Auto-trade on, double orders.
 

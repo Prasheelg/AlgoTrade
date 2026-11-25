@@ -1,0 +1,11 @@
+# AlgoTrade power switch (see src/index.js). Deploy: npx wrangler deploy (after npx wrangler login, once)
+name = "algotrade-power"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+routes = [{ pattern = "algo.trendywork.in/*", zone_name = "trendywork.in" }]
+
+[vars]
+REGION = "ap-south-1"
+INSTANCE_ID = "i-0d6c25adcb85f165a"
+# Secrets (npx wrangler secret put <name>): AWS_KEY_ID, AWS_SECRET of the IAM user algotrade-power

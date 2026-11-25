@@ -5178,7 +5178,11 @@ function renderSt() {
     <div class="st-group"><span class="lbl">Daily summary</span>
       <div class="st-row"><span class="t">Send today's summary to Telegram now</span><div class="c"><button class="btn" type="button" data-stx="summary">Send now</button></div>
       <span class="h">It also goes out by itself after 15:45 IST on trading days. Telegram commands: /help in the group</span></div>
-    </div>`;
+    </div>
+    ${/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? "" : `<div class="st-group"><span class="lbl">Server</span>
+      <div class="st-row"><span class="t">Start or stop the AWS server</span><div class="c"><a class="btn" href="/_power">Power page</a></div>
+      <span class="h">It starts by itself at 08:30 IST and stops at 00:05 IST, Monday to Friday. When it's off, opening the dashboard shows the Start button</span></div>
+    </div>`}`;
 }
 stBox.addEventListener("input", e => {
   const n = e.target.dataset?.st; if (!n || !st) return;
