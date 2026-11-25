@@ -2436,7 +2436,15 @@ function renderScanState() {
     tip = `Started ${hhmm(st.started_at)} · ${last}`;
   } else if (scanAlive) {
     cls = st.error ? "off" : "ok";
-    text = st.in_window ? `Next scan ${hhmm(st.next_at)}` : `Idle · scans ${m?.scan_window[0] ?? ""}–${m?.scan_window[1] ?? ""}`;
+    // next_at is the scanner's clock (IST). None yet (the first round after a start) or already past (another
+    // market's scan is running long): this market is queued, not stuck
+    const inM = META?.markets.find(x => x.code === "IN"), e = inM && exchangeNow(inM);
+    const due = !st.next_at || (e && st.next_at <= `${e.date}T${e.time}`);
+    const busy = Object.entries(scanStat).find(([k, s]) => k !== market && s.running && s.on !== false)?.[0];
+    const busyName = busy && (META?.markets.find(x => x.code === busy)?.name ?? busy);
+    text = !st.in_window ? `Idle · scans ${m?.scan_window[0] ?? ""}–${m?.scan_window[1] ?? ""}`
+      : !due ? `Next scan ${hhmm(st.next_at)}`
+      : busyName ? `Next scan after ${busyName}'s` : "Next scan shortly";
     tip = `${last}${st.error ? ` · problem: ${st.error}` : ""} · scans ${win} ${every}`;
   }
   if (opts?.saved) tip += ` · settings saved ${opts.saved.replace("T", " ").slice(0, 16)}`;
