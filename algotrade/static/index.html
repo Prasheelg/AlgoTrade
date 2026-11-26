@@ -1554,6 +1554,100 @@
     .tablewrap table.sigt.cards #rows td:nth-child(8) .tags > :not(.stars) { display: none; }
     .tablewrap table.sigt.cards #rows td:nth-child(8) .stars { font-size: 10px; color: var(--muted); margin: 0; }
   }
+
+  /* ---- Phone: compact everywhere (last, so it wins over the earlier phone rules): smaller gaps, padding and type,
+     so more of each screen fits ---- */
+  @media (max-width: 640px) {
+    .wrap { padding: 0 10px calc(66px + var(--sa-bottom)); }
+    /* app bar */
+    .top { margin: 0 -10px 8px; padding: calc(6px + var(--sa-top)) 10px 6px; }
+    .top-in { gap: 6px; }
+    .logo { width: 28px; height: 28px; border-radius: 8px; }
+    .logo svg { width: 16px; height: 16px; }
+    h1 { font-size: 15.5px; }
+    #refresh, #settingsBtn, #powerBtn, #chartBtn { width: 34px; height: 34px; border-radius: 10px; }
+    .top-strip { margin-top: 4px; padding-top: 6px; }
+    /* bottom tab bar */
+    #views { padding: 4px 4px calc(4px + var(--sa-bottom)); }
+    #views button { gap: 2px; font-size: 10.5px; }
+    #views button svg { width: 20px; height: 20px; padding: 3px 14px; }
+    /* cards, notices, gaps between sections */
+    .card { border-radius: 12px; }
+    .scan, .notice, .tiles, .chart-card, .health, .sb, .oic, .today { margin-bottom: 8px; }
+    .notice { padding: 7px 10px; font-size: 12.5px; gap: 8px; }
+    .health { padding: 5px 10px; font-size: 12.5px; }
+    .scan { padding: 10px 12px; }
+    #scanPanel { padding: 10px 12px; }
+    .scan-sum b { font-size: 14px; }
+    .scan-sum small { font-size: 11px; }
+    #scanPanel .scan-row + .scan-row { margin-top: 8px; padding-top: 8px; }
+    .lbl { font-size: 10.5px; }
+    .hint { font-size: 11.5px; }
+    /* list tabs (count over name) */
+    .list-head { padding: 6px; gap: 6px; }
+    .list-head .tab { padding: 5px 2px; font-size: 10.5px; }
+    .list-head .tab .n { font-size: 14px; }
+    /* stat tiles */
+    .kgroup { padding: 8px 0; }
+    .khead { padding: 0 12px 6px; margin-bottom: 6px; }
+    .krow { row-gap: 8px; }
+    .kpi { padding: 0 12px; }
+    .kpi .v { font-size: 15.5px; margin-top: 1px; }
+    .kpi .k, .kpi .d { font-size: 10.5px; }
+    .tiles { gap: 8px; }
+    /* list rows shown as cards */
+    .tablewrap table.cards tr { gap: 6px 10px; padding: 8px 10px; }
+    .tablewrap table.cards td { font-size: 12.5px; }
+    .tablewrap table.cards td::before { font-size: 9.5px; margin-bottom: 1px; }
+    .tablewrap table.cards td.primary { font-size: 14.5px; }
+    .tablewrap table.cards .pnl { font-size: 14px; }
+    .tablewrap table.sigt.cards tr { gap: 6px 8px; padding: 8px 10px 9px; }
+    .tablewrap table.sigt.cards td { font-size: 12.5px; }
+    .tablewrap table.sigt.cards td.primary { font-size: 14px; }
+    .tablewrap table.sigt.cards .pnl { font-size: 13.5px; }
+    .empty { padding: 22px 14px; }
+    /* section tabs, segmented buttons, buttons */
+    .opt-tabs { margin-top: 8px; }
+    .opt-tabs button { padding: 8px 4px; font-size: 12px; }
+    .tab { padding: 6px 10px; }
+    .btn { padding: 6px 10px; }
+    /* Today */
+    .today { gap: 6px; }
+    .td { padding: 8px 10px; gap: 2px; border-radius: 10px; }
+    .td .v { font-size: 15px; }
+    .td .sub, .td .rows { font-size: 11.5px; }
+    /* watchlist / market today */
+    .mk-idx { gap: 6px; }
+    .mk-idx > div { padding: 6px 8px; }
+    .mk-box { padding: 8px 10px; }
+    .mk-row { padding: 3px 0; font-size: 12.5px; }
+    .mk-cols { gap: 8px; }
+    /* condor */
+    .cd { padding: 10px 12px; gap: 10px; }
+    .cd-unds { gap: 6px; }
+    .cd-und { padding: 7px 9px; gap: 1px; }
+    .cd-und .nm { font-size: 13px; }
+    .cd-und .cd-sb { font-size: 11px; }
+    .cd-top { gap: 8px 12px; }
+    .cd-fold > summary { padding: 8px 10px; font-size: 13px; }
+    .cd-fold > :not(summary) { margin: 0 10px 10px; }
+    .cd-title h3 { font-size: 15.5px; }
+    .cd-ctl { gap: 8px 10px; }
+    .cd-auto { padding: 4px 8px; }
+    .cd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .cd-kpi { padding: 8px 10px; }
+    .cd-kpi .k, .cd-kpi .d { font-size: 10.5px; }
+    .cd-kpi .v { font-size: 15px; margin-top: 2px; }
+    .cd-box { padding: 10px; }
+    .cd-pos-empty { padding: 8px 10px; font-size: 12.5px; gap: 8px; }
+    .cd-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+    .cd-metrics > div { padding: 6px 8px; }
+    /* tickets / settings (bottom sheet) */
+    .opt-ticket { padding: 16px 12px calc(12px + var(--sa-bottom)); }
+    .opt-ticket h3 { font-size: 16px; }
+    .opt-ticket .row + .row { margin-top: 10px; }
+    .st-group { margin-top: 10px; }
+  }
 </style>
 </head>
 <body>
