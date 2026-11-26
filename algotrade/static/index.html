@@ -1043,6 +1043,16 @@
   .pw-acts .btn { flex: 1; justify-content: center; }
   .pw-acts:not(:has(.btn:not([hidden]))) { display: none; }
   .opt-ticket { scroll-margin-top: var(--sticky-h, 76px); }   /* opened tickets scroll clear of the pinned bars */
+  /* Desktop: tickets (buy / sell / modify / alert / signal detail / position size / settings / options order) open
+     in a panel on the right, under the top bar, so the list stays in view and usable */
+  @media (min-width: 641px) {
+    .opt-ticket { position: fixed; top: var(--sticky-h, 120px); right: 12px; bottom: 12px; z-index: 38; margin: 0 !important;
+                  width: min(480px, 42vw); overflow-y: auto; overscroll-behavior: contain;
+                  border-top: 3px solid var(--accent); box-shadow: -12px 0 40px rgb(0 0 0 / .35); animation: side-in .2s ease-out; }
+    @keyframes side-in { from { transform: translateX(24px); opacity: 0; } }
+    body.side-open #toasts { right: calc(min(480px, 42vw) + 24px); }
+    body.side-open .wrap > :not(.top) { margin-right: calc(min(480px, 42vw) + 12px); }   /* the page narrows instead of hiding under it (not the top bar) */
+  }
   .st-group { margin-top: 14px; }
   .st-group > .lbl { display: block; margin-bottom: 6px; }
   .st-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 4px 14px; align-items: center; padding: 8px 0;
@@ -3807,6 +3817,7 @@ function setOptTab(t) {
   });
   if (t === "oi") { if (oic.data) renderOic(); if (Date.now() - oic.at > 30000) oicLoad(); }
   if (t === "build" && sbRes) drawPayoff();
+  if (typeof syncSheet === "function") syncSheet();   // the options ticket shows on Builder only
 }
 optEl("optTabs").onclick = e => { const b = e.target.closest("button[data-ot]"); if (b) setOptTab(b.dataset.ot); };
 
@@ -5701,14 +5712,21 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").cat
 
 // Order tickets open as bottom sheets on phones: dim the page behind whichever one is showing
 const TICKETS = ["hsTicket", "omTicket", "bsTicket", "optTicket", "alTicket", "sdTicket", "pcTicket", "stTicket"].map(id => document.getElementById(id));
-const openTicket = () => TICKETS.find(t => !t.hidden && !t.closest("[hidden]"));
+const openTicket = () => TICKETS.find(t => !t.hidden && !t.closest("[hidden]") && t.style.display !== "none");
 function syncSheet() {
-  const open = PHONE.matches && !!openTicket();
+  const t = !!openTicket(), open = PHONE.matches && t;
   document.getElementById("sheetBg").hidden = !open;
   document.body.classList.toggle("sheet-open", open);
+  document.body.classList.toggle("side-open", !PHONE.matches && t);   // desktop: the panel on the right
 }
+// Esc closes the open ticket (its own close button), unless a dialog or the chart is on top
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || chShown || document.querySelector("dialog[open]")) return;
+  if (e.target.closest?.("input, textarea, select") && e.target.value) return;
+  openTicket()?.querySelector(".row:first-child .btn.icon")?.click();
+});
 TICKETS.forEach(t => new MutationObserver(syncSheet).observe(t, { attributes: true, attributeFilter: ["hidden"] }));
-["sigView", "perfView", "portView", "optView", "watchView"].forEach(id =>
+["sigView", "perfView", "portView", "optView", "condorView", "watchView"].forEach(id =>
   new MutationObserver(syncSheet).observe(document.getElementById(id), { attributes: true, attributeFilter: ["hidden"] }));
 PHONE.addEventListener("change", syncSheet);
 document.getElementById("sheetBg").onclick = () => openTicket()?.querySelector(".row:first-child .btn.icon")?.click();
