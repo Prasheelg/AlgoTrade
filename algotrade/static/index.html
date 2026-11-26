@@ -1538,7 +1538,8 @@
       <div class="pw-note" id="pwNote"></div>
       <div class="pw-err" id="pwErr" role="alert"></div>
       <div class="pw-acts"><button class="btn primary" type="button" id="pwStart" hidden>Start server</button>
-        <button class="btn close-trade" type="button" id="pwStop" hidden>Stop server</button></div>
+        <button class="btn" type="button" id="pwRestart" hidden>Restart</button>
+        <button class="btn close-trade" type="button" id="pwStop" hidden>Stop</button></div>
     </div>
   </div>
   <div class="top-in top-strip"><div class="sbar" id="sbar" role="region" aria-label="Market status"></div>
@@ -5783,12 +5784,21 @@ const PW_TEXT = {
   stopped: ["Stopped", "The server is off: no scans, no alerts and no Auto-trade until it is started."],
   none: ["No server", "There is no AlgoTrade server (it was deleted). Launch one from the PC with Start AlgoTrade.bat."],
 };
-const pw = { timer: null, busy: false };
+// restart: "" | "stopping" (Stop sent, waiting for the server to be stopped) | "starting" (Start sent, waiting
+// for the dashboard to answer, then the page reloads). Runs in this page: it keeps going while the popup is
+// closed, but not if this page is closed before the Start is sent
+const pw = { timer: null, busy: false, restart: "" };
 const pwEl = id => document.getElementById(id);
 document.body.append(pwEl("powerPop"));   // out of the top bar (its backdrop blur would pin a fixed child to the bar)
+const pwBtns = ["pwStart", "pwStop", "pwRestart"];
+async function powerSend(op) {
+  const r = await fetch("/_power/" + op, { method: "POST", headers: { "X-Power": "1" } });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+}
 async function powerRefresh() {
   clearTimeout(pw.timer);
-  if (pwEl("powerPop").hidden) return;
+  if (pwEl("powerPop").hidden && !pw.restart) return;
   let s;
   try {
     const r = await fetch("/_power/state", { cache: "no-store" });
@@ -5797,47 +5807,59 @@ async function powerRefresh() {
     pwEl("pwErr").textContent = "";
   } catch (e) {
     pwEl("pwErr").textContent = "Couldn't read the server's state: " + e.message;
-    pw.timer = setTimeout(powerRefresh, 10000);
+    pw.timer = setTimeout(powerRefresh, pw.restart ? 5000 : 10000);
     return;
   }
+  if (pw.restart === "stopping" && s.state === "stopped") {
+    try { await powerSend("start"); pw.restart = "starting"; }
+    catch (e) { pw.restart = ""; pwEl("pwErr").textContent = "Stopped, but couldn't start it again: " + e.message; }
+  } else if (pw.restart === "starting" && s.state === "running" && s.up) {
+    pw.restart = ""; location.reload(); return;   // back up: load the dashboard fresh
+  } else if (pw.restart && !["running", "pending", "stopping", "stopped"].includes(s.state)) pw.restart = "";
   const [label, note] = PW_TEXT[s.state] || [s.state, ""];
-  pwEl("pwState").className = "pw-state " + s.state;
-  pwEl("pwTxt").textContent = label;
-  pwEl("pwNote").textContent = s.state === "running" && !s.up ? "The server is on; the dashboard is still starting up." : note;
-  pwEl("pwStart").hidden = s.state !== "stopped";
-  pwEl("pwStop").hidden = s.state !== "running";
-  pw.timer = setTimeout(powerRefresh, s.state === "pending" || s.state === "stopping" ? 4000 : 15000);
+  pwEl("pwState").className = "pw-state " + (pw.restart ? "pending" : s.state);
+  pwEl("pwTxt").textContent = pw.restart ? "Restarting…" : label;
+  pwEl("pwNote").textContent = pw.restart === "stopping" ? "Stopping first (the databases are backed up), then starting again. Keep this page open until it says starting."
+    : pw.restart === "starting" ? "Starting again; this page reloads when the dashboard answers (about a minute)."
+    : s.state === "running" && !s.up ? "The server is on; the dashboard is still starting up." : note;
+  pwEl("pwStart").hidden = !!pw.restart || s.state !== "stopped";
+  pwEl("pwStop").hidden = pwEl("pwRestart").hidden = !!pw.restart || s.state !== "running";
+  pw.timer = setTimeout(powerRefresh, pw.restart || s.state === "pending" || s.state === "stopping" ? 4000 : 15000);
 }
 async function powerAct(op) {
-  if (pw.busy) return;
+  if (pw.busy || pw.restart) return;
   if (op === "stop" && !confirm("Stop the server? Scans, alerts and Auto-trade stop until it is started again " +
     "(this dashboard goes offline too).")) return;
-  pw.busy = true; pwEl("pwStart").disabled = pwEl("pwStop").disabled = true;
+  if (op === "restart" && !confirm("Restart the server? It stops (backing up the databases) and starts again: " +
+    "about 2 minutes without scans, alerts or Auto-trade. Keep this page open until it is starting.")) return;
+  pw.busy = true; pwBtns.forEach(b => pwEl(b).disabled = true);
   try {
-    const r = await fetch("/_power/" + op, { method: "POST", headers: { "X-Power": "1" } });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || r.status);
+    await powerSend(op === "restart" ? "stop" : op);
+    if (op === "restart") pw.restart = "stopping";
   } catch (e) {
     pwEl("pwErr").textContent = `Couldn't ${op} the server: ${e.message}`;
   } finally {
-    pw.busy = false; pwEl("pwStart").disabled = pwEl("pwStop").disabled = false;
+    pw.busy = false; pwBtns.forEach(b => pwEl(b).disabled = false);
     powerRefresh();
   }
 }
 function powerOpen() {
   pwEl("powerPop").hidden = false; pwEl("powerBtn").setAttribute("aria-expanded", "true");
-  pwEl("pwState").className = "pw-state"; pwEl("pwTxt").textContent = "Checking…"; pwEl("pwNote").textContent = "";
-  pwEl("pwStart").hidden = pwEl("pwStop").hidden = true;
+  if (!pw.restart) {
+    pwEl("pwState").className = "pw-state"; pwEl("pwTxt").textContent = "Checking…"; pwEl("pwNote").textContent = "";
+    pwBtns.forEach(b => pwEl(b).hidden = true);
+  }
   powerRefresh();
 }
 function powerClose() {
   pwEl("powerPop").hidden = true; pwEl("powerBtn").setAttribute("aria-expanded", "false");
-  clearTimeout(pw.timer);
+  if (!pw.restart) clearTimeout(pw.timer);   // a restart keeps going
 }
 pwEl("powerBtn").onclick = e => { e.stopPropagation(); pwEl("powerPop").hidden ? powerOpen() : powerClose(); };
 pwEl("pwClose").onclick = powerClose;
 pwEl("pwStart").onclick = () => powerAct("start");
 pwEl("pwStop").onclick = () => powerAct("stop");
+pwEl("pwRestart").onclick = () => powerAct("restart");
 document.addEventListener("click", e => {   // a click outside closes it
   if (!pwEl("powerPop").hidden && !e.target.closest("#powerPop, #powerBtn, [data-stx=power]")) powerClose();
 });
