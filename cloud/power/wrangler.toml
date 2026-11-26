@@ -7,5 +7,5 @@ routes = [{ pattern = "algo.trendywork.in/*", zone_name = "trendywork.in" }]
 
 [vars]
 REGION = "ap-south-1"
-INSTANCE_ID = "i-0d6c25adcb85f165a"
+SERVER_NAME = "AlgoTrade"   # the server is the instance with this Name tag
 # Secrets (npx wrangler secret put <name>): AWS_KEY_ID, AWS_SECRET of the IAM user algotrade-power

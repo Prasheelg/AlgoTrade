@@ -7,19 +7,34 @@
 // - /_power is that page at any time, with Start and Stop.
 //
 // The Worker talks to EC2 with an access key (Worker secrets AWS_KEY_ID / AWS_SECRET) that can only start, stop
-// and describe; start and stop are limited to the one instance (INSTANCE_ID in wrangler.toml).
+// and describe; start and stop are limited (in its IAM policy) to instances tagged Name = SERVER_NAME (wrangler.toml).
+// The server is found by that tag, not a fixed id, so a replacement server needs no change here.
 import { AwsClient } from "aws4fetch";
 
 const DOWN = new Set([502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 530]);   // 530 = tunnel down (error 1033)
-const STATES = ["pending", "running", "stopping", "stopped", "shutting-down", "terminated"];
+const STATES = ["pending", "running", "stopping", "stopped", "shutting-down", "terminated", "none"];
 
-async function ec2(env, action) {
+async function call(env, action, params) {
   const aws = new AwsClient({ accessKeyId: env.AWS_KEY_ID, secretAccessKey: env.AWS_SECRET, region: env.REGION, service: "ec2" });
-  const body = new URLSearchParams({ Action: action, Version: "2016-11-15", "InstanceId.1": env.INSTANCE_ID });
+  const body = new URLSearchParams({ Action: action, Version: "2016-11-15", ...params });
   const res = await aws.fetch(`https://ec2.${env.REGION}.amazonaws.com/`, { method: "POST", body });
   const text = await res.text();
   if (!res.ok) throw new Error(`${action}: ${(/<Message>([^<]*)/.exec(text) || [, res.status])[1]}`);
   return text;
+}
+
+// The server: the one instance tagged Name = SERVER_NAME that isn't deleted. Describe answers with it (or "none");
+// Start / Stop act on its id
+async function ec2(env, action) {
+  const xml = await call(env, "DescribeInstances", {
+    "Filter.1.Name": "tag:Name", "Filter.1.Value.1": env.SERVER_NAME,
+    "Filter.2.Name": "instance-state-name", ...Object.fromEntries(
+      ["pending", "running", "stopping", "stopped"].map((s, i) => [`Filter.2.Value.${i + 1}`, s])) });
+  const ids = [...new Set([...xml.matchAll(/<instanceId>(i-[0-9a-f]+)<\/instanceId>/g)].map(m => m[1]))];
+  if (ids.length > 1) throw new Error(`There are ${ids.length} ${env.SERVER_NAME} servers; keep one`);
+  if (action === "DescribeInstances") return ids.length ? xml : "<instanceState><code>0</code><name>none</name>";
+  if (!ids.length) throw new Error(`No ${env.SERVER_NAME} server: launch one with "Start AlgoTrade.bat"`);
+  return call(env, action, { "InstanceId.1": ids[0] });
 }
 
 // The instance's state as EC2 reports it (Describe: its own state; Start / Stop: the state it is now moving to)
@@ -134,6 +149,7 @@ const TEXT = {
   running: ["Running", "The server is on."],
   pending: ["Starting…", "The server is booting; the dashboard follows in about a minute."],
   stopping: ["Stopping…", "The apps are shutting down and the databases are being backed up."],
+  none: ["No server", "There is no AlgoTrade server to start (it was deleted). Launch one from the PC with \"Start AlgoTrade.bat\"."],
   stopped: ["Stopped", "The server is off: no scans, no alerts and no Auto-trade until it is started."],
 };
 async function refresh() {
