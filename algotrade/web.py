@@ -278,9 +278,13 @@ def api_signals():
 
 @app.get("/api/performance")
 def api_performance():
-    """Closed-trade results of a market, before and after costs; ?days=N limits to recent exits."""
+    """Closed-trade results of a market (?market=ALL: every shown market together), before and after costs;
+    ?days=N limits to recent exits."""
     days = request.args.get("days", type=int)
-    return jsonify(performance.report(_market().code, days if days and days > 0 else None))
+    days = days if days and days > 0 else None
+    if (request.args.get("market") or "").upper() == "ALL":
+        return jsonify(performance.report("ALL", days, codes=[m.code for m in _shown_markets()]))
+    return jsonify(performance.report(_market().code, days))
 
 
 @app.get("/api/portfolio")

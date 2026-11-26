@@ -107,6 +107,31 @@ def test_api_performance(no_costs):
     assert c.get("/api/performance?market=XX").status_code == 400
 
 
+def test_report_all_markets_together(no_costs):
+    close("A", "T2_HIT", 108.0, closed_at="2026-09-01")                 # IN +3R
+    close("G", "SL_HIT", 96.0, closed_at="2026-09-02", market="MCX")    # MCX -1R
+    close("U", "T2_HIT", 108.0, closed_at="2026-09-03", market="US")    # not asked for
+    r = performance.report("ALL", codes=["IN", "MCX"])
+    assert r["market"] == "ALL" and r["trades"] == 2 and r["backtest"] is None
+    assert [(c["symbol"], c["market"], c["net"]) for c in r["equity"]] == [("A", "IN", 3.0), ("G", "MCX", 2.0)]
+    rv = r["r_values"]
+    assert set(rv) == {"IN", "MCX"} and r["r_value"] == rv["IN"]
+    assert r["net_money"] == pytest.approx(3 * rv["IN"] - rv["MCX"])   # each trade at its own exchange's 1R
+    assert r["max_drawdown_money"] == pytest.approx(rv["MCX"])
+    ex = {g["group"]: g["trades"] for g in next(b for b in r["breakdowns"] if b["name"] == "Exchange")["rows"]}
+    assert ex == {"NSE": 1, "MCX": 1}
+    assert "Exchange" not in [b["name"] for b in performance.report("IN")["breakdowns"]]   # one market: no such tab
+
+
+def test_api_performance_all(no_costs, monkeypatch):
+    monkeypatch.setattr(config, "HIDDEN_MARKETS", {"US"})
+    close("A", "T2_HIT", 108.0, closed_at=str(date.today()))
+    close("G", "SL_HIT", 96.0, closed_at=str(date.today()), market="MCX")
+    close("U", "T2_HIT", 108.0, closed_at=str(date.today()), market="US")   # hidden market: left out
+    r = web.app.test_client().get("/api/performance?market=all").get_json()
+    assert r["market"] == "ALL" and r["trades"] == 2 and set(r["r_values"]) == {"IN", "MCX"}
+
+
 # ---- health: the Signals page's verdict on the live results after costs ----
 
 def _trades(*rs):

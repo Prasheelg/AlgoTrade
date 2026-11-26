@@ -172,22 +172,39 @@ def scorecard(market: str) -> dict:
             "backtest": {k: bt[k] for k in ("finished", "params", "universe")} if bt else None}
 
 
-def report(market: str, days: int | None = None) -> dict:
+def _r_value(mkt: markets.Market) -> float:
+    """Money at risk per trade (1R) in a market."""
+    return mkt.capital * config.RISK_PER_TRADE_PCT / 100
+
+
+def report(market: str, days: int | None = None, codes: list[str] | None = None) -> dict:
+    """Closed-trade results of a market, or with codes, of those markets together (market is then "ALL").
+    Each market has its own 1R, so the money figures are summed trade by trade (net_money, max_drawdown_money)."""
+    codes = codes or [market]
+    mkts = {c: markets.get(c) for c in codes}
     since = date.today() - timedelta(days=days) if days else None
-    trades = closed_trades(market, since)
-    gross, net, curve = 0.0, 0.0, []
+    trades = sorted((dict(t, market=c) for c in codes for t in closed_trades(c, since)),
+                    key=lambda t: (t["closed_at"], t["key"]))
+    gross, net, money, peak, dd_money, curve = 0.0, 0.0, 0.0, 0.0, 0.0, []
     for t in trades:
         gross, net = gross + t["r"], net + t["net_r"]
-        curve.append({"date": t["closed_at"], "symbol": t["symbol"], "side": t["side"], "timeframe": t["timeframe"],
-                      "exit": EXIT_TEXT[t["status"]], "r": t["r"],
+        money += t["net_r"] * _r_value(mkts[t["market"]])
+        peak = max(peak, money)
+        dd_money = max(dd_money, peak - money)
+        curve.append({"date": t["closed_at"], "symbol": t["symbol"], "market": t["market"], "side": t["side"],
+                      "timeframe": t["timeframe"], "exit": EXIT_TEXT[t["status"]], "r": t["r"],
                       "net_r": t["net_r"], "gross": round(gross, 2), "net": round(net, 2)})
-    open_count = sum(state.is_open(s) for s in state.all_signals(market))
+    open_count = sum(state.is_open(s) for c in codes for s in state.all_signals(c))
     from . import journal
     tags = {k: e["tags"] for k, e in journal.all_entries().items() if e["tags"]}
-    mkt = markets.get(market)
+    mkt = mkts[codes[0]]
+    breakdowns_extra = ([{"name": "Exchange", "rows": _group(trades, lambda t: ["NSE" if t["market"] == "IN" else mkts[t["market"]].name])}]
+                        if len(codes) > 1 else [])
     return {
         "market": market, "days": days, "trades": len(trades), "open": open_count, "min_trades": MIN_TRADES,
-        "currency": mkt.currency, "locale": mkt.locale, "r_value": mkt.capital * config.RISK_PER_TRADE_PCT / 100,
+        "currency": mkt.currency, "locale": mkt.locale, "r_value": _r_value(mkt),
+        "r_values": {c: _r_value(m) for c, m in mkts.items()},
+        "net_money": round(money, 2), "max_drawdown_money": round(dd_money, 2),
         "gross": _stats([t["r"] for t in trades]),
         "net": {**_stats([t["net_r"] for t in trades]), "max_drawdown_r": _max_drawdown([c["net"] for c in curve])},
         "avg_hold_days": round(sum(t["hold_days"] for t in trades) / len(trades), 1) if trades else None,
@@ -201,6 +218,7 @@ def report(market: str, days: int | None = None) -> dict:
             {"name": "Side", "rows": _group(trades, lambda t: [t["side"]])},
             {"name": "Tag", "note": "your trade journal tags; a trade counts once for each tag",
              "rows": _group(trades, lambda t: tags.get(t["key"]) or ["(not journaled)"])},
+            *breakdowns_extra,
         ],
-        "backtest": backtest_reference(market),
+        "backtest": backtest_reference(market) if len(codes) == 1 else None,
     }

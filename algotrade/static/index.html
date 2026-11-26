@@ -1084,8 +1084,6 @@
     h1 span { display: none; }
     .spacer { order: 1; }
     #refresh { order: 2; width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 11px; }
-    #markets { order: 4; flex: 1; height: 38px; border-radius: 11px; }
-    #markets button { flex: 1; justify-content: center; border-radius: 8px; padding: 0 10px; }
     #tradeSw { order: 5; height: 38px; border-radius: 11px; padding: 0 12px; }
 
     /* Status strip: a quiet line under the app bar, swipe for the rest */
@@ -1350,12 +1348,8 @@
     .sb-tpls { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(2, minmax(0, 1fr));
                overflow: visible; scroll-snap-type: none; padding-bottom: 0; }
 
-    /* App bar row 2: market switch and Auto-trade side by side (flags dropped, the switch's colour says ON/off) */
-    #markets .flag { display: none; }
-    #markets button { padding: 0 6px; gap: 6px; }
-    #tradeSw { flex: none; gap: 8px; padding: 0 10px; }
-    #tradeLbl { font-size: 0; }
-    #tradeLbl::after { content: "Auto"; font-size: 13px; }
+    /* App bar row 2: Auto-trade on its own, full width */
+    #tradeSw { flex: 1; gap: 8px; padding: 0 12px; justify-content: center; }
 
     /* Status strip: only what a phone needs. The exchange clock (the phone has one) and the account line (it is
        in Settings) are dropped; the data line only shows when prices are stale or missing */
@@ -1429,7 +1423,6 @@
   .exch.IN { background: color-mix(in srgb, #4ca8ff 18%, transparent); color: #3f8fdb; }
   .exch.MCX { background: var(--warn-bg); color: var(--warn); }
   :root[data-theme="dark"] .exch.IN { color: #7cc4ff; }
-  #markets [data-market="ALL"] { font-weight: 700; }
   /* Toasts (phone): results of an action, above the tab bar; tap to dismiss */
   /* small, in the bottom-right corner so they don't cover the page */
   #toasts { position: fixed; right: 10px; bottom: 14px; z-index: 50; width: min(260px, 62vw);
@@ -1514,7 +1507,6 @@
       <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>
       <h1>AlgoTrade <span>Signals</span></h1>
     </div>
-    <nav class="markets" id="markets"></nav>
     <nav class="markets" id="views" aria-label="View">
       <button type="button" data-view="signals"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Signals</span></button><button type="button" data-view="performance"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-3M13 16V9M18 16V6"/></svg><span>Performance</span></button><button type="button" data-view="portfolio"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Portfolio</span></button><button type="button" data-view="watchlist"><svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg><span>Watchlist</span></button><button type="button" data-view="options"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="lg">Strategy Builder</span><span class="sm">Options</span></button><button type="button" data-view="chart"><svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/><rect x="4.5" y="8" width="5" height="8" rx="1"/><rect x="14.5" y="6" width="5" height="7" rx="1"/></svg><span>Chart</span></button>
     </nav>
@@ -1604,13 +1596,13 @@
       <div class="empty" id="bdEmpty" hidden></div>
     </section>
     <section class="card fold" id="scCard">
-      <div class="list-head"><span class="lbl">Strategy scorecard</span><span class="hint" id="scHint"></span></div>
+      <div class="list-head"><span class="lbl">Strategy scorecard</span><div class="seg mk-pick" aria-label="Exchange"></div><span class="hint" id="scHint"></span></div>
       <div class="tablewrap"><table><thead><tr><th>Strategy</th><th class="num">Live trades</th><th class="num">Live avg R</th>
         <th class="num">Live win rate</th><th class="num">Backtested</th><th class="num">Backtest avg R</th><th>Verdict</th>
         <th>Scanner</th></tr></thead><tbody id="scRows"></tbody></table></div>
     </section>
     <section class="card fold" id="btCard">
-      <div class="list-head"><span class="lbl">Backtest</span><span class="hint">Daily bars over the market's universe, after costs</span></div>
+      <div class="list-head"><span class="lbl">Backtest</span><div class="seg mk-pick" aria-label="Exchange"></div><span class="hint">Daily bars over the market's universe, after costs</span></div>
       <div class="bt-ctl">
         <div class="ctl"><span class="lbl">Period</span><div class="seg" id="btPeriod">
           <button type="button" data-p="2y">2 years</button><button type="button" data-p="5y" class="on">5 years</button><button type="button" data-p="10y">10 years</button></div></div>
@@ -1674,6 +1666,7 @@
         <label class="ch-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="chSym" class="opt-input" list="chList" placeholder="RELIANCE, NIFTY, NIFTY 25350 CE" aria-label="Stock, index or option" autocomplete="off" spellcheck="false">
           <button class="btn primary" id="chGo" type="button">Show</button></label>
+        <div class="seg mk-pick" aria-label="Exchange"></div>
         <div class="seg" id="chTf" aria-label="Timeframe"></div>
         <span class="sep"></span>
         <div class="seg" id="chInd" aria-label="Indicators"></div>
@@ -1902,17 +1895,16 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 let market = ["US", "MCX"].includes(store.get("market")) ? store.get("market") : "IN";
-// "All": the Signals list shows every shown market's signals together (market stays the one the scan settings,
-// Performance, Chart and the rest are about). On by default
-let allMk = store.get("allMk") ?? true;
+// Signals and Performance show every shown market together. market is the exchange the scan settings, the
+// scorecard, the backtest and the chart are about (each has its own NSE / MCX picker)
+const allMk = true;   // NSE and MCX are always shown together
 const MK_LABEL = { IN: "NSE", MCX: "MCX", US: "US" };
 const TV_PREFIX = { IN: "NSE:", MCX: "MCX:", US: "" };
 let view = "signals";  // "signals" or "performance"
 // A link like #US/active opens that market and tab; #IN/performance opens the performance view
 {
   const [m, t] = location.hash.slice(1).split("/");
-  if (["IN", "US", "MCX"].includes(m)) { market = m; allMk = false; }
-  else if (m === "ALL") allMk = true;
+  if (["IN", "US", "MCX"].includes(m)) market = m;
   if (TABS.some(x => x[0] === t)) { tab = t; tabPicked = true; }
   if (["performance", "portfolio", "options", "watchlist", "chart"].includes(t)) view = t;
   else if (!t && ["performance", "portfolio", "options", "watchlist", "chart"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
@@ -2095,7 +2087,7 @@ function renderTable() {
     const tags = String(s.reasons ?? "").split(", ").filter(Boolean), TAGS_SHOWN = 2;
     const intraday = s.timeframe !== "1d" && s.bar_time;
     return `<tr class="${outcome}">
-    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}" href="https://www.tradingview.com/chart/?symbol=${TV_PREFIX[s.market] ?? cfg.tv_prefix}${encodeURIComponent(s.symbol)}${s.market === "MCX" ? "1!" : ""}" target="_blank" rel="noopener" title="Chart${s.contract ? ` of ${esc(s.contract)}` : ""} (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
+    <td><div class="stock"><a class="sym" data-key="${esc(s.key)}" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}" data-mk="${esc(s.market)}" href="https://www.tradingview.com/chart/?symbol=${TV_PREFIX[s.market] ?? cfg.tv_prefix}${encodeURIComponent(s.symbol)}${s.market === "MCX" ? "1!" : ""}" target="_blank" rel="noopener" title="Chart${s.contract ? ` of ${esc(s.contract)}` : ""} (Ctrl-click: TradingView)">${esc(s.symbol)}</a>
       <span class="side ${s.side}">${s.side}</span>${allMk ? `<span class="exch ${esc(s.market)}">${esc(MK_LABEL[s.market] ?? s.market)}</span>` : ""}</div>${s.contract ? `<div class="sub">${esc(futName(s.contract, s.symbol))}</div>` : ""}</td>
     <td class="when" title="${esc(signalTime(s))}"><span class="t">${intraday ? esc(s.bar_time.slice(11, 16)) : esc(dayText(s.bar_date))}</span> <span class="tf">${esc(s.timeframe)}</span>` +
       `<div class="sub">${intraday ? esc(dayText(s.bar_time)) : ""}${s.closed_at ? `${intraday ? " · " : ""}closed${dayText(s.closed_at) === dayText(intraday ? s.bar_time : s.bar_date) ? "" : ` ${esc(dayText(s.closed_at))}`}` : ""}</div></td>
@@ -2141,7 +2133,7 @@ new ResizeObserver(pinStrip).observe(document.querySelector(".top"));
 // ---- Exchange clock (regular hours on trading days: weekends, the exchange's holidays and early closes known) ----
 const EXCHANGE = { IN: ["NSE", "IST"], US: ["NYSE · Nasdaq", "ET"], MCX: ["MCX", "IST"] };
 // The sessions the status strip shows: every shown market's in All on the Signals view, else the selected one's
-const sbMarkets = () => (META?.markets ?? []).filter(x => view === "signals" && allMk ? true : x.code === market);
+const sbMarkets = () => META?.markets ?? [];
 let lastRefresh = null;
 const quotes = {};  // market -> latest /api/index quote
 const toMin = hhmm => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
@@ -2236,10 +2228,6 @@ function renderStatus() {
       ? `Prices for tracking are real-time from ${cfg.live}; scan history comes from Yahoo Finance`
       : "Yahoo Finance, free feed delayed up to about 15 min")));
   document.getElementById("sbar").innerHTML = parts.join("");
-  document.querySelectorAll("#markets .mdot").forEach(d => {
-    const mk = META?.markets.find(x => x.code === d.dataset.m);
-    d.classList.toggle("open", !!mk && marketState(mk).open);
-  });
 }
 
 // ---- P&L today in the top bar (/api/pnl): every PNL_LIVE_SEC while the market is open and the stream is up ----
@@ -2432,14 +2420,13 @@ function renderNotice() {
   if (note) { n.innerHTML = note.html; n.className = "notice" + (note.err ? " err" : ""); }
 }
 
+// The NSE / MCX pickers of the tools that are about one exchange (scorecard, backtest, chart)
 function renderMarkets() {
-  const all = view === "signals" && allMk;
-  document.getElementById("markets").innerHTML = (view === "signals" ? `<button type="button" data-market="ALL" class="${all ? "on" : ""}" title="NSE and MCX signals in one list">All</button>` : "") +
-    (META?.markets ?? [{ code: "IN", name: "India" }, { code: "MCX", name: "MCX" }])
-    .map(m => `<button type="button" data-market="${m.code}" class="${!all && m.code === market ? "on" : ""}">` +
-      `${esc(MK_LABEL[m.code] ?? m.name)}` +
-      (scanStat[m.code]?.running ? `<span class="busy" title="Scan running"></span>`
-        : `<span class="mdot" data-m="${m.code}" title="Market open / closed"></span>`) + `</button>`).join("");
+  const mks = META?.markets ?? [{ code: "IN", name: "India" }, { code: "MCX", name: "MCX" }];
+  document.querySelectorAll(".mk-pick").forEach(el => {
+    el.hidden = mks.length < 2;
+    el.innerHTML = mks.map(m => `<button type="button" data-mkpick="${m.code}" class="${m.code === market ? "on" : ""}">${esc(MK_LABEL[m.code] ?? m.name)}</button>`).join("");
+  });
   renderStatus();
 }
 
@@ -2501,7 +2488,7 @@ function renderScanPanel() {
 
 // The scanners on screen: the selected market's, or in All (Signals) every shown market's, each a switch + one status
 // line (the details are in the tooltips)
-const scanMks = () => view === "signals" && allMk ? sbMarkets().map(m => m.code) : [market];
+const scanMks = () => sbMarkets().length ? sbMarkets().map(m => m.code) : [market];
 function renderScanState() {
   const run = document.getElementById("scanRun"); if (!run) return;
   const mks = scanMks();
@@ -2523,9 +2510,7 @@ function renderScanFor() {
 }
 document.getElementById("scanFor").onclick = e => {
   const b = e.target.closest("[data-for]"); if (!b || b.dataset.for === market) return;
-  market = b.dataset.for; store.set("market", market);
-  if (META) { opts = optsFor(market); renderScanPanel(); loadScanSettings(market); }
-  renderMarkets(); renderStatus(); renderScanState();
+  pickMarket(b.dataset.for);
 };
 
 function renderScanOne(mk) {
@@ -2724,26 +2709,16 @@ async function loadMeta() {
   renderScanPanel();
 }
 
-document.getElementById("markets").onclick = e => {
-  const b = e.target.closest("[data-market]"); if (!b) return;
-  const pick = b.dataset.market, sig = view === "signals";
-  if (pick === "ALL" || (sig && allMk && pick === market)) {   // All on, or off again to just this market
-    if (pick === "ALL" && allMk) return;
-    allMk = pick === "ALL"; store.set("allMk", allMk);
-    data = []; tab = "pending"; tabPicked = false; render(); renderMarkets(); renderStatus(); renderScanState(); load();
-    sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code)); return;
-  }
-  if (pick === market) return;
-  if (sig) { allMk = false; store.set("allMk", false); }
+function pickMarket(pick) {
+  if (!pick || pick === market) return;
   market = pick; store.set("market", market);
-  data = []; tab = "pending"; tabPicked = false; render();
-  renderMarkets(); renderNotice();
+  renderMarkets(); renderNotice(); renderScanState();
   if (META) { opts = optsFor(market); renderScanPanel(); loadScanSettings(market); }
-  load();
-  if (view === "performance") { perf = null; loadPerf(); }
+  if (view === "performance") { loadScorecard(); loadBacktest(); }
   if (view === "chart") chOpen();
-  sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code));
-};
+  setHash();
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-mkpick]"); if (b) pickMarket(b.dataset.mkpick); });
 
 document.getElementById("filters").onchange = () => {
   opts.filters = [...document.querySelectorAll("#filters input:checked")].map(c => c.value);
@@ -2764,11 +2739,9 @@ let perf = null, perfDays = [0, 30, 90].includes(store.get("perfDays")) ? store.
 let eqFocus = null;  // trade index under the crosshair / keyboard focus
 
 function setView(v) {
-  const wasAll = view === "signals" && allMk;
   view = v;
   store.set("view", v);
   renderMarkets(); renderStatus(); renderScanState();
-  if (view === "signals" && allMk && !wasAll) { load(); sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code)); }
   document.querySelectorAll("#views button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   document.getElementById("sigView").hidden = view !== "signals";
   document.getElementById("perfView").hidden = view !== "performance";
@@ -2810,12 +2783,12 @@ document.getElementById("perfDays").onclick = e => {
 };
 
 async function loadPerf() {
-  const mk = market, chart = document.getElementById("eqChart");
+  const chart = document.getElementById("eqChart");
   document.querySelectorAll("#perfDays button").forEach(b => b.classList.toggle("on", +b.dataset.days === perfDays));
   chart.style.opacity = perf ? .5 : 1;  // keep the old frame while reloading
   try {
-    const j = await (await fetch(`/api/performance?market=${mk}${perfDays ? `&days=${perfDays}` : ""}`)).json();
-    if (mk !== market || view !== "performance") return;
+    const j = await (await fetch(`/api/performance?market=ALL${perfDays ? `&days=${perfDays}` : ""}`)).json();
+    if (view !== "performance") return;
     perf = j; renderPerf();
   } catch (err) {
     const n = document.getElementById("perfNote");
@@ -2833,7 +2806,8 @@ function renderPerf() {
   const p = perf, n = p.trades, g = p.gross, t = p.net;
   const period = p.days ? `last ${p.days} days` : "all time";
   document.getElementById("perfHint").textContent =
-    `${n} closed trade${n === 1 ? "" : "s"} · ${period} · ${p.open} still open (not counted) · 1R = ${money(rUnit())}`;
+    `${n} closed trade${n === 1 ? "" : "s"} · ${period} · ${p.open} still open (not counted) · 1R = ` +
+    Object.entries(p.r_values ?? { [p.market]: rUnit() }).map(([c, v], _, all) => `${all.length > 1 ? `${MK_LABEL[c] ?? c} ` : ""}${money(v)}`).join(" · ");
   const note = document.getElementById("perfNote");
   note.hidden = n >= p.min_trades;
   note.className = "notice";
@@ -2850,11 +2824,11 @@ function renderPerf() {
       kpi("Profit factor", pfFmt(t.profit_factor, t.total_r), n ? `before costs ${pfFmt(g.profit_factor, g.total_r)}` : ""),
     ]) +
     kgroup("Account", n ? `costs ${(g.avg_r - t.avg_r).toFixed(2)}R per trade on average` : "", [
-      kpi("Total R", rFmt(t.total_r, 1), n ? `≈ ${money(t.total_r * rUnit())}` : ""),
+      kpi("Total R", rFmt(t.total_r, 1), n ? `≈ ${money(p.net_money ?? t.total_r * rUnit())}` : ""),
       kpi("Max drawdown", n ? `${t.max_drawdown_r ? "−" : ""}${t.max_drawdown_r.toFixed(1)}R` : "–",
-        n ? `≈ ${money(-t.max_drawdown_r * rUnit())}` : ""),
+        n ? `≈ ${money(-(p.max_drawdown_money ?? t.max_drawdown_r * rUnit()))}` : ""),
       kpi("Backtest avg R", bt ? rFmt(bt.avg_r) : "–",
-        bt ? `${bt.trades.toLocaleString()} backtest trades` : "Run a backtest to compare"),
+        bt ? `${bt.trades.toLocaleString()} backtest trades` : p.market === "ALL" ? "per exchange: see Backtest" : "Run a backtest to compare"),
       kpi("Live vs backtest", bt && n ? rFmt(t.avg_r - bt.avg_r) : "–", bt && n ? "avg R per trade" : ""),
     ]);
   drawEquity();
@@ -2954,7 +2928,7 @@ function drawEquity() {
 
 function renderEqTable() {
   document.getElementById("eqRows").innerHTML = (perf?.equity ?? []).map((p, k) => `<tr><td>${k + 1}</td><td>${esc(p.date)}</td>
-    <td><span class="sym" data-chart="${esc(p.symbol)}" data-tf="${esc(p.timeframe)}">${esc(p.symbol)}</span> <span class="side ${esc(p.side)}">${esc(p.side)}</span> <span class="tf">${esc(p.timeframe)}</span></td>
+    <td><span class="sym" data-chart="${esc(p.symbol)}" data-tf="${esc(p.timeframe)}" data-mk="${esc(p.market ?? "")}">${esc(p.symbol)}</span>${p.market ? ` <span class="exch ${esc(p.market)}">${esc(MK_LABEL[p.market] ?? p.market)}</span>` : ""} <span class="side ${esc(p.side)}">${esc(p.side)}</span> <span class="tf">${esc(p.timeframe)}</span></td>
     <td>${esc(p.exit)}</td><td class="num">${rFmt(p.r)}</td><td class="num">${rFmt(p.net_r)}</td><td class="num">${rFmt(p.net)}</td></tr>`).join("");
 }
 
@@ -5120,7 +5094,7 @@ function renderSd() {
   const desc = name => STRATS.find(x => x.name === name)?.description ?? "";
   const reasons = String(s.reasons ?? "").split(", ").filter(Boolean);
   const stat = (k, v) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`;
-  sdBox.innerHTML = `<div class="row"><h3><span class="sym" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}">${esc(s.symbol)}${s.contract ? ` <small class="flat">${esc(futName(s.contract, s.symbol))}</small>` : ""}</span> <span class="side ${s.side}">${s.side}</span></h3>
+  sdBox.innerHTML = `<div class="row"><h3><span class="sym" data-chart="${esc(s.contract ?? s.symbol)}" data-tf="${esc(s.timeframe)}" data-mk="${esc(s.market)}">${esc(s.symbol)}${s.contract ? ` <small class="flat">${esc(futName(s.contract, s.symbol))}</small>` : ""}</span> <span class="side ${s.side}">${s.side}</span></h3>
       <span class="pill s-${s.status}">${STATUS_TEXT[s.status] ?? s.status}</span>
       <span class="est">${esc(signalTime(s))} · ${esc(s.timeframe)} · <span class="stars">${"★".repeat(s.score)}</span> ${s.score} vote${s.score === 1 ? "" : "s"}</span>
       <button class="btn icon" type="button" data-sd="close" title="Close" style="margin-left:auto">✕</button></div>
@@ -6038,7 +6012,12 @@ function chOpen() {
   chRender();
   if (ch.key !== chKey() || !ch.data) chLoad(true);
 }
-function openChart(sym, tf) {
+function openChart(sym, tf, mk) {
+  if (mk && mk !== market && META?.markets.some(m => m.code === mk)) {   // a signal's own exchange
+    market = mk; store.set("market", market); renderMarkets(); renderScanState();
+    opts = optsFor(market); renderScanPanel(); loadScanSettings(market);
+    ch.market = market;
+  }
   ch.sym = String(sym).trim();   // the server matches stocks and contracts in any case, indices by Kotak's name
   if (tf && CH_TFS.some(t => t[0] === tf)) { ch.tf = tf; store.set("chTf", tf); }
   if (view !== "chart") setView("chart"); else chOpen();
@@ -6051,7 +6030,7 @@ document.addEventListener("click", e => {
   e.preventDefault(); e.stopPropagation();
   document.querySelectorAll("dialog[open]").forEach(d => d.close());
   if (sd) { sd = null; renderSd(); }   // the signal detail sheet
-  openChart(c.dataset.chart, c.dataset.tf || undefined);
+  openChart(c.dataset.chart, c.dataset.tf || undefined, c.dataset.mk || undefined);
 }, true);
 function chShow() {
   const v = document.getElementById("chSym").value.trim();
