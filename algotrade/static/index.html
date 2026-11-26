@@ -89,7 +89,6 @@
     h1 span, .sbar .feed { display: none; }
   }
   @media (max-width: 1280px) { #views button, .markets button { padding: 6px 11px; } }
-  @media (max-width: 1240px) and (min-width: 641px) { .sbar .acct { display: none; } }
   @media (max-width: 1180px) and (min-width: 641px) { h1 { display: none; } .brand { padding-right: 0; border-right: 0; } }
   .sseg { display: flex; align-items: center; gap: 9px; padding: 2px 16px; margin-left: -1px; border-left: 1px solid var(--line-2); }
   .sseg.end { margin-left: auto; }
@@ -1353,7 +1352,7 @@
 
     /* Status strip: only what a phone needs. The exchange clock (the phone has one) and the account line (it is
        in Settings) are dropped; the data line only shows when prices are stale or missing */
-    .sseg:has(#sbClock), .sseg.acct { display: none; }
+    .sseg:has(#sbClock) { display: none; }
     .sseg.end:not(:has(.fresh.stale, .fresh.none)) { display: none; }
     .sseg.end .lbl, .sseg.end .sv.dim { display: none; }
     .sseg, .sseg:first-child { padding: 3px 8px; gap: 5px; }
@@ -2211,11 +2210,6 @@ function renderStatus() {
       (pl.live ? "" : `<span class="sv dim">· not live</span>`) + `<svg class="caret" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`,
       `pnl${pnlOpen ? " on" : ""}`,
       `${why}. ${pl.live ? "Live Kotak prices" : "Kotak account prices (updated every minute)"}${pl.as_of ? ` · as of ${pl.as_of.replace("T", " ")}` : ""}. Click for open positions.`));
-  }
-  if (cfg.universe) {
-    parts.push(seg("Account", `<span class="sv">${esc(cfg.universe)}</span><span class="sv dim">·</span>` +
-      `<span class="sv">${cfg.currency}${cfg.capital.toLocaleString(cfg.locale)}</span><span class="sv dim">·</span>` +
-      `<span class="sv">${cfg.risk_pct}% risk / trade</span>`, "acct", "Universe · capital · risk per trade (set in .env)"));
   }
   const mins = minsSince(lastRefresh);
   // Price freshness + feed in one segment
