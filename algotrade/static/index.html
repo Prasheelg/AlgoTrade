@@ -2234,7 +2234,7 @@ function renderStatus() {
         `${num(Math.abs(q.change))} (${sgn(q.change_pct, 2, "%")})</span>`, "idx",
       q.as_of ? `Daily change vs previous close · as of ${q.as_of} · ${q.source ?? "Yahoo Finance, delayed"}` : ""));
   }
-  const pl = market === "IN" ? pnlTop : null;
+  const pl = pnlTop;   // the Kotak account: NSE and MCX together
   if (pl && !pl.error && pl.today != null) {
     const inrS = v => `${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const why = [pl.positions != null ? `Positions ${inrS(pl.positions)} (${pl.open} open of ${pl.count})` : "",
@@ -2270,7 +2270,7 @@ async function loadPnl() {
   } catch {} finally { pnlBusy = false; }
 }
 setInterval(() => {
-  if (market !== "IN" || document.hidden) return;
+  if (document.hidden) return;
   const nse = META?.markets.find(m => m.code === "IN");
   const live = feedLive && nse && marketState(nse).open;
   if (++pnlTick % (live ? PNL_LIVE_SEC : PNL_IDLE_SEC) === 0) loadPnl();
@@ -2391,9 +2391,9 @@ const INDEX_LIVE_SEC = 2;
 let indexTick = 0;
 setInterval(() => {
   indexTick++;
-  const live = market === "IN" && feedLive && !pushOk && !document.hidden;
-  if (indexTick % (live ? INDEX_LIVE_SEC : 60) === 0) loadIndex();
-  if (indexTick % 60 === 0) sbMarkets().forEach(m => m.code !== market && loadIndex(m.code));  // the rest of the ticker
+  const live = feedLive && !pushOk && !document.hidden;
+  if (indexTick % (live ? INDEX_LIVE_SEC : 60) === 0) loadIndex("IN");
+  if (indexTick % 60 === 0) sbMarkets().forEach(m => m.code !== "IN" && loadIndex(m.code));  // the rest of the ticker
 }, 1000);
 
 async function load(path = "/api/signals", opts) {
@@ -4872,10 +4872,10 @@ function pushWanted() {   // what's on screen: v = this screen's prices, h = top
   const nse = META?.markets.find(m => m.code === "IN");
   if (!feedLive || document.hidden || !(nse && marketState(nse).open)) return "";
   const q = new URLSearchParams(), list = a => [...new Set(a.filter(Boolean))].join(",");
-  if (market === "IN") q.set("h", "1");
+  q.set("h", "1");
   if (bs?.symbol) q.set("t", bs.symbol);
-  if (view === "signals" && market === "IN")
-    q.set("s", list(data.filter(s => s.open && s.exit_price == null).map(s => s.symbol)));
+  if (view === "signals")
+    q.set("s", list(data.filter(s => s.market === "IN" && s.open && s.exit_price == null).map(s => s.symbol)));
   else if (view === "watchlist" && wlTab === "market") q.set("m", "1");
   else if (view === "watchlist" && wl)
     q.set("s", list([...(wl.items ?? []).map(r => r.symbol), ...(wl.alerts ?? []).filter(a => !a.triggered_at).map(a => a.symbol)]));
@@ -4916,7 +4916,7 @@ function pushRefresh(parts) {
   pushTimer = setTimeout(() => {
     pushTimer = null; pushAt = Date.now();
     const parts = new Set(pushParts); pushParts.clear();
-    if (parts.has("h")) once("idx", () => loadIndex());
+    if (parts.has("h")) once("idx", () => loadIndex("IN"));
     if (parts.has("t")) once("bs", () => bsQuote(true));
     if (!parts.has("v")) return;
     if (view === "signals") once("sig", () => load());
@@ -5747,7 +5747,7 @@ pollActivity();
 
 // Reload what the current view shows (pull to refresh, coming back to the app)
 async function refreshView(force = false) {
-  loadIndex();
+  ["IN", "MCX"].forEach(mk => loadIndex(mk));
   if (view === "signals") await load();
   else if (view === "performance") await loadPerf();
   else if (view === "portfolio") await loadPort(force);
@@ -6204,7 +6204,7 @@ renderMarkets();
 loadMeta();
 load();
 loadHealth();
-loadIndex();
+["IN", "MCX"].forEach(mk => loadIndex(mk));
 loadPnl();
 loadTrading();
 setInterval(loadTrading, 30000);
