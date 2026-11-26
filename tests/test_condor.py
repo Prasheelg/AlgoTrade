@@ -240,9 +240,9 @@ def test_paper_day_entry_roll_and_time_exit(mkt):
     assert condor.get_day(day)["rolls"] == 1
     assert len(condor.position(day)) == 4
 
-    # Within the 10-minute cooldown nothing rolls again
+    # Within the 2-minute cooldown nothing rolls again
     mkt.spot += 150
-    run(mkt, 10, 45)
+    run(mkt, 10, 41)
     assert shorts(day)["CE"] == after["CE"]
 
     # 15:00: everything squared off, shorts bought back before the wings are sold

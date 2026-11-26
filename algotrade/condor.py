@@ -17,7 +17,7 @@ but never blocks):
   same 1SD, with the credit at the prices we would trade at: sell at the bid, buy at the ask).
 - Every minute the targets are worked out again. A side rolls out when its 1SD level is 25+ points past the
   short strike (or its OI wall has moved past it), and in when the short strike is 75+ points beyond the level
-  and the roll brings in a net credit; at least 10 minutes between rolls, none after 14:30 (a threatened side
+  and the roll brings in a net credit; at least 2 minutes between rolls, none after 14:30 (a threatened side
   is closed instead). A roll that can't meet POP > 75% closes that side.
 - Daily loss cap: cash from every fill + open legs at mid - charges <= -CONDOR_LOSS_CAP closes everything and
   stops for the day (checked every few seconds). From 15:00 everything is squared off: shorts first, then wings.
@@ -61,7 +61,7 @@ SPECS = {
                "cap": "CONDOR_LOSS_CAP_SENSEX", "exchange": "BSE", "expiry": "weekly", "width": 40},
 }
 UNDERLYINGS = tuple(SPECS)
-COOLDOWN_MIN = 10
+COOLDOWN_MIN = 2
 VIX_BAND = (11.0, 20.0)      # check
 VIX_RISE_MAX = 5.0           # % vs previous close, hard
 IVP_BAND = (30.0, 85.0)      # hard
@@ -1046,7 +1046,7 @@ def _retarget(day: str, u: str, rec: dict, pos: dict, mode: str, now: datetime) 
         last = rec.get("last_roll_at")
         if last and now - datetime.fromisoformat(last) < timedelta(minutes=COOLDOWN_MIN):
             _log(day, u, "roll", f"{opt} side wants to roll {sig} ({why or 'short beyond its 1SD level'}) but the "
-                                 f"10-minute cooldown is running")
+                                 f"{COOLDOWN_MIN}-minute cooldown is running")
             continue
         wants.append((opt, sig, why or f"short {short:.0f} is {spec['in']}+ pts beyond its 1SD level"))
     # Out before in: a skipped inward roll on one side must never keep the threatened side from rolling

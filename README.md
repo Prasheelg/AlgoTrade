@@ -390,7 +390,7 @@ description below uses NIFTY's numbers.
 - **Management, every minute:** a side rolls **out** when its 1SD level is 25+ points past the short strike (or
   its OI wall moved past it), and **in** when the short is 75+ points beyond the level and the roll brings in a
   net credit. Each roll uses the full entry rule and needs POP > 75%; otherwise a threatened side is closed. At
-  least 10 minutes between rolls, none after 14:30 (a threatened side is closed instead).
+  least 2 minutes between rolls, none after 14:30 (a threatened side is closed instead).
 - **Daily loss cap:** fills' cash + open legs at mid − charges ≤ −₹2,600 (`CONDOR_LOSS_CAP`) closes everything
   for the day (checked every 3 s). **From 15:00** all legs are squared off, shorts first, then wings.
 - **Modes** (top of the tab): **Paper** (default) fills at the bid / ask with no orders, so you can watch it for a
