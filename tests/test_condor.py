@@ -51,13 +51,17 @@ def test_rounding_is_outward():
 
 
 def test_roll_buffers_worked_example():
-    """10:30, Nifty 25,850, 1SD 252: call level 26,102 is 2 pts past 26,100 -> no roll; put 25,500 is 98 pts
-    beyond its level -> an inward candidate (the OI wall keeps the target at 25,500, so nothing changes)."""
-    assert condor.roll_signal("CE", 26100, 25850, 252) is None
-    assert condor.roll_signal("CE", 26100, 25875, 252) == "out"           # 27 pts past
+    """10:30, Nifty 25,850, 1SD 252: call level 26,102 is 2 pts past 26,100 -> rolls out (no short inside the
+    expected move); put 25,500 is 98 pts beyond its level -> an inward candidate."""
+    assert condor.roll_signal("CE", 26100, 25850, 252) == "out"           # 2 pts past is enough
+    assert condor.roll_signal("CE", 26100, 25848, 252) is None             # level exactly on the strike: not inside
+    assert condor.roll_signal("CE", 26100, 25840, 252) is None             # level 8 pts short of it
     assert condor.roll_signal("PE", 25500, 25850, 252) == "in"
-    assert condor.roll_signal("PE", 25500, 25770, 252) is None             # 18 pts inside, 25 needed
-    assert condor.roll_signal("PE", 25500, 25700, 252) == "out"            # level 25,448: 52 pts past
+    assert condor.roll_signal("PE", 25500, 25760, 252) is None             # level 25,508: short still outside
+    assert condor.roll_signal("PE", 25500, 25740, 252) == "out"            # level 25,488: short 12 pts inside
+    # A buffer, when one is set, still has to be passed
+    assert condor.roll_signal("CE", 26100, 25850, 252, out_buf=25) is None
+    assert condor.roll_signal("CE", 26100, 25875, 252, out_buf=25) == "out"
 
 
 def test_pop():
@@ -232,7 +236,7 @@ def test_paper_day_entry_roll_and_time_exit(mkt):
     assert [f["action"] for f in fl] == ["BUY", "BUY", "SELL", "SELL"]     # wings first
     first = shorts(day)
 
-    # Nifty rallies: the call side's 1SD level goes 25+ pts past its short -> rolls out
+    # Nifty rallies: the call side's 1SD level passes its short -> rolls out
     mkt.spot = first["CE"] - 120
     run(mkt, 10, 40)
     after = shorts(day)

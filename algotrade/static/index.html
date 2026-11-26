@@ -4119,7 +4119,7 @@ function renderCondor() {
   if (!cd.skipDirty && document.activeElement !== optEl("cdSkip")) optEl("cdSkip").value = j.skip_dates.join("\n");
   const r = j.rules;
   optEl("cdRules").textContent = `Rules: 1 lot, ${r.wing}-pt wings; entry ${r.entry}; shorts at the farthest of ${r.delta} delta, 1SD and the OI wall; POP > ${r.pop_min}%; ` +
-    `VIX rise ≤ ${r.vix_rise_max}%, IVP ${r.ivp_band.join("-")} (hard), VIX ${r.vix_band.join("-")} and VIX > HV10 (checks); rolls out at ${r.out_buffer} pts, in at ${r.in_buffer} pts with a net credit, ` +
+    `VIX rise ≤ ${r.vix_rise_max}%, IVP ${r.ivp_band.join("-")} (hard), VIX ${r.vix_band.join("-")} and VIX > HV10 (checks); rolls out ${r.out_buffer ? `at ${r.out_buffer} pts` : "as soon as the 1SD level passes a short"}, in at ${r.in_buffer} pts with a net credit, ` +
     `${r.cooldown_min}-min cooldown, none after ${r.roll_until}; loss cap ₹${cdNum(r.loss_cap)}; square-off ${r.exit}. Paper fills at the bid / ask; Live places MIS orders and opens or rolls only while ${j.underlying} Auto-trade is ON (the Auto-trade switch at the top doesn't affect it). ` +
     `Each index (NIFTY, BANKNIFTY, SENSEX) has its own mode, switch, rules and loss cap; India VIX filters all three, and the event days apply to all.`;
 }

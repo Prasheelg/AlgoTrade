@@ -15,8 +15,8 @@ but never blocks):
   spot - 1SD, put OI wall) rounded DOWN to 50; wings +/-50. Walls: most call OI above spot / put OI below spot
   within +/-2SD; no entry if a wall's OI is falling since the open (unwinding). POP > 75% (normal model on the
   same 1SD, with the credit at the prices we would trade at: sell at the bid, buy at the ask).
-- Every minute the targets are worked out again. A side rolls out when its 1SD level is 25+ points past the
-  short strike (or its OI wall has moved past it), and in when the short strike is 75+ points beyond the level
+- Every minute the targets are worked out again. A side rolls out as soon as its 1SD level passes the short
+  strike, so a short is never left inside the expected move (or when its OI wall has moved past it), and in when the short strike is 75+ points beyond the level
   and the roll brings in a net credit. A roll in moves the short only to 75 pts beyond the level (rounded
   outward), or to the fresh entry's strike if that is farther out; at least 2 minutes between rolls, none after 14:30 (a threatened side
   is closed instead). A roll that can't meet POP > 75% closes that side.
@@ -48,17 +48,17 @@ SESSION_END = time(15, 30)
 SESSION_MIN, YEAR_DAYS = 375, 252
 DELTA = 0.16
 POP_MIN = 0.75
-OUT_BUFFER, IN_BUFFER = 25, 75
+OUT_BUFFER, IN_BUFFER = 0, 75   # out 0: a short is never left inside the expected move
 CHAIN_WIDTH = 25             # strikes either side of the money read for walls and deltas
 # Per index: strike step, wing, roll buffers (scaled to its price, about 2.3x Nifty for Bank Nifty and 3.2x for
 # Sensex), Yahoo symbol of its daily closes (HV10), the config name of its daily loss cap and how many strikes
 # either side of the money are read (CHAIN_WIDTH for NIFTY; wider where strikes are farther apart in % terms).
 SPECS = {
-    "NIFTY": {"name": "Nifty", "step": 50, "wing": 50, "out": 25, "in": 75, "yahoo": "^NSEI",
+    "NIFTY": {"name": "Nifty", "step": 50, "wing": 50, "out": 0, "in": 75, "yahoo": "^NSEI",
               "cap": "CONDOR_LOSS_CAP", "exchange": "NSE", "expiry": "weekly", "width": CHAIN_WIDTH},
-    "BANKNIFTY": {"name": "Bank Nifty", "step": 100, "wing": 100, "out": 50, "in": 150, "yahoo": "^NSEBANK",
+    "BANKNIFTY": {"name": "Bank Nifty", "step": 100, "wing": 100, "out": 0, "in": 150, "yahoo": "^NSEBANK",
                   "cap": "CONDOR_LOSS_CAP_BANKNIFTY", "exchange": "NSE", "expiry": "monthly", "width": 35},
-    "SENSEX": {"name": "Sensex", "step": 100, "wing": 200, "out": 75, "in": 250, "yahoo": "^BSESN",
+    "SENSEX": {"name": "Sensex", "step": 100, "wing": 200, "out": 0, "in": 250, "yahoo": "^BSESN",
                "cap": "CONDOR_LOSS_CAP_SENSEX", "exchange": "BSE", "expiry": "weekly", "width": 40},
 }
 UNDERLYINGS = tuple(SPECS)
@@ -91,7 +91,7 @@ RULES = {
     "cand_delta": ("Strike candidates", "0.16 delta", "The call / put nearest 0.16 delta"),
     "cand_sd": ("Strike candidates", "1SD level", "Spot ± 1SD"),
     "cand_wall": ("Strike candidates", "OI wall", "Most call OI above / put OI below spot within ±2SD"),
-    "roll_out": ("Management", "Roll out", "Roll a side out when its 1SD level is 25+ pts past the short"),
+    "roll_out": ("Management", "Roll out", "Roll a side out as soon as its 1SD level passes the short: a short is never left inside the expected move"),
     "roll_in": ("Management", "Roll in", "Roll a side in when its short is 75+ pts beyond its 1SD level, for a net credit: only back to 75 pts beyond it"),
     "roll_wall": ("Management", "Roll when a wall moves", "Roll a side out when its OI wall moves past the short"),
     "late_exit": ("Management", "Close a threatened side after 14:30", "No rolls after 14:30: a threatened side is closed instead"),
@@ -243,11 +243,11 @@ def pop(short_call: float | None, short_put: float | None, credit: float, spot: 
 
 def roll_signal(opt: str, short: float, spot: float, sd: float, out_buf: float = OUT_BUFFER,
                 in_buf: float = IN_BUFFER) -> str | None:
-    """"out" when the unrounded 1SD level is OUT_BUFFER+ past the short strike, "in" when the short strike is
+    """"out" when the unrounded 1SD level is past the short strike (and by OUT_BUFFER+), "in" when the short strike is
     IN_BUFFER+ beyond it, else None."""
     level = spot + sd if opt == "CE" else spot - sd
     past = level - short if opt == "CE" else short - level
-    if past >= out_buf:
+    if past > 0 and past >= out_buf:
         return "out"
     if -past >= in_buf:
         return "in"

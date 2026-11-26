@@ -387,7 +387,8 @@ description below uses NIFTY's numbers.
   above spot within ±2SD), rounded up to 50; the put side mirrors it, rounded down. No entry if a wall's OI has
   fallen more than 2% since the open (unwinding). POP > 75% at the prices it would trade at (sell at the bid,
   buy at the ask). Wings are bought first, then the shorts are sold.
-- **Management, every minute:** a side rolls **out** when its 1SD level is 25+ points past the short strike (or
+- **Management, every minute:** a side rolls **out** as soon as its 1SD level passes the short strike, so a short
+  is never left inside the expected move (or
   its OI wall moved past it), and **in** when the short is 75+ points beyond the level and the roll brings in a
   net credit. A roll in moves the short only back to that distance (75 pts beyond the level, rounded outward;
   the fresh entry's strike if that is farther out), never straight to the fresh entry's strike. A roll out uses
