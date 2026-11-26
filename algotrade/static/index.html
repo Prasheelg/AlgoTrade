@@ -586,7 +586,7 @@
   #optView > .opt-top { padding-bottom: 0; }
   .opt-tabs { display: flex; gap: 4px; margin: 14px -16px 0; padding: 0 12px; border-top: 1px solid var(--line-2); }
   #optPick[hidden] { display: none; }
-  #optPick[hidden] + .opt-tabs { margin-top: -6px; border-top: 0; }
+  #optPick[hidden] + .opt-tabs, #perfPick[hidden] + .opt-tabs { margin-top: -6px; border-top: 0; }
   .opt-tabs button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 500;
                      padding: 11px 12px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 7px; }
   .opt-tabs button:hover { color: var(--ink); }
@@ -1419,29 +1419,30 @@
     .top-strip::after { display: none; }   /* the app bar's row break; the strip needs none */
     .top { padding-bottom: 8px; }
 
-    /* ...as one card: the session across the top, then the index and P&L today as two equal tiles (label, big
-       value, change under it); the index takes the full width when there is no P&L (US, MCX) */
-    .sbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; width: 100%; font-size: 12px;
-            border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel); overflow: hidden; }
-    .sbar .sseg, .sbar .sseg:first-child { min-width: 0; padding: 10px 14px; border: 0; border-radius: 0; background: none; }
-    .sbar .sseg.sess { grid-column: 1 / -1; gap: 8px; border-bottom: 1px solid var(--line-2); }
-    .sbar .sseg.sess .sv.dim { margin-left: auto; }
-    .sbar .sseg.idx, .sbar .sseg.pnl { position: relative; flex-direction: column; align-items: center;
-                                       justify-content: center; align-self: stretch; gap: 1px; text-align: center; }
-    .sbar .sseg.idx:not(:has(+ .sseg.pnl)) { grid-column: 1 / -1; }
-    .sbar .sseg.pnl { border-left: 1px solid var(--line-2); }
-    .sbar .sseg.idx .sv:not(.chg), .sbar .sseg.pnl #sbPnl { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
-    .sbar .sseg.idx .chg { font-size: 12px; }
-    .sbar .sseg.pnl .caret { position: absolute; right: 12px; top: 50%; margin-top: -6px; }
-    .sbar .sseg.pnl .sv.dim { font-size: 11px; }
-    .sbar .sseg.end { grid-column: 1 / -1; border-top: 1px solid var(--line-2); }
-    /* All (NSE + MCX): the two sessions side by side, then the two quotes side by side (the ticker), P&L under them */
-    .sbar .sseg.sess:has(+ .sseg.sess), .sbar .sseg.sess + .sseg.sess { grid-column: auto; flex-wrap: wrap; row-gap: 2px; }
-    .sbar .sseg.sess:has(+ .sseg.sess) .sv.dim, .sbar .sseg.sess + .sseg.sess .sv.dim { flex-basis: 100%; margin-left: 0; font-size: 11px; }
-    .sbar .sseg.sess + .sseg.sess, .sbar .sseg.idx + .sseg.idx { border-left: 1px solid var(--line-2); }
-    .sbar .sseg.idx:has(+ .sseg.idx), .sbar .sseg.idx + .sseg.idx { grid-column: auto; }
-    .sbar .sseg.idx:has(+ .sseg.idx) .sv:not(.chg), .sbar .sseg.idx + .sseg.idx .sv:not(.chg) { font-size: 15px; }
-    .sbar .sseg.idx + .sseg.idx + .sseg.pnl { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line-2); }
+    /* ...as one compact card: the sessions across the top (side by side for NSE + MCX), then the quotes and P&L
+       today as small tiles on one row (label, value, change under it) */
+    .sbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; width: 100%; font-size: 11.5px;
+            border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel); overflow: hidden; }
+    .sbar .sseg, .sbar .sseg:first-child { min-width: 0; padding: 6px 10px; border: 0; border-radius: 0; background: none; }
+    .sbar .lbl { font-size: 9.5px; }
+    .sbar .sseg.sess { grid-column: span 6; gap: 6px; border-bottom: 1px solid var(--line-2); }
+    .sbar .sseg.sess .sv.dim { margin-left: auto; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sbar .sseg.sess .pill { padding: 1px 7px; font-size: 10.5px; }
+    .sbar .sseg.idx, .sbar .sseg.pnl { grid-column: span 3; position: relative; flex-direction: column; align-items: center;
+                                       justify-content: center; align-self: stretch; gap: 0; text-align: center; padding: 6px 4px; }
+    .sbar .sseg.idx:not(:has(+ .sseg.pnl)):not(:has(+ .sseg.idx)):not(.sseg.idx + .sseg.idx) { grid-column: span 6; }
+    .sbar .sseg.pnl, .sbar .sseg.idx + .sseg.idx { border-left: 1px solid var(--line-2); }
+    .sbar .sseg.idx .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sbar .sseg.idx .sv:not(.chg), .sbar .sseg.pnl #sbPnl { font-size: 14px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+    .sbar .sseg.idx .chg { font-size: 10.5px; white-space: nowrap; }
+    .sbar .sseg.pnl .caret { position: absolute; right: 4px; top: 50%; margin-top: -6px; }
+    .sbar .sseg.pnl .sv.dim { font-size: 10px; }
+    .sbar .sseg.end { grid-column: span 6; border-top: 1px solid var(--line-2); }
+    /* NSE + MCX: the two sessions side by side; NIFTY, the MCX future and P&L today three across */
+    .sbar .sseg.sess:has(+ .sseg.sess), .sbar .sseg.sess + .sseg.sess { grid-column: span 3; flex-wrap: wrap; row-gap: 0; }
+    .sbar .sseg.sess:has(+ .sseg.sess) .sv.dim, .sbar .sseg.sess + .sseg.sess .sv.dim { flex-basis: 100%; margin-left: 0; }
+    .sbar .sseg.sess + .sseg.sess { border-left: 1px solid var(--line-2); }
+    .sbar .sseg.idx:has(+ .sseg.idx), .sbar .sseg.idx + .sseg.idx, .sbar .sseg.idx + .sseg.idx + .sseg.pnl { grid-column: span 2; }
 
     /* Tabs: equal columns, the count big on top and the name under it, all on one line of the card */
     .list-head .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; }
