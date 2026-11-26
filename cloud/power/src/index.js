@@ -16,8 +16,9 @@ const STATES = ["pending", "running", "stopping", "stopped", "shutting-down", "t
 
 async function call(env, action, params) {
   const aws = new AwsClient({ accessKeyId: env.AWS_KEY_ID, secretAccessKey: env.AWS_SECRET, region: env.REGION, service: "ec2" });
-  const body = new URLSearchParams({ Action: action, Version: "2016-11-15", ...params });
-  const res = await aws.fetch(`https://ec2.${env.REGION}.amazonaws.com/`, { method: "POST", body });
+  const body = new URLSearchParams({ Action: action, Version: "2016-11-15", ...params }).toString();   // signed as text
+  const res = await aws.fetch(`https://ec2.${env.REGION}.amazonaws.com/`,
+    { method: "POST", body, headers: { "content-type": "application/x-www-form-urlencoded; charset=utf-8" } });
   const text = await res.text();
   if (!res.ok) throw new Error(`${action}: ${(/<Message>([^<]*)/.exec(text) || [, res.status])[1]}`);
   return text;
