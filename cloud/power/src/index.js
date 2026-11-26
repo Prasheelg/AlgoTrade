@@ -138,8 +138,8 @@ const HTML = `<!doctype html>
     <button type="button" class="stop" id="stop" hidden>Stop server</button>
   </div>
   <div class="err" id="err" role="alert"></div>
-  <div class="foot">Starts by itself at 08:30 IST and stops at 00:05 IST, Monday to Friday.
-    A start takes about a minute; the dashboard opens when it answers.</div>
+  <div class="foot">Started and stopped only from here (no schedule). A start takes about a minute; the dashboard
+    opens when it answers. Stopping backs up the databases first.</div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -149,7 +149,7 @@ const TEXT = {
   running: ["Running", "The server is on."],
   pending: ["Starting…", "The server is booting; the dashboard follows in about a minute."],
   stopping: ["Stopping…", "The apps are shutting down and the databases are being backed up."],
-  none: ["No server", "There is no AlgoTrade server to start (it was deleted). Launch one from the PC with \"Start AlgoTrade.bat\"."],
+  none: ["No server", "There is no AlgoTrade server to start (it was deleted). Launch one from the PC with Start AlgoTrade.bat."],
   stopped: ["Stopped", "The server is off: no scans, no alerts and no Auto-trade until it is started."],
 };
 async function refresh() {
