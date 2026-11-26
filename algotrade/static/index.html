@@ -935,7 +935,6 @@
     .wl-head .hint { order: 6; }
     .health { margin: 0 0 12px; }
     .health .x { display: none; }
-    #views { grid-template-columns: repeat(6, 1fr) !important; }
     #views button svg { padding: 4px 10px !important; }
   }
 
@@ -1111,7 +1110,7 @@
     .sbar .lbl { font-size: 10.5px; }
 
     /* Bottom tab bar */
-    #views { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr);
+    #views { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
              gap: 0; border-radius: 0; padding: 6px 6px calc(6px + var(--sa-bottom));
              background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(16px);
              -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--line); }
@@ -1524,7 +1523,7 @@
       <h1>AlgoTrade <span>Signals</span></h1>
     </div>
     <nav class="markets" id="views" aria-label="View">
-      <button type="button" data-view="signals"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Signals</span></button><button type="button" data-view="performance"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-3M13 16V9M18 16V6"/></svg><span>Performance</span></button><button type="button" data-view="portfolio"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Portfolio</span></button><button type="button" data-view="watchlist"><svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg><span>Watchlist</span></button><button type="button" data-view="options"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="lg">Strategy Builder</span><span class="sm">Options</span></button><button type="button" data-view="chart"><svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/><rect x="4.5" y="8" width="5" height="8" rx="1"/><rect x="14.5" y="6" width="5" height="7" rx="1"/></svg><span>Chart</span></button>
+      <button type="button" data-view="signals"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Signals</span></button><button type="button" data-view="portfolio"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Positions</span></button><button type="button" data-view="options"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="lg">Strategy Builder</span><span class="sm">Options</span></button><button type="button" data-view="condor"><svg viewBox="0 0 24 24"><path d="M3 18h4l3-10h4l3 10h4"/></svg><span>Condor</span></button><button type="button" data-view="performance"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-3M13 16V9M18 16V6"/></svg><span>Review</span></button><button type="button" data-view="watchlist"><svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg><span>Watchlist</span></button><button type="button" data-view="chart"><svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/><rect x="4.5" y="8" width="5" height="8" rx="1"/><rect x="14.5" y="6" width="5" height="7" rx="1"/></svg><span>Chart</span></button>
     </nav>
     <div class="spacer"></div>
     <label class="btn trade" id="tradeSw"><span class="switch"><input type="checkbox" id="trade" disabled></span>
@@ -1594,15 +1593,21 @@
   </div>
 
   <div id="perfView" class="perf" hidden>
-    <section class="card scan perf-filters"><div class="scan-row">
+    <section class="card scan perf-filters"><div class="scan-row" id="perfPick">
       <div class="ctl"><span class="lbl">Period</span><div class="seg" id="perfDays">
         <button type="button" data-days="0">All time</button><button type="button" data-days="90">90 days</button><button type="button" data-days="30">30 days</button>
       </div></div>
       <span class="hint" id="perfHint"></span>
-    </div></section>
-    <div class="notice" id="perfNote" hidden></div>
-    <section class="tiles" id="perfTiles"></section>
-    <section class="card chart-card">
+    </div>
+    <nav class="opt-tabs" id="revTabs" role="tablist" aria-label="Review sections">
+      <button type="button" data-rt="results" role="tab">Results</button>
+      <button type="button" data-rt="scorecard" role="tab">Strategy scorecard</button>
+      <button type="button" data-rt="backtest" role="tab">Backtest</button>
+      <button type="button" data-rt="tax" role="tab">Tax</button>
+    </nav></section>
+    <div class="notice" id="perfNote" data-rt="results" hidden></div>
+    <section class="tiles" id="perfTiles" data-rt="results"></section>
+    <section class="card chart-card" data-rt="results">
       <div class="chart-head"><span class="lbl">Equity curve · cumulative R per closed trade</span>
         <div class="legend"><span><i class="key" style="background:var(--series-net)"></i>After costs</span>
           <span><i class="key" style="background:var(--series-gross)"></i>Before costs</span></div></div>
@@ -1614,20 +1619,20 @@
           <th class="num">R before</th><th class="num">R after</th><th class="num">Cumulative after</th></tr></thead>
           <tbody id="eqRows"></tbody></table></div></details>
     </section>
-    <section class="card">
+    <section class="card" data-rt="results">
       <div class="list-head"><nav class="tabs" id="bdTabs"></nav><span class="hint" id="bdHint"></span></div>
       <div class="tablewrap"><table><thead><tr><th>Group</th><th class="num">Trades</th><th class="num">Win rate</th>
         <th class="num">Avg R before</th><th class="num">Avg R after</th><th class="num">Total R after</th>
         <th class="num">Profit factor after</th></tr></thead><tbody id="bdRows"></tbody></table></div>
       <div class="empty" id="bdEmpty" hidden></div>
     </section>
-    <section class="card fold" id="scCard">
-      <div class="list-head"><span class="lbl">Strategy scorecard</span><div class="seg mk-pick" aria-label="Exchange"></div><span class="hint" id="scHint"></span></div>
+    <section class="card" id="scCard" data-rt="scorecard" hidden>
+      <div class="list-head"><span class="lbl">Exchange</span><div class="seg mk-pick" aria-label="Exchange"></div><span class="hint" id="scHint"></span></div>
       <div class="tablewrap"><table><thead><tr><th>Strategy</th><th class="num">Live trades</th><th class="num">Live avg R</th>
         <th class="num">Live win rate</th><th class="num">Backtested</th><th class="num">Backtest avg R</th><th>Verdict</th>
         <th>Scanner</th></tr></thead><tbody id="scRows"></tbody></table></div>
     </section>
-    <section class="card fold" id="btCard">
+    <section class="card" id="btCard" data-rt="backtest" hidden>
       <div class="list-head"><span class="lbl">Backtest</span><div class="seg mk-pick" aria-label="Exchange"></div><span class="hint">Daily bars over the market's universe, after costs</span></div>
       <div class="bt-ctl">
         <div class="ctl"><span class="lbl">Period</span><div class="seg" id="btPeriod">
@@ -1637,7 +1642,7 @@
       </div>
       <div class="bt-res" id="btRes"></div>
     </section>
-    <section class="card fold" id="taxCard">
+    <section class="card" id="taxCard" data-rt="tax" hidden>
       <div class="bt-ctl">
         <span class="lbl">Tax · realised P&amp;L</span>
         <div class="ctl"><select id="taxFy"></select></div>
@@ -1706,6 +1711,51 @@
     <datalist id="chList"></datalist>
   </div>
 
+  <div id="condorView" class="perf" hidden>
+    <section class="card cd" id="cdCard">
+      <div class="cd-unds" id="cdUnds" role="tablist" aria-label="Index"></div>
+      <header class="cd-top">
+        <div class="cd-title"><h3 id="cdTitle">Nifty 0DTE iron condor</h3>
+          <span class="hint" id="cdSub">NIFTY weekly expiry only · 1 lot · 50-pt wings · runs by the rulebook</span></div>
+        <div class="cd-ctl">
+          <div class="cd-ctl-g"><span class="lbl">Mode</span><div class="seg" id="cdMode" role="group" aria-label="Condor mode">
+            <button type="button" data-v="off">Off</button><button type="button" data-v="paper">Paper</button><button type="button" data-v="live">Live</button></div></div>
+          <label class="switch cd-auto" title="This index's own condor Auto-trade: Live mode opens and rolls trades only while this is on (separate from the Auto-trade switch at the top and from the other indices)"><input type="checkbox" id="cdAuto"><span id="cdAutoLbl">Condor Auto-trade</span></label>
+          <button type="button" class="btn" id="cdPlanBtn">Check the rules now</button>
+        </div>
+      </header>
+      <div class="notice err" id="cdErr" hidden></div>
+      <div class="cd-kpis" id="cdStatus"></div>
+
+      <div class="cd-box" id="cdLegsWrap">
+        <div class="cd-box-h"><h4>Positions today</h4><span class="cd-tag" id="cdPosAt"></span>
+          <div class="right"><button type="button" class="btn sm" id="cdClosePE" hidden>Close put side</button>
+            <button type="button" class="btn sm" id="cdCloseCE" hidden>Close call side</button>
+            <button type="button" class="btn sm danger" id="cdExitBtn" hidden>Close all legs</button></div></div>
+        <div class="cd-pos-empty" id="cdPosEmpty"><span class="cd-empty-ic">◇</span><div>Loading the position…</div></div>
+        <div class="tablewrap" id="cdPosTable" hidden><table class="cd-pos"><thead><tr><th>Leg</th><th class="num">Qty</th>
+          <th class="num">Entry</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mark</th><th class="num">P&amp;L</th><th></th></tr></thead>
+          <tbody id="cdLegs"></tbody><tfoot id="cdLegsFoot"></tfoot></table></div>
+        <p class="hint cd-note" id="cdPosNote" hidden>Every leg taken today: open ones at the mark (mid of bid and ask), closed ones
+          (rolled, a side closed, or the exit) at their exit price. Leg P&amp;L is before charges; the net under them is the day P&amp;L.
+          A wing can't be closed alone (its short would be uncovered).</p></div>
+
+      <div id="cdPlan"></div>
+
+      <details class="cd-fold" id="cdLogBox"><summary><span>Today's decisions</span><span class="n" id="cdLogN">0</span><span class="cd-last" id="cdLogLast"></span></summary>
+        <div class="cd-log" id="cdLog"></div></details>
+      <details class="cd-fold"><summary><span>Past expiry days</span><span class="n" id="cdHistN">0</span></summary>
+        <div class="tablewrap"><table class="cd-hist"><thead><tr><th>Day</th><th>Mode</th><th>Result</th>
+          <th class="num">Rolls</th><th class="num">Charges</th><th class="num">Net P&amp;L</th></tr></thead><tbody id="cdHist"></tbody></table></div></details>
+      <details class="cd-fold" id="cdRulesBox"><summary><span>Rule settings</span><span class="n" id="cdRulesN"></span><span class="cd-last" id="cdRulesOff"></span></summary>
+        <p class="hint cd-note" id="cdRsetNote"></p><div class="cd-rset" id="cdRset"></div></details>
+      <details class="cd-fold"><summary><span>Event days &amp; rules</span><span class="cd-last">event days apply to every index</span><span class="n" id="cdSkipN">0</span></summary>
+        <div class="cd-skip"><textarea id="cdSkip" rows="3" placeholder="No trade on these days. One date per line, YYYY-MM-DD: RBI policy, Budget, election results..."></textarea>
+          <button type="button" class="btn" id="cdSkipSave">Save event days</button></div>
+        <p class="hint cd-rules" id="cdRules"></p></details>
+    </section>
+  </div>
+
   <div id="optView" class="perf" hidden>
     <section class="card scan opt-top"><div class="scan-row" id="optPick">
       <div class="ctl"><span class="lbl">Underlying</span>
@@ -1719,7 +1769,6 @@
     <nav class="opt-tabs" id="optTabs" role="tablist" aria-label="Strategy Builder sections">
       <button type="button" data-ot="build" role="tab"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Builder &amp; chain</button>
       <button type="button" data-ot="oi" role="tab"><svg viewBox="0 0 24 24"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8"/></svg>OI change</button>
-      <button type="button" data-ot="condor" role="tab"><svg viewBox="0 0 24 24"><path d="M3 18h4l3-10h4l3 10h4"/></svg>0DTE Condor</button>
       <button type="button" data-ot="orders" role="tab"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Recent orders <span class="n" id="optRecentN"></span></button>
     </nav></section>
     <div class="notice err" id="optErr" hidden></div>
@@ -1789,48 +1838,6 @@
           <button class="btn primary" type="button" id="sbGo" style="margin-left:auto">Place strategy</button>
         </div>
       </div>
-    </section>
-    <section class="card cd" id="cdCard" data-ot="condor" hidden>
-      <div class="cd-unds" id="cdUnds" role="tablist" aria-label="Index"></div>
-      <header class="cd-top">
-        <div class="cd-title"><h3 id="cdTitle">Nifty 0DTE iron condor</h3>
-          <span class="hint" id="cdSub">NIFTY weekly expiry only · 1 lot · 50-pt wings · runs by the rulebook</span></div>
-        <div class="cd-ctl">
-          <div class="cd-ctl-g"><span class="lbl">Mode</span><div class="seg" id="cdMode" role="group" aria-label="Condor mode">
-            <button type="button" data-v="off">Off</button><button type="button" data-v="paper">Paper</button><button type="button" data-v="live">Live</button></div></div>
-          <label class="switch cd-auto" title="This index's own condor Auto-trade: Live mode opens and rolls trades only while this is on (separate from the Auto-trade switch at the top and from the other indices)"><input type="checkbox" id="cdAuto"><span id="cdAutoLbl">Condor Auto-trade</span></label>
-          <button type="button" class="btn" id="cdPlanBtn">Check the rules now</button>
-        </div>
-      </header>
-      <div class="notice err" id="cdErr" hidden></div>
-      <div class="cd-kpis" id="cdStatus"></div>
-
-      <div class="cd-box" id="cdLegsWrap">
-        <div class="cd-box-h"><h4>Positions today</h4><span class="cd-tag" id="cdPosAt"></span>
-          <div class="right"><button type="button" class="btn sm" id="cdClosePE" hidden>Close put side</button>
-            <button type="button" class="btn sm" id="cdCloseCE" hidden>Close call side</button>
-            <button type="button" class="btn sm danger" id="cdExitBtn" hidden>Close all legs</button></div></div>
-        <div class="cd-pos-empty" id="cdPosEmpty"><span class="cd-empty-ic">◇</span><div>Loading the position…</div></div>
-        <div class="tablewrap" id="cdPosTable" hidden><table class="cd-pos"><thead><tr><th>Leg</th><th class="num">Qty</th>
-          <th class="num">Entry</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mark</th><th class="num">P&amp;L</th><th></th></tr></thead>
-          <tbody id="cdLegs"></tbody><tfoot id="cdLegsFoot"></tfoot></table></div>
-        <p class="hint cd-note" id="cdPosNote" hidden>Every leg taken today: open ones at the mark (mid of bid and ask), closed ones
-          (rolled, a side closed, or the exit) at their exit price. Leg P&amp;L is before charges; the net under them is the day P&amp;L.
-          A wing can't be closed alone (its short would be uncovered).</p></div>
-
-      <div id="cdPlan"></div>
-
-      <details class="cd-fold" id="cdLogBox"><summary><span>Today's decisions</span><span class="n" id="cdLogN">0</span><span class="cd-last" id="cdLogLast"></span></summary>
-        <div class="cd-log" id="cdLog"></div></details>
-      <details class="cd-fold"><summary><span>Past expiry days</span><span class="n" id="cdHistN">0</span></summary>
-        <div class="tablewrap"><table class="cd-hist"><thead><tr><th>Day</th><th>Mode</th><th>Result</th>
-          <th class="num">Rolls</th><th class="num">Charges</th><th class="num">Net P&amp;L</th></tr></thead><tbody id="cdHist"></tbody></table></div></details>
-      <details class="cd-fold" id="cdRulesBox"><summary><span>Rule settings</span><span class="n" id="cdRulesN"></span><span class="cd-last" id="cdRulesOff"></span></summary>
-        <p class="hint cd-note" id="cdRsetNote"></p><div class="cd-rset" id="cdRset"></div></details>
-      <details class="cd-fold"><summary><span>Event days &amp; rules</span><span class="cd-last">event days apply to every index</span><span class="n" id="cdSkipN">0</span></summary>
-        <div class="cd-skip"><textarea id="cdSkip" rows="3" placeholder="No trade on these days. One date per line, YYYY-MM-DD: RBI policy, Budget, election results..."></textarea>
-          <button type="button" class="btn" id="cdSkipSave">Save event days</button></div>
-        <p class="hint cd-rules" id="cdRules"></p></details>
     </section>
     <section class="card oic" id="oicCard" data-ot="oi">
       <div class="oic-head">
@@ -1932,8 +1939,8 @@ let view = "signals";  // "signals" or "performance"
   const [m, t] = location.hash.slice(1).split("/");
   if (["IN", "US", "MCX"].includes(m)) market = m;
   if (TABS.some(x => x[0] === t)) { tab = t; tabPicked = true; }
-  if (["performance", "portfolio", "options", "watchlist", "chart"].includes(t)) view = t;
-  else if (!t && ["performance", "portfolio", "options", "watchlist", "chart"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
+  if (["performance", "portfolio", "options", "condor", "watchlist", "chart"].includes(t)) view = t;
+  else if (!t && ["performance", "portfolio", "options", "condor", "watchlist", "chart"].includes(store.get("view"))) view = store.get("view");  // reopen where you left off
 }
 // A tab picked automatically isn't put in the link, so a reload picks again from the signals it then finds
 const sigMk = () => allMk ? "ALL" : market;   // what the Signals list shows
@@ -2768,22 +2775,37 @@ function setView(v) {
   document.getElementById("perfView").hidden = view !== "performance";
   document.getElementById("portView").hidden = view !== "portfolio";
   document.getElementById("optView").hidden = view !== "options";
+  document.getElementById("condorView").hidden = view !== "condor";
   document.getElementById("watchView").hidden = view !== "watchlist";
   document.getElementById("chartView").hidden = view !== "chart";
   setHash();
   if (view === "watchlist") { loadWl(); loadMarket(); }
-  if (view === "performance") { loadPerf(); loadScorecard(); loadBacktest(); loadTax(); }
+  if (view === "performance") { setRevTab(revTab); loadPerf(); loadScorecard(); loadBacktest(); loadTax(); }
   if (view === "portfolio") { loadPort(); loadRisk(); }
   if (view === "options") optOpen();
+  if (view === "condor") cdLoad();
   if (view === "chart") chOpen();
 }
+// Review: one section at a time (the period pick is for Results only)
+let revTab = ["results", "scorecard", "backtest", "tax"].includes(store.get("revTab")) ? store.get("revTab") : "results";
+function setRevTab(t) {
+  revTab = t; store.set("revTab", t);
+  document.getElementById("perfPick").hidden = t !== "results";
+  document.querySelectorAll("#revTabs [data-rt]").forEach(b => { const on = b.dataset.rt === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+  document.querySelectorAll("#perfView > [data-rt]").forEach(el => {
+    if (el.id === "perfNote") { if (t !== "results") el.hidden = true; else if (perf) renderPerf(); }
+    else el.hidden = el.dataset.rt !== t;
+  });
+  if (t === "results" && perf) drawEquity();
+}
+document.getElementById("revTabs").onclick = e => { const b = e.target.closest("[data-rt]"); if (b) setRevTab(b.dataset.rt); };
 document.getElementById("views").onclick = e => {
   const b = e.target.closest("[data-view]"); if (!b) return;
   if (b.dataset.view !== view) setView(b.dataset.view);
   if (PHONE.matches) window.scrollTo({ top: 0, behavior: b.dataset.view === view && scrollY ? "smooth" : "instant" });
 };
 // Keyboard shortcuts for the views (not while typing in a box, nor with Ctrl / Alt / Cmd)
-const VIEW_KEYS = { s: "signals", p: "portfolio", w: "watchlist", c: "chart", o: "options" };
+const VIEW_KEYS = { s: "signals", p: "portfolio", w: "watchlist", c: "chart", o: "options", d: "condor", r: "performance" };
 document.querySelectorAll("#views [data-view]").forEach(b => {
   const k = Object.keys(VIEW_KEYS).find(k => VIEW_KEYS[k] === b.dataset.view);
   if (k) b.title = `${(b.querySelector(".lg") ?? b).textContent.trim()} (${k.toUpperCase()})`;   // .lg: the desktop label
@@ -2830,7 +2852,7 @@ function renderPerf() {
     `${n} closed trade${n === 1 ? "" : "s"} · ${period} · ${p.open} still open (not counted) · 1R = ` +
     Object.entries(p.r_values ?? { [p.market]: rUnit() }).map(([c, v], _, all) => `${all.length > 1 ? `${MK_LABEL[c] ?? c} ` : ""}${money(v)}`).join(" · ");
   const note = document.getElementById("perfNote");
-  note.hidden = n >= p.min_trades;
+  note.hidden = n >= p.min_trades || revTab !== "results";
   note.className = "notice";
   note.innerHTML = n === 0 ? "<span>No closed trades yet. Results appear here once signals hit a target, a stop or a time exit.</span>"
     : `<span>Only <b>${n} closed trade${n === 1 ? "" : "s"}</b>, too few to judge the strategy. Treat these numbers as early; ` +
@@ -3739,17 +3761,16 @@ function oicMaybeLoad() { if (optTab === "oi" && Date.now() - oic.at > 30000) oi
 let optTab = "build";
 try { optTab = localStorage.getItem("optTab") || "build"; } catch (e) {}
 function setOptTab(t) {
-  if (!["build", "oi", "condor", "orders"].includes(t)) t = "build";
+  if (!["build", "oi", "orders"].includes(t)) t = "build";
   optTab = t;
   try { localStorage.setItem("optTab", t); } catch (e) {}
-  optEl("optPick").hidden = t === "condor" || t === "orders";   // the underlying / expiry pick drives the chain and OI only
+  optEl("optPick").hidden = t === "orders";   // the underlying / expiry pick drives the chain and OI only
   optEl("optTabs").querySelectorAll("button").forEach(b => { const on = b.dataset.ot === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
   document.querySelectorAll("#optView > [data-ot]").forEach(el => {
     if (el.id === "optTicket") el.style.display = t === "build" ? "" : "none";   // the ticket keeps its own hidden state
     else el.hidden = el.dataset.ot !== t;
   });
   if (t === "oi") { if (oic.data) renderOic(); if (Date.now() - oic.at > 30000) oicLoad(); }
-  if (t === "condor") cdLoad();
   if (t === "build" && sbRes) drawPayoff();
 }
 optEl("optTabs").onclick = e => { const b = e.target.closest("button[data-ot]"); if (b) setOptTab(b.dataset.ot); };
@@ -4027,10 +4048,10 @@ optEl("cdSkipSave").onclick = async () => {
     cd.skipDirty = false; cdLoad();
   } catch (err) { alert(err.message); }
 };
-window.addEventListener("resize", () => { if (optTab === "condor" && cd.data) renderCondor(); });
+window.addEventListener("resize", () => { if (view === "condor" && cd.data) renderCondor(); });
 cd.tick = 0;   // every 2 s while a position is open, else every 6 s
 setInterval(() => {
-  if (optTab !== "condor" || document.hidden || !optEl("cdCard").offsetParent) return;
+  if (view !== "condor" || document.hidden || !optEl("cdCard").offsetParent) return;
   if (cd.data?.legs?.length || ++cd.tick % 3 === 0) cdLoad();
 }, 2000);
 

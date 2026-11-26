@@ -590,7 +590,7 @@ def _log(day: str, u: str, kind: str, text: str, data: dict | None = None, notif
         from . import activity
         total = data.get("total") if isinstance(data, dict) else None
         sound = activity.kind_of_pnl(total) if kind == "exit" and isinstance(total, (int, float)) else             "closed" if kind == "exit" else activity.CONDOR.get(kind, "info")
-        activity.record(sound, f"{u} 0DTE condor{' (paper)' if mode == 'paper' else ''}", text, "/#IN/options")
+        activity.record(sound, f"{u} 0DTE condor{' (paper)' if mode == 'paper' else ''}", text, "/#IN/condor")
         try:
             tag = " (PAPER)" if mode == "paper" else ""
             telegram_bot.send_message(f"🦅 <b>{u} 0DTE condor{tag}</b> · {text}")
