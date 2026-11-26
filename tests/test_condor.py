@@ -542,3 +542,22 @@ def test_bse_scrip_master_parses_sensex_options():
     r = df.iloc[0]
     assert r["strike"] == 75900 and r["lot"] == 20 and r["tick"] == 0.05 and str(r["expiry"]) == "2026-11-26"
     assert fno.segment_of(r.to_dict()) == "bse_fo" and fno.segment_of({}) == "nse_fo"
+
+
+def test_threatened_side_rolls_even_when_the_other_side_wants_in(monkeypatch):
+    """Sensex at 84,072, 1SD 350: the 83,900 PE is 178 pts inside its 1SD level (roll out) while the 85,000 CE is
+    578 beyond its own (roll in). The put must be tried first, and a skipped inward call roll must not stop it."""
+    plan = {"spot": 84072.0, "sd": {"sd": 350.0}, "targets": {"short_call": 84500.0, "short_put": 83700.0}, "walls": {}}
+    monkeypatch.setattr(condor, "snapshot", lambda exp, now, u="NIFTY": {})
+    monkeypatch.setattr(condor, "evaluate", lambda *a, **k: plan)
+    pos = {f"SENSEX{k}{o}": {"opt": o, "strike": float(k), "qty": q}
+           for k, o, q in ((83700, "PE", 20), (83900, "PE", -20), (85000, "CE", -20), (85200, "CE", 20))}
+    calls, changed = [], set()
+    monkeypatch.setattr(condor, "_roll", lambda day, u, rec, pos, mode, p, opt, sig, why, now:
+                        calls.append((opt, sig)) or opt in changed)
+    rec = {"expiry": EXP.isoformat()}
+    condor._retarget(EXP.isoformat(), "SENSEX", rec, pos, "paper", at(13, 32))
+    assert calls == [("PE", "out"), ("CE", "in")]           # the put first; a skipped roll moves on to the call
+    calls.clear(); changed.add("PE")
+    condor._retarget(EXP.isoformat(), "SENSEX", rec, pos, "paper", at(13, 32))
+    assert calls == [("PE", "out")]                         # one change per re-target

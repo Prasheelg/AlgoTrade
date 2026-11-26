@@ -1014,6 +1014,7 @@ def _retarget(day: str, u: str, rec: dict, pos: dict, mode: str, now: datetime) 
         return
     spot, one, tg = p["spot"], p["sd"]["sd"], p["targets"]
     walls = p.get("walls") or {}
+    wants = []   # (opt, sig, why); a threatened side (out) goes before an inward roll
     for opt, side in (("CE", "call"), ("PE", "put")):
         legs = _side_legs(pos, opt)
         short = next((v["strike"] for v in legs.values() if v["qty"] < 0), None)
@@ -1047,13 +1048,16 @@ def _retarget(day: str, u: str, rec: dict, pos: dict, mode: str, now: datetime) 
             _log(day, u, "roll", f"{opt} side wants to roll {sig} ({why or 'short beyond its 1SD level'}) but the "
                                  f"10-minute cooldown is running")
             continue
-        _roll(day, u, rec, pos, mode, p, opt, sig,
-              why or f"short {short:.0f} is {spec['in']}+ pts beyond its 1SD level", now)
-        return   # one roll per re-target; the position changed
+        wants.append((opt, sig, why or f"short {short:.0f} is {spec['in']}+ pts beyond its 1SD level"))
+    # Out before in: a skipped inward roll on one side must never keep the threatened side from rolling
+    for opt, sig, why in sorted(wants, key=lambda w: w[1] != "out"):
+        if _roll(day, u, rec, pos, mode, p, opt, sig, why, now):
+            return   # one change per re-target; the position changed
 
 
 def _roll(day: str, u: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str, why: str,
-          now: datetime) -> None:
+          now: datetime) -> bool:
+    """Roll one side to the plan's strikes; True when the position changed (rolled, or the side was closed)."""
     side = "call" if opt == "CE" else "put"
     qty = max(abs(v["qty"]) for v in pos.values())
     keep = {t: v["qty"] for t, v in pos.items() if v["opt"] != opt}
@@ -1079,29 +1083,30 @@ def _roll(day: str, u: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, 
             "spot": p["spot"], "sd": p["sd"]["sd"]}
     if sig == "in" and roll_cash <= 0:
         _log(day, u, "roll", f"{opt} inward roll skipped: it would not bring a net credit (₹{roll_cash:,.0f})", info)
-        return
+        return False
     if pp <= POP_MIN and get_rules(u)["pop"]:
         if sig == "out":
             _log(day, u, "roll", f"{opt} roll out can't meet POP > 75% ({pp * 100:.1f}%): closing that side",
                  info, notify=True, mode=mode)
             _exit_side(day, u, mode, opt, why)
-        else:
-            _log(day, u, "roll", f"{opt} inward roll skipped: POP {pp * 100:.1f}% ≤ 75%", info)
-        return
+            return True
+        _log(day, u, "roll", f"{opt} inward roll skipped: POP {pp * 100:.1f}% ≤ 75%", info)
+        return False
     if mode == "live" and not trading_enabled(u):
         _log(day, u, "roll", f"{opt} roll {sig} needed but the condor's Auto-trade switch is OFF: closing that side "
                              f"instead", info, notify=True, mode=mode)
         _exit_side(day, u, mode, opt, why)
-        return
+        return True
     try:
         _trade_to(day, u, mode, target, f"roll {sig} {opt}")
     except Exception as exc:
         _log(day, u, "error", f"Roll failed ({exc}); closing everything", info, notify=True, mode=mode)
         _exit_all(day, u, mode, FAILED, f"Roll failed: {exc}", now)
-        return
+        return True
     _save_day(day, u, last_roll_at=now.isoformat(timespec="seconds"), rolls=int(rec.get("rolls") or 0) + 1)
     _log(day, u, "roll", f"Rolled the {opt} side {sig} to {'/'.join(f'{k:.0f}' for k in sorted(info['to']))} "
                          f"({why}) · cash ₹{roll_cash:,.0f} · POP {pp * 100:.1f}%", info, notify=True, mode=mode)
+    return True
 
 
 def _exit_side(day: str, u: str, mode: str, opt: str, why: str) -> bool:
