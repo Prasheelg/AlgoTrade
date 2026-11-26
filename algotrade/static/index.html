@@ -1399,6 +1399,10 @@
     .seg button { flex: 1 1 auto; }
     .opt-tabs { margin: 12px -14px 0; padding: 0 8px; }
     .opt-tabs button { flex: 1 1 auto; padding: 10px 8px; }
+    /* section tabs (Strategy Builder, Review) stay on one row: no icons, tighter */
+    .opt-tabs { flex-wrap: nowrap; gap: 0; }
+    .opt-tabs button { min-width: 0; justify-content: center; padding: 10px 4px; gap: 5px; font-size: 12.5px; white-space: nowrap; }
+    .opt-tabs svg { display: none; }
 
     /* Strategy templates: a two-column grid instead of a carousel */
     .sb-tpls { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(2, minmax(0, 1fr));
