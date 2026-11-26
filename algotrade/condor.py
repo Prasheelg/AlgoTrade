@@ -637,6 +637,41 @@ def position(day: str, u: str = UNDERLYING) -> dict:
     return {k: v for k, v in pos.items() if v["qty"]}
 
 
+def closed_legs(day: str, u: str = UNDERLYING) -> list[dict]:
+    """Legs taken and closed again today (by a roll, a side close or the exit), oldest close first: each round trip
+    of a strike from flat back to flat, with its average entry and exit, gross P&L and charges."""
+    out, run = [], {}
+    for f in fills(day, u):
+        d = f["qty"] if f["action"] == "BUY" else -f["qty"]
+        seg = run.get(f["tsym"])
+        parts = [(d, f.get("charges") or 0.0)]
+        if seg and (seg["q"] > 0) != (d > 0) and abs(d) > abs(seg["q"]):   # crosses flat: close, then open the rest
+            close = -seg["q"]
+            parts = [(close, (f.get("charges") or 0.0) * abs(close) / abs(d)),
+                     (d - close, (f.get("charges") or 0.0) * abs(d - close) / abs(d))]
+        for dq, ch in parts:
+            seg = run.get(f["tsym"])
+            if not seg:
+                seg = run[f["tsym"]] = {"tsym": f["tsym"], "opt": f["opt"], "strike": f["strike"], "q": 0, "size": 0,
+                                        "buy": [0, 0.0], "sell": [0, 0.0], "charges": 0.0, "opened_at": f["at"]}
+            side = seg["buy"] if dq > 0 else seg["sell"]
+            side[0] += abs(dq); side[1] += abs(dq) * f["price"]
+            seg["charges"] += ch
+            seg["q"] += dq
+            if abs(seg["q"]) > abs(seg["size"]):
+                seg["size"] = seg["q"]
+            if seg["q"] == 0:
+                long = seg["size"] > 0
+                into, outof = (seg["buy"], seg["sell"]) if long else (seg["sell"], seg["buy"])
+                out.append({"tsym": seg["tsym"], "opt": seg["opt"], "strike": seg["strike"], "qty": seg["size"],
+                            "avg": round(into[1] / into[0], 2) if into[0] else None,
+                            "exit": round(outof[1] / outof[0], 2) if outof[0] else None,
+                            "pnl": round(seg["sell"][1] - seg["buy"][1], 2), "charges": round(seg["charges"], 2),
+                            "opened_at": seg["opened_at"], "closed_at": f["at"]})
+                del run[f["tsym"]]
+    return out
+
+
 def pnl(day: str, marks: dict, u: str = UNDERLYING) -> dict:
     """Realised cash of every fill + open legs at `marks` (tsym -> price) - charges."""
     fl = fills(day, u)
@@ -1215,7 +1250,7 @@ def status(u: str = UNDERLYING) -> dict:
             "mode": get_mode(u), "trading_enabled": trading_enabled(u), "now": now.isoformat(timespec="seconds"),
             "today": rec, "today_expiry": today_expiry(now, u), "next_expiry": next_expiry(now, u),
             "legs": legs, "pnl": pnl(day, marks, u) if (pos or fills(day, u)) else None,
-            "fills": fills(day, u), "log": day_log(day, u), "plan": plan, "history": hist,
+            "fills": fills(day, u), "closed_legs": closed_legs(day, u), "log": day_log(day, u), "plan": plan, "history": hist,
             "skip_dates": skip_dates(),
             "rule_settings": [{"key": k, "group": g, "name": n,
                                "desc": d.replace("CONDOR_LOSS_CAP", f"₹{cap:,.0f}")

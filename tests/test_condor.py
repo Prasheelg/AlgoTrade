@@ -382,6 +382,21 @@ def test_entry_prices_average_and_reset():
     assert avg == {"NIFTY26100CE": 3.0, "NIFTY26150CE": 2.0}     # short closed, then re-opened long at 3
 
 
+def test_closed_legs_are_each_round_trip():
+    from algotrade import condor as c
+    day = "2026-11-24"
+    for action, qty, px in (("SELL", 65, 10.0), ("SELL", 65, 12.0), ("BUY", 65, 5.0), ("BUY", 65, 6.0),   # short, closed
+                            ("BUY", 65, 3.0)):                                                         # long, still open
+        c._record_fill(day, "NIFTY", "paper", "NIFTY26100CE", "CE", 26100.0, action, qty, px, None, "t")
+    c._record_fill(day, "NIFTY", "paper", "NIFTY26150CE", "CE", 26150.0, "BUY", 65, 2.0, None, "t")
+    c._record_fill(day, "NIFTY", "paper", "NIFTY26150CE", "CE", 26150.0, "SELL", 65, 1.5, None, "t")
+    legs = c.closed_legs(day)
+    assert [(g["tsym"], g["qty"], g["avg"], g["exit"], g["pnl"]) for g in legs] == [
+        ("NIFTY26100CE", -130, 11.0, 5.5, 715.0),        # (11 - 5.5) x 130
+        ("NIFTY26150CE", 65, 2.0, 1.5, -32.5)]
+    assert c.closed_legs(day, "SENSEX") == []
+
+
 def test_rules_off_never_block():
     now = at(10, 0)
     snap = make_snap(25800, 0.173, now)

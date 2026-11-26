@@ -519,6 +519,12 @@
   .cd-pos td { vertical-align: middle; }
   .cd-pos .leg b { margin-right: 4px; } .cd-pos .leg small { display: block; color: var(--muted); font-size: 11.5px; }
   .cd-pos tfoot td { border-top: 1px solid var(--line); font-weight: 650; }
+  .cd-pos tfoot tr.cd-sub td { font-weight: 500; color: var(--muted); }
+  .cd-pos tfoot tr.cd-net td { font-size: 14.5px; }
+  .cd-pos tr.cd-sec td { padding-top: 12px; padding-bottom: 6px; font: 600 10.5px/1 var(--mono, inherit); letter-spacing: .06em;
+                         text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line-2); }
+  .cd-pos tr.cd-closed td { color: var(--ink-2); }
+  .cd-pos tr.cd-closed .leg b { opacity: .75; }
   .cd-note { margin: 8px 0 0; }
   .btn.sm { padding: 4px 10px; font-size: 12.5px; }
   .btn.danger { color: var(--down); border-color: var(--down); }
@@ -1784,7 +1790,7 @@
       <div class="cd-kpis" id="cdStatus"></div>
 
       <div class="cd-box" id="cdLegsWrap">
-        <div class="cd-box-h"><h4>Live position</h4><span class="cd-tag" id="cdPosAt"></span>
+        <div class="cd-box-h"><h4>Positions today</h4><span class="cd-tag" id="cdPosAt"></span>
           <div class="right"><button type="button" class="btn sm" id="cdClosePE" hidden>Close put side</button>
             <button type="button" class="btn sm" id="cdCloseCE" hidden>Close call side</button>
             <button type="button" class="btn sm danger" id="cdExitBtn" hidden>Close all legs</button></div></div>
@@ -1792,8 +1798,9 @@
         <div class="tablewrap" id="cdPosTable" hidden><table class="cd-pos"><thead><tr><th>Leg</th><th class="num">Qty</th>
           <th class="num">Entry</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mark</th><th class="num">P&amp;L</th><th></th></tr></thead>
           <tbody id="cdLegs"></tbody><tfoot id="cdLegsFoot"></tfoot></table></div>
-        <p class="hint cd-note" id="cdPosNote" hidden>Mark = mid of bid and ask. Leg P&amp;L is before charges; the day P&amp;L above includes closed legs
-          and charges. A wing can't be closed alone (its short would be uncovered).</p></div>
+        <p class="hint cd-note" id="cdPosNote" hidden>Every leg taken today: open ones at the mark (mid of bid and ask), closed ones
+          (rolled, a side closed, or the exit) at their exit price. Leg P&amp;L is before charges; the net under them is the day P&amp;L.
+          A wing can't be closed alone (its short would be uncovered).</p></div>
 
       <div id="cdPlan"></div>
 
@@ -3884,9 +3891,9 @@ function renderCondor() {
       <div class="cd-meter" title="Share of the daily loss cap used"><i style="width:${(used * 100).toFixed(1)}%"></i></div>
       <div class="d">${pl ? `charges ₹${cdNum(pl.charges)} · ` : ""}loss cap −₹${cdNum(cap)}</div></div>
     <div class="cd-kpi"><div class="k">Mode</div><div class="v ${j.mode === "live" ? "down" : ""}">${modeTxt}</div><div class="d">${modeSub}</div></div>`;
-  const has = j.legs.length > 0, sides = new Set(j.legs.map(g => g.opt));
+  const has = j.legs.length > 0, sides = new Set(j.legs.map(g => g.opt)), shut = j.closed_legs || [];
   optEl("cdLegsWrap").classList.toggle("cd-live", has);
-  optEl("cdPosTable").hidden = optEl("cdPosNote").hidden = !has;
+  optEl("cdPosTable").hidden = optEl("cdPosNote").hidden = !has && !shut.length;
   optEl("cdPosEmpty").hidden = has;
   if (!has) {
     const why = st === "SKIPPED" ? `No trade today: ${esc(t.reason || "")}`
@@ -3902,14 +3909,23 @@ function renderCondor() {
   const live = t?.mode === "live";
   optEl("cdPosAt").className = `cd-tag${live ? " live" : ""}`;
   optEl("cdPosAt").textContent = has ? `${live ? "LIVE · real Kotak positions" : "Paper"} · ${(j.now || "").slice(11, 19)}` : "";
-  optEl("cdLegs").innerHTML = j.legs.map(g => `<tr><td class="leg"><b class="${g.qty < 0 ? "down" : "up"}">${g.qty < 0 ? "Sell" : "Buy"}</b>${cdNum(g.strike)} ${g.opt}<small>${esc(g.tsym)}</small></td>
+  const legName = g => `<b class="${g.qty < 0 ? "down" : "up"}">${g.qty < 0 ? "Sell" : "Buy"}</b>${cdNum(g.strike)} ${g.opt}`;
+  const plCell = v => `<td class="num ${v > 0 ? "up" : v < 0 ? "down" : ""}"><b>${v == null ? "–" : cdInr(v)}</b></td>`;
+  const hm = s => (s || "").slice(11, 16);
+  optEl("cdLegs").innerHTML = (has && shut.length ? `<tr class="cd-sec"><td colspan="8">Open</td></tr>` : "") + j.legs.map(g => `<tr><td class="leg"><b class="${g.qty < 0 ? "down" : "up"}">${g.qty < 0 ? "Sell" : "Buy"}</b>${cdNum(g.strike)} ${g.opt}<small>${esc(g.tsym)}</small></td>
     <td class="num">${g.qty > 0 ? "+" : ""}${g.qty}</td><td class="num">${cdNum(g.avg, 2)}</td><td class="num">${cdNum(g.bid, 2)}</td>
     <td class="num">${cdNum(g.ask, 2)}</td><td class="num"><b>${cdNum(g.mark, 2)}</b></td>
     <td class="num ${g.pnl > 0 ? "up" : g.pnl < 0 ? "down" : ""}"><b>${g.pnl == null ? "–" : cdInr(g.pnl)}</b></td>
-    <td class="num">${g.qty < 0 ? `<button type="button" class="btn sm danger" data-close-leg="${esc(g.tsym)}">Close</button>` : ""}</td></tr>`).join("");
-  const legPl = j.legs.reduce((a, g) => a + (g.pnl || 0), 0);
-  optEl("cdLegsFoot").innerHTML = has ? `<tr><td colspan="6">Open legs</td>
-    <td class="num ${legPl > 0 ? "up" : legPl < 0 ? "down" : ""}">${cdInr(legPl)}</td><td></td></tr>` : "";
+    <td class="num">${g.qty < 0 ? `<button type="button" class="btn sm danger" data-close-leg="${esc(g.tsym)}">Close</button>` : ""}</td></tr>`).join("") +
+    (shut.length ? `<tr class="cd-sec"><td colspan="8">Closed · ${shut.length} leg${shut.length === 1 ? "" : "s"}</td></tr>` : "") +
+    shut.map(g => `<tr class="cd-closed"><td class="leg">${legName(g)}<small>${esc(g.tsym)} · ${esc(hm(g.opened_at))}–${esc(hm(g.closed_at))}</small></td>
+    <td class="num">${g.qty > 0 ? "+" : ""}${g.qty}</td><td class="num">${cdNum(g.avg, 2)}</td><td class="num flat" colspan="2">closed</td>
+    <td class="num" title="Exit price">${cdNum(g.exit, 2)}</td>${plCell(g.pnl)}<td></td></tr>`).join("");
+  const legPl = j.legs.reduce((a, g) => a + (g.pnl || 0), 0), shutPl = shut.reduce((a, g) => a + (g.pnl || 0), 0);
+  const foot = (label, v, cls = "") => `<tr class="${cls}"><td colspan="6">${label}</td>${plCell(v)}<td></td></tr>`;
+  const unpriced = j.legs.some(g => g.pnl == null);   // no quote yet: totals that need it wait for one
+  optEl("cdLegsFoot").innerHTML = (has ? foot("Open legs", unpriced ? null : legPl) : "") + (shut.length ? foot("Closed legs", shutPl) : "") +
+    (pl && (has || shut.length) ? foot("Charges", -pl.charges, "cd-sub") + foot("Net day P&amp;L", unpriced || pl.unmarked?.length ? null : pl.total, "cd-net") : "");
   if (cd.plan && cd.plan.underlying && cd.plan.underlying !== j.underlying) cd.plan = null;
   optEl("cdPlan").innerHTML = cdChecks(cd.plan || j.plan);
   optEl("cdLogN").textContent = j.log.length;
