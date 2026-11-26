@@ -17,7 +17,8 @@ but never blocks):
   same 1SD, with the credit at the prices we would trade at: sell at the bid, buy at the ask).
 - Every minute the targets are worked out again. A side rolls out when its 1SD level is 25+ points past the
   short strike (or its OI wall has moved past it), and in when the short strike is 75+ points beyond the level
-  and the roll brings in a net credit; at least 2 minutes between rolls, none after 14:30 (a threatened side
+  and the roll brings in a net credit. A roll in moves the short only to 75 pts beyond the level (rounded
+  outward), or to the fresh entry's strike if that is farther out; at least 2 minutes between rolls, none after 14:30 (a threatened side
   is closed instead). A roll that can't meet POP > 75% closes that side.
 - Daily loss cap: cash from every fill + open legs at mid - charges <= -CONDOR_LOSS_CAP closes everything and
   stops for the day (checked every few seconds). From 15:00 everything is squared off: shorts first, then wings.
@@ -91,7 +92,7 @@ RULES = {
     "cand_sd": ("Strike candidates", "1SD level", "Spot ± 1SD"),
     "cand_wall": ("Strike candidates", "OI wall", "Most call OI above / put OI below spot within ±2SD"),
     "roll_out": ("Management", "Roll out", "Roll a side out when its 1SD level is 25+ pts past the short"),
-    "roll_in": ("Management", "Roll in", "Roll a side in when its short is 75+ pts beyond its 1SD level, for a net credit"),
+    "roll_in": ("Management", "Roll in", "Roll a side in when its short is 75+ pts beyond its 1SD level, for a net credit: only back to 75 pts beyond it"),
     "roll_wall": ("Management", "Roll when a wall moves", "Roll a side out when its OI wall moves past the short"),
     "late_exit": ("Management", "Close a threatened side after 14:30", "No rolls after 14:30: a threatened side is closed instead"),
     "loss_cap": ("Management", "Daily loss cap", "Close everything when the day's P&L reaches −CONDOR_LOSS_CAP"),
@@ -1008,7 +1009,8 @@ def _retarget(day: str, u: str, rec: dict, pos: dict, mode: str, now: datetime) 
     spec = SPECS[u]
     exp = rec.get("expiry") or today_expiry(now, u)
     rules = get_rules(u)
-    p = evaluate(snapshot(exp, now, u), now, filters=False, rules=rules)
+    snap = snapshot(exp, now, u)
+    p = evaluate(snap, now, filters=False, rules=rules)
     _book(u)["plan"] = p
     if not p.get("sd") or not p["sd"].get("sd") or not p.get("targets"):
         return
@@ -1041,6 +1043,18 @@ def _retarget(day: str, u: str, rec: dict, pos: dict, mode: str, now: datetime) 
         if sig is None:
             continue
         new_short = tg["short_call" if opt == "CE" else "short_put"]
+        plan = p
+        if sig == "in":
+            # Roll in only as far as the rule asks: to IN_BUFFER beyond the 1SD level (rounded outward), or the
+            # fresh entry's strike when that is farther out
+            near = round_up(lvl + spec["in"], spec["step"]) if opt == "CE" else round_down(lvl - spec["in"], spec["step"])
+            new_short = max(new_short, near) if opt == "CE" else min(new_short, near)
+            if new_short == short:
+                continue
+            plan = _with_side(p, snap, opt, new_short, spec["wing"])
+            if plan is None:
+                _log(day, u, "roll", f"{opt} inward roll to {new_short:.0f} skipped: no two-sided quotes there")
+                continue
         if new_short == short:
             continue
         last = rec.get("last_roll_at")
@@ -1048,11 +1062,28 @@ def _retarget(day: str, u: str, rec: dict, pos: dict, mode: str, now: datetime) 
             _log(day, u, "roll", f"{opt} side wants to roll {sig} ({why or 'short beyond its 1SD level'}) but the "
                                  f"{COOLDOWN_MIN}-minute cooldown is running")
             continue
-        wants.append((opt, sig, why or f"short {short:.0f} is {spec['in']}+ pts beyond its 1SD level"))
+        wants.append((opt, sig, why or f"short {short:.0f} is {spec['in']}+ pts beyond its 1SD level", plan))
     # Out before in: a skipped inward roll on one side must never keep the threatened side from rolling
-    for opt, sig, why in sorted(wants, key=lambda w: w[1] != "out"):
-        if _roll(day, u, rec, pos, mode, p, opt, sig, why, now):
+    for opt, sig, why, plan in sorted(wants, key=lambda w: w[1] != "out"):
+        if _roll(day, u, rec, pos, mode, plan, opt, sig, why, now):
             return   # one change per re-target; the position changed
+
+
+def _with_side(p: dict, snap: dict, opt: str, short: float, wing: float) -> dict | None:
+    """The plan with one side's short / wing moved to `short` (wing beyond it) from the snapshot's chain; None when
+    either strike is missing or lacks a two-sided quote."""
+    by_k = {r["strike"]: r for r in snap.get("rows") or []}
+    long_k = short + wing if opt == "CE" else short - wing
+    side = "call" if opt == "CE" else "put"
+    legs = [g for g in p["legs"] if g["opt"] != opt]
+    for role, k, action in ((f"short {side}", short, "SELL"), (f"long {side}", long_k, "BUY")):
+        leg = (by_k.get(k) or {}).get(opt.lower())
+        px = (leg.get("ask") if action == "BUY" else leg.get("bid")) if leg else None
+        if not leg or not leg.get("tsym") or not leg.get("bid") or not leg.get("ask"):
+            return None
+        legs.append({"role": role, "opt": opt, "strike": k, "action": action, "tsym": leg["tsym"], "bid": leg.get("bid"),
+                     "ask": leg.get("ask"), "ltp": leg.get("ltp"), "oi": leg.get("oi"), "price": px})
+    return {**p, "legs": legs}
 
 
 def _roll(day: str, u: str, rec: dict, pos: dict, mode: str, p: dict, opt: str, sig: str, why: str,

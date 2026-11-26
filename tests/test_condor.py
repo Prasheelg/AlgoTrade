@@ -547,17 +547,21 @@ def test_bse_scrip_master_parses_sensex_options():
 def test_threatened_side_rolls_even_when_the_other_side_wants_in(monkeypatch):
     """Sensex at 84,072, 1SD 350: the 83,900 PE is 178 pts inside its 1SD level (roll out) while the 85,000 CE is
     578 beyond its own (roll in). The put must be tried first, and a skipped inward call roll must not stop it."""
-    plan = {"spot": 84072.0, "sd": {"sd": 350.0}, "targets": {"short_call": 84500.0, "short_put": 83700.0}, "walls": {}}
-    monkeypatch.setattr(condor, "snapshot", lambda exp, now, u="NIFTY": {})
+    plan = {"spot": 84072.0, "sd": {"sd": 350.0}, "targets": {"short_call": 84500.0, "short_put": 83700.0}, "walls": {},
+            "legs": []}
+    rows = [{"strike": float(k), "ce": {"tsym": f"SENSEX{k}CE", "bid": 5.0, "ask": 5.2, "ltp": 5.1}} for k in (84700, 84900)]
+    monkeypatch.setattr(condor, "snapshot", lambda exp, now, u="NIFTY": {"rows": rows})
     monkeypatch.setattr(condor, "evaluate", lambda *a, **k: plan)
     pos = {f"SENSEX{k}{o}": {"opt": o, "strike": float(k), "qty": q}
            for k, o, q in ((83700, "PE", 20), (83900, "PE", -20), (85000, "CE", -20), (85200, "CE", 20))}
-    calls, changed = [], set()
+    calls, changed, plans = [], set(), {}
     monkeypatch.setattr(condor, "_roll", lambda day, u, rec, pos, mode, p, opt, sig, why, now:
-                        calls.append((opt, sig)) or opt in changed)
+                        plans.update({opt: p}) or calls.append((opt, sig)) or opt in changed)
     rec = {"expiry": EXP.isoformat()}
     condor._retarget(EXP.isoformat(), "SENSEX", rec, pos, "paper", at(13, 32))
     assert calls == [("PE", "out"), ("CE", "in")]           # the put first; a skipped roll moves on to the call
+    # The call rolls in only to 250 pts beyond its 1SD level (84,422 + 250 -> 84,700), not the fresh 84,500
+    assert sorted((g["strike"], g["action"]) for g in plans["CE"]["legs"]) == [(84700.0, "SELL"), (84900.0, "BUY")]
     calls.clear(); changed.add("PE")
     condor._retarget(EXP.isoformat(), "SENSEX", rec, pos, "paper", at(13, 32))
     assert calls == [("PE", "out")]                         # one change per re-target
