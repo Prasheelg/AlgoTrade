@@ -86,7 +86,11 @@ def test_oi_walls_above_and_below_spot_and_unwinding():
     assert w["put"]["strike"] == 25500 and w["put"]["unwinding"] is True
 
 
-def test_option_charges():
+def test_option_charges(monkeypatch):
+    from algotrade import config
+    buy = condor.option_charges("BUY", 1000.0)                 # API orders: no brokerage, statutory charges only
+    assert buy == pytest.approx(1000 * 0.0003513 * 1.18 + 0.03)
+    monkeypatch.setattr(config, "BROKERAGE", 20.0)
     sell = condor.option_charges("SELL", 1000.0)
     buy = condor.option_charges("BUY", 1000.0)
     assert sell - buy == pytest.approx(1000 * (0.001 - 0.00003))

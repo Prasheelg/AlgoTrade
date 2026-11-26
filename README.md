@@ -137,7 +137,7 @@ Telegram group, marked 🇺🇸 and priced in $. The continuous scanner (`run.ba
 The backtest reports results twice: before costs (`R`) and after costs (`net_R`, with `cost_R` the difference;
 both columns are in the trades CSV). The cost model is in `algotrade/costs.py`:
 - **India, daily (delivery):** STT 0.1% on buy and sell, stamp duty 0.015% on the buy, NSE transaction charge
-  0.00297% and SEBI fee on each side, 18% GST on brokerage and those charges, `BROKERAGE` per order (₹20) and
+  0.00297% and SEBI fee on each side, 18% GST on brokerage and those charges, `BROKERAGE` per order (₹0: Kotak Neo charges no brokerage on API orders under its Trade Free plans) and
   `DP_CHARGE` per sale (₹20).
 - **India, intraday:** STT 0.025% on the sell, stamp duty 0.003% on the buy, same exchange charges and brokerage, no DP charge.
 - **US:** `US_BROKERAGE` per order ($0) and about 0.003% regulatory fees on the sell.

@@ -116,7 +116,7 @@ MIN_PRICE = 50.0           # skip penny stocks
 MIN_AVG_TURNOVER = 5e7     # skip illiquid stocks (avg 20d turnover < ₹5 Cr)
 
 # Backtest costs (see costs.py); brokerage and DP charge in the market's currency, slippage in basis points
-BROKERAGE = float(_get("BROKERAGE", "20"))        # ₹ per order
+BROKERAGE = float(_get("BROKERAGE", "0"))         # ₹ per order: Kotak Neo API orders (Trade Free plans) pay none
 DP_CHARGE = float(_get("DP_CHARGE", "20"))        # ₹ per delivery sale, incl. GST
 SLIPPAGE_BPS = float(_get("SLIPPAGE_BPS", "5"))
 US_BROKERAGE = float(_get("US_BROKERAGE", "0"))   # $ per order
