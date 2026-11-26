@@ -221,6 +221,8 @@
   .links { display: inline-flex; gap: 10px; font-size: 12px; color: var(--muted); }
   .links button { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 500; }
   .run { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .scan-mk { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+  .scan-mk + .scan-mk { padding-left: 16px; border-left: 1px solid var(--line-2); }
 
   .notice { display: flex; gap: 10px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line);
             border-left: 3px solid var(--accent); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
@@ -1446,6 +1448,8 @@
        status · order / option note ...... ★★★
      The range bar, the strategy names and the ⓘ / ✕ buttons go: tapping the row opens its details (with Delete). */
   @media (max-width: 640px) {
+    #scanPanel .run { flex-wrap: wrap; }
+    #scanPanel .run .scan-mk { flex-basis: 100%; justify-content: space-between; padding-left: 0; border-left: 0; }
     .tablewrap table.sigt.cards #rows { display: block; gap: 0; padding: 0; }
     .tablewrap table.sigt.cards #rows tr, .tablewrap table.sigt.cards #rows tr:last-child {
       display: grid; grid-template-columns: max-content max-content minmax(0, 1fr) auto; gap: 3px 8px; align-items: baseline;
@@ -1538,11 +1542,9 @@
       <button type="button" class="scan-sum" id="scanSum" aria-expanded="false" aria-controls="scanPanel">
         <span><b>Scan settings</b><small id="scanSumTxt"></small></span>
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="ctl" id="scanForBox" hidden><span class="lbl">Settings for</span><div class="seg" id="scanFor"></div></div>
       <div class="ctl"><span class="lbl">Min votes</span><select id="minScore"></select></div>
-      <div class="run">
-        <label class="switch scan-power" id="scanSw"><input type="checkbox" id="scanOn"> <span id="scanLbl">Scanner</span></label>
-        <span class="scan-state" id="scanState" role="status"><i></i><span>Scanner…</span></span>
-      </div>
+      <div class="run" id="scanRun"></div>
     </div>
     <div class="scan-row sc-row">
       <span class="lbl" style="padding-top: 6px">Strategies</span>
@@ -2493,22 +2495,51 @@ function renderScanPanel() {
   renderScanState();
 }
 
-// One line on the continuous scanner for the market on screen; the details are in the tooltip
+// The scanners on screen: the selected market's, or in All (Signals) every shown market's, each a switch + one status
+// line (the details are in the tooltips)
+const scanMks = () => view === "signals" && allMk ? sbMarkets().map(m => m.code) : [market];
 function renderScanState() {
-  const el = document.getElementById("scanState"); if (!el) return;
-  const st = scanStat[market] ?? {}, m = META?.markets.find(x => x.code === market);
+  const run = document.getElementById("scanRun"); if (!run) return;
+  const mks = scanMks();
+  if (run.dataset.mks !== mks.join()) {   // rebuilt only when the set changes, so a switch mid-click keeps its state
+    run.dataset.mks = mks.join();
+    run.innerHTML = mks.map(mk => `<span class="scan-mk"><label class="switch scan-power" data-scan-mk="${mk}"><input type="checkbox"> <span>Scan</span></label>` +
+      `<span class="scan-state" data-scan-st="${mk}" role="status"><i></i><span>Scanner…</span></span></span>`).join("");
+  }
+  mks.forEach(renderScanOne);
+  renderScanFor();
+  renderScanWarn();
+}
+// In All the strategies and votes below are still one exchange's (each has its own): pick whose
+function renderScanFor() {
+  const all = scanMks().length > 1;
+  document.getElementById("scanForBox").hidden = !all;
+  if (all) document.getElementById("scanFor").innerHTML = scanMks().map(mk =>
+    `<button type="button" data-for="${mk}" class="${mk === market ? "on" : ""}">${esc(MK_LABEL[mk] ?? mk)}</button>`).join("");
+}
+document.getElementById("scanFor").onclick = e => {
+  const b = e.target.closest("[data-for]"); if (!b || b.dataset.for === market) return;
+  market = b.dataset.for; store.set("market", market);
+  if (META) { opts = optsFor(market); renderScanPanel(); loadScanSettings(market); }
+  renderMarkets(); renderStatus(); renderScanState();
+};
+
+function renderScanOne(mk) {
+  const sw = document.querySelector(`#scanRun [data-scan-mk="${mk}"]`), el = document.querySelector(`#scanRun [data-scan-st="${mk}"]`);
+  if (!sw || !el) return;
+  const st = scanStat[mk] ?? {}, m = META?.markets.find(x => x.code === mk);
   const every = META ? `every ${META.scan.interval_min} min` : "";
-  const win = m ? `${m.scan_window[0]}–${m.scan_window[1]} ${EXCHANGE[market]?.[1] ?? ""}, Mon–Fri` : "";
+  const win = m ? `${m.scan_window[0]}–${m.scan_window[1]} ${EXCHANGE[mk]?.[1] ?? ""}, Mon–Fri` : "";
   const r = st.result, last = st.finished_at
     ? `Last scan ${hhmm(st.finished_at)}${r ? `: ${r.found} setup${r.found === 1 ? "" : "s"}, ${r.new} new` : ""}` : "No scan yet";
-  const rn = scanRunner ?? {}, box = document.getElementById("scanOn"), name = MK_LABEL[market] ?? m?.name ?? market;
-  const mkOn = st.on !== false, others = Object.entries(scanStat).some(([k, s]) => k !== market && s.on !== false);
+  const rn = scanRunner ?? {}, box = sw.querySelector("input"), name = MK_LABEL[mk] ?? m?.name ?? mk;
+  const mkOn = st.on !== false, others = Object.entries(scanStat).some(([k, s]) => k !== mk && s.on !== false);
   box.checked = !!(scanAlive || rn.starting) && !rn.stopping && mkOn;
-  document.getElementById("scanLbl").textContent = `Scan ${name}`;
-  document.getElementById("scanSw").title = box.checked
+  sw.querySelector("span").textContent = `Scan ${name}`;
+  sw.title = box.checked
     ? `${name} scanning is on. Switch off to stop scanning ${name}` +
       (others ? "" : " (the scanner then stops, and with it Auto-trade's orders)") +
-      (market === "IN" ? "; open Auto-trade orders are still watched while the scanner runs" : "")
+      (mk === "IN" ? "; open Auto-trade orders are still watched while the scanner runs" : "")
     : `Switch on to scan ${name} ${win} ${every}, all timeframes, with these settings`;
   let cls = "", text = "Scanner…", tip = "";
   if (rn.stopping) {
@@ -2529,35 +2560,36 @@ function renderScanState() {
     // market's scan is running long): this market is queued, not stuck
     const inM = META?.markets.find(x => x.code === "IN"), e = inM && exchangeNow(inM);
     const due = !st.next_at || (e && st.next_at <= `${e.date}T${e.time}`);
-    const busy = Object.entries(scanStat).find(([k, s]) => k !== market && s.running && s.on !== false)?.[0];
-    const busyName = busy && (META?.markets.find(x => x.code === busy)?.name ?? busy);
+    const busy = Object.entries(scanStat).find(([k, s]) => k !== mk && s.running && s.on !== false)?.[0];
+    const busyName = busy && (MK_LABEL[busy] ?? META?.markets.find(x => x.code === busy)?.name ?? busy);
     text = !st.in_window ? `Idle · scans ${m?.scan_window[0] ?? ""}–${m?.scan_window[1] ?? ""}`
       : !due ? `Next scan ${hhmm(st.next_at)}`
       : busyName ? `Next scan after ${busyName}'s` : "Next scan shortly";
     tip = `${last}${st.error ? ` · problem: ${st.error}` : ""} · scans ${win} ${every}`;
   }
-  if (opts?.saved) tip += ` · settings saved ${opts.saved.replace("T", " ").slice(0, 16)}`;
+  if (optsBy[mk]?.saved) tip += ` · settings saved ${optsBy[mk].saved.replace("T", " ").slice(0, 16)}`;
   el.className = "scan-state " + cls;
   el.title = tip;
   el.lastElementChild.textContent = text;
-  renderScanWarn();
 }
 
 // The scanner-off line of the alert bar: while the market on screen is open, or opens within SCAN_WARN_MIN, and isn't
 // being scanned
 const SCAN_WARN_MIN = 30;
-let scanWarn = null;   // the line's text, or null
+let scanWarn = null, scanWarnMk = null;   // the line's text, or null; the market it is about
 function renderScanWarn() {
-  const m = META?.markets.find(x => x.code === market);
-  const rn = scanRunner ?? {}, on = !!(scanAlive || rn.starting) && !rn.stopping && scanStat[market]?.on !== false;
+  const rn = scanRunner ?? {};
   let warn = null;
-  if (m?.session && scanAlive != null && !on) {
+  for (const mk of scanMks()) {
+    const m = META?.markets.find(x => x.code === mk), on = !!(scanAlive || rn.starting) && !rn.stopping && scanStat[mk]?.on !== false;
+    if (!m?.session || scanAlive == null || on) continue;
     const ms = marketState(m);
     const soon = !ms.open && ms.tradingDay && toMin(m.session[0]) - ms.now.mins <= SCAN_WARN_MIN && ms.now.mins < toMin(m.session[0]);
     if (ms.open || soon) {
-      const ex = EXCHANGE[market]?.[0] ?? m.name;
-      warn = `<b>${esc(m.name)} isn't being scanned.</b> ${esc(ex)} ${ms.open ? "is open" : ms.when}; ` +
-        `no new signals${market === "US" ? "" : " or Auto-trade orders"} until you turn scanning on.`;
+      const ex = EXCHANGE[mk]?.[0] ?? m.name;
+      warn = `<b>${esc(MK_LABEL[mk] ?? m.name)} isn't being scanned.</b> ${esc(ex)} ${ms.open ? "is open" : ms.when}; ` +
+        `no new signals${mk === "US" ? "" : " or Auto-trade orders"} until you turn scanning on.`;
+      scanWarnMk = mk; break;
     }
   }
   if (warn !== scanWarn) { scanWarn = warn; renderAlerts(); }
@@ -2578,31 +2610,33 @@ function renderAlerts() {
     (i === 0 && healthAt && healthProblems.length ? `<span class="x">checked ${esc(healthAt)}</span>` : "") + `</li>`).join("")}</ul>`;
 }
 document.getElementById("healthBox").addEventListener("click", e => {
-  if (e.target.closest("[data-scan-on]")) document.getElementById("scanSw").click();
+  if (e.target.closest("[data-scan-on]")) document.querySelector(`#scanRun [data-scan-mk="${scanWarnMk}"]`)?.click();
 });
 
 async function loadScanStatus() {
   let j;
   try { j = await (await fetch("/api/scan/status")).json(); } catch { return; }
-  const before = scanStat[market]?.finished_at;
+  const before = Object.fromEntries(scanMks().map(mk => [mk, scanStat[mk]?.finished_at]));
   scanAlive = j.alive;
   scanRunner = j.runner ?? null;
   Object.assign(scanStat, j.markets);
   renderMarkets(); renderScanState();
-  const st = scanStat[market];
-  if (before && st?.finished_at && st.finished_at !== before) {   // a scan just finished: show what it found
-    load();
-    if (st.error) notice(`Scan at ${hhmm(st.finished_at)} had a problem: ${esc(st.error)}`, true);
-    else if (st.result?.new) notice(`Scan at ${hhmm(st.finished_at)}: <b>${st.result.new} new</b> (${st.result.symbols.map(esc).join(", ")}).`);
+  const done = scanMks().filter(mk => before[mk] && scanStat[mk]?.finished_at && scanStat[mk].finished_at !== before[mk]);
+  if (done.length) load();   // a scan just finished: show what it found
+  for (const mk of done) {
+    const st = scanStat[mk], who = scanMks().length > 1 ? `${MK_LABEL[mk] ?? mk} scan` : "Scan";
+    if (st.error) notice(`${who} at ${hhmm(st.finished_at)} had a problem: ${esc(st.error)}`, true);
+    else if (st.result?.new) notice(`${who} at ${hhmm(st.finished_at)}: <b>${st.result.new} new</b> (${st.result.symbols.map(esc).join(", ")}).`);
   }
 }
 setInterval(() => { if (!document.hidden) loadScanStatus(); }, 10000);
 
 // The market's scan switch (India / US): the server turns that market's scanning on or off, starting the scanner
 // if needed and stopping it once no market is on; the box only mirrors what it reports
-document.getElementById("scanSw").onclick = async e => {
+document.getElementById("scanRun").onclick = async e => {
+  const sw = e.target.closest("[data-scan-mk]"); if (!sw) return;
   e.preventDefault();
-  const box = document.getElementById("scanOn"), mk = market;
+  const box = sw.querySelector("input"), mk = sw.dataset.scanMk;
   if (box.disabled) return;
   // From the server's state, not box.checked: a click on the box itself has already flipped it by now
   const rn = scanRunner ?? {}, mkOn = scanStat[mk]?.on !== false;
@@ -2692,7 +2726,7 @@ document.getElementById("markets").onclick = e => {
   if (pick === "ALL" || (sig && allMk && pick === market)) {   // All on, or off again to just this market
     if (pick === "ALL" && allMk) return;
     allMk = pick === "ALL"; store.set("allMk", allMk);
-    data = []; tab = "pending"; tabPicked = false; render(); renderMarkets(); renderStatus(); load();
+    data = []; tab = "pending"; tabPicked = false; render(); renderMarkets(); renderStatus(); renderScanState(); load();
     sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code)); return;
   }
   if (pick === market) return;
@@ -2729,7 +2763,7 @@ function setView(v) {
   const wasAll = view === "signals" && allMk;
   view = v;
   store.set("view", v);
-  renderMarkets(); renderStatus();
+  renderMarkets(); renderStatus(); renderScanState();
   if (view === "signals" && allMk && !wasAll) { load(); sbMarkets().forEach(m => quotes[m.code] || loadIndex(m.code)); }
   document.querySelectorAll("#views button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   document.getElementById("sigView").hidden = view !== "signals";
