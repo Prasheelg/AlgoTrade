@@ -1433,12 +1433,15 @@
   :root[data-theme="dark"] .exch.IN { color: #7cc4ff; }
   #markets [data-market="ALL"] { font-weight: 700; }
   /* Toasts (phone): results of an action, above the tab bar; tap to dismiss */
-  #toasts { position: fixed; left: 12px; right: 12px; bottom: calc(76px + var(--sa-bottom)); z-index: 50;
-            display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-  .toast { pointer-events: auto; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-left: 4px solid var(--accent);
-           border-radius: 12px; padding: 12px 14px; font-size: 14px; white-space: pre-line; box-shadow: 0 8px 28px rgb(0 0 0 / .3);
-           animation: toast-in .2s ease-out; }
-  body.sheet-open #toasts { top: calc(12px + var(--sa-top)); bottom: auto; }   /* clear of the sheet's buttons */
+  /* small, in the bottom-right corner so they don't cover the page */
+  #toasts { position: fixed; right: 10px; bottom: 14px; z-index: 50; width: min(260px, 62vw);
+            display: flex; flex-direction: column; align-items: stretch; gap: 5px; pointer-events: none; }
+  @media (max-width: 640px) { #toasts { bottom: calc(70px + var(--sa-bottom)); } }   /* above the tab bar */
+  .toast { pointer-events: auto; cursor: pointer; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+           border-radius: 8px; padding: 5px 8px; font-size: 11.5px; line-height: 1.3; white-space: pre-line; opacity: .94;
+           box-shadow: 0 3px 10px rgb(0 0 0 / .22); animation: toast-in .2s ease-out;
+           display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+  body.sheet-open #toasts { top: calc(10px + var(--sa-top)); bottom: auto; }   /* clear of the sheet's buttons */
   .toast.ok { border-left-color: var(--up); }
   .toast.err { border-left-color: var(--down); }
   @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } }
@@ -5657,9 +5660,12 @@ function toast(msg) {
   el.className = "toast " + (/placed|modified|cancelled/i.test(text) && !/could ?n[o']t/i.test(text) ? "ok"
     : /could ?n[o']t|error|refused|failed|reject/i.test(text) ? "err" : "");
   el.textContent = text;
+  el.title = text;   // full text on hover (the toast shows at most 3 lines)
   el.onclick = () => el.remove();
-  document.getElementById("toasts").append(el);
-  setTimeout(() => el.remove(), 4000 + Math.min(text.length * 40, 6000));
+  const box = document.getElementById("toasts");
+  box.append(el);
+  while (box.children.length > 3) box.firstElementChild.remove();   // keep the corner stack short
+  setTimeout(() => el.remove(), 3000 + Math.min(text.length * 25, 3000));
 }
 const nativeAlert = window.alert.bind(window);
 window.alert = msg => PHONE.matches ? toast(msg) : nativeAlert(msg);
