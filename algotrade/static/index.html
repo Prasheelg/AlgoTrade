@@ -405,9 +405,8 @@
   .empty { padding: 32px 16px; text-align: center; color: var(--muted); }
   .empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
 
-  /* ---- Auto-trade switch (in Settings): quiet when off, unmistakable when live; the top bar shows a badge while ON ---- */
+  /* ---- Auto-trade switch (in Settings): quiet when off, unmistakable when live ---- */
   #stTradeSlot .trade { white-space: nowrap; }
-  .live-badge { border-color: var(--down); background: var(--down-bg); color: var(--down); font-weight: 700; font-size: 12.5px; white-space: nowrap; }
   .trade { cursor: pointer; user-select: none; }
   .trade .switch { pointer-events: none; }
   .trade #tradeLbl { color: var(--muted); }
@@ -1142,7 +1141,6 @@
     h1 span { display: none; }
     .spacer { order: 1; }
     #refresh { order: 2; width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 11px; }
-    #autoBadge { order: 2; height: 38px; border-radius: 11px; padding: 0 10px; }
 
     /* Status strip: a quiet line under the app bar, swipe for the rest */
     .top-strip { margin-top: 8px; }
@@ -1571,7 +1569,6 @@
       <button type="button" data-view="watchlist"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg><span>Today</span></button><button type="button" data-view="signals"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Signals</span></button><button type="button" data-view="portfolio"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Positions</span></button><button type="button" data-view="options"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="lg">Strategy Builder</span><span class="sm">Options</span></button><button type="button" data-view="condor"><svg viewBox="0 0 24 24"><path d="M3 18h4l3-10h4l3 10h4"/></svg><span>Condor</span></button><button type="button" data-view="performance"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-3M13 16V9M18 16V6"/></svg><span>Review</span></button>
     </nav>
     <div class="spacer"></div>
-    <button class="btn live-badge" id="autoBadge" type="button" hidden title="Auto-trade is ON: signals go to Kotak as real orders. Click for Settings, where it is switched">● Auto-trade ON</button>
     <div id="tradeHome" hidden><label class="btn trade" id="tradeSw"><span class="switch"><input type="checkbox" id="trade" disabled></span>
       <span id="tradeLbl">Auto-trade</span></label></div>
     <button class="btn icon" id="chartBtn" type="button" title="Chart (C)" aria-label="Chart"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M17 4v16"/><rect x="4.5" y="8" width="5" height="8" rx="1"/><rect x="14.5" y="6" width="5" height="7" rx="1"/></svg></button>
@@ -4874,7 +4871,6 @@ function renderTrading() {
   sw.classList.toggle("on", t.enabled);
   sw.classList.toggle("off-limits", tradeBox.disabled);
   document.getElementById("tradeLbl").textContent = t.enabled ? "Auto-trade ON" : "Auto-trade off";
-  document.getElementById("autoBadge").hidden = !t.enabled;
   sw.title = !t.credentials && !t.enabled ? "Add the Kotak login details to .env to enable automatic trading"
     : (t.enabled ? `LIVE: India signals are sent to Kotak ${t.account ?? ""} automatically. ${cap}.`
                  : `Automatic trading is off. Switch on to send India signals to Kotak automatically (${cap}).`) +
@@ -5398,7 +5394,7 @@ function renderSt() {
       <button class="btn icon" type="button" data-stx="close" title="Close" style="margin-left:auto">✕</button></div>
     <div class="st-group"><span class="lbl">Automatic trading</span>
       <div class="st-row"><span class="t">Auto-trade</span><div class="c" id="stTradeSlot"></div>
-      <span class="h">On: India signals are sent to Kotak as real orders without asking. The top bar shows a red badge while it is on</span></div>
+      <span class="h">On: India signals are sent to Kotak as real orders without asking</span></div>
     </div>
     ${!d ? `<div class="row"><span class="hint" style="margin:0">${esc(st.err || "Loading…")}</span></div>` :
       ST_GROUPS.map(([g, names]) => `<div class="st-group"><span class="lbl">${g}</span>${names.filter(n => byName[n]).map(n => field(byName[n])).join("")}</div>`).join("")}
@@ -5489,7 +5485,6 @@ stBox.addEventListener("click", async e => {
   renderSt();
 });
 document.getElementById("settingsBtn").onclick = openSettings;
-document.getElementById("autoBadge").onclick = openSettings;
 
 // Web Push (phone notifications from the app itself)
 const b64ToBytes = s => Uint8Array.from(atob((s + "===".slice((s.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
