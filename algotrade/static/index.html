@@ -3792,12 +3792,20 @@ const cdDay = iso => { try { return new Date(iso + "T00:00:00").toLocaleDateStri
 const cdDaysTo = iso => Math.round((new Date(iso + "T00:00:00") - new Date(new Date().toDateString())) / 864e5);
 
 // Strike ladder: wings, shorts, spot, +/-1SD, breakevens and the profit zone, to scale
-function cdLadder(p, w) {
-  const t = p.targets, sd = p.sd?.sd, s = p.spot;
+// With an open position it draws those legs (and their breakevens from the entry credit), not the fresh plan.
+function cdLadder(p, w, open) {
+  let t = p.targets, be = p.breakevens || [];
+  const sd = p.sd?.sd, s = p.spot;
+  if (open && open.length) {
+    const k = (short, o) => open.find(g => (g.qty < 0) === short && g.opt === o)?.strike;
+    t = { short_put: k(true, "PE"), long_put: k(false, "PE"), short_call: k(true, "CE"), long_call: k(false, "CE") };
+    const cr = open.reduce((a, g) => a - Math.sign(g.qty) * (g.avg || 0), 0);
+    be = t.short_put != null && t.short_call != null ? [t.short_put - cr, t.short_call + cr] : [];
+  }
   if (!t || !sd || !s) return "";
-  const be = p.breakevens || [];
-  const padPts = 1.4 * (t.long_call - t.short_call || 50);
-  const lo = Math.min(t.long_put, s - sd) - padPts, hi = Math.max(t.long_call, s + sd) + padPts;
+  const ks = [t.long_put, t.short_put, t.short_call, t.long_call].filter(v => v != null);
+  const padPts = 1.4 * ((t.long_call - t.short_call) || (t.short_put - t.long_put) || 50);
+  const lo = Math.min(...ks, s - sd) - padPts, hi = Math.max(...ks, s + sd) + padPts;
   const narrow = w < 560, H = narrow ? 104 : 132, pad = 18, X = v => pad + (v - lo) / (hi - lo) * (w - 2 * pad), y = 62;
   const f = v => Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   let g = "";
@@ -3807,17 +3815,18 @@ function cdLadder(p, w) {
     g += `<line x1="${X(v)}" x2="${X(v)}" y1="22" y2="${y + 24}" stroke="var(--warn)" stroke-dasharray="4 3"/>` +
       (narrow ? `<text x="${X(v)}" y="${y + 38}" text-anchor="middle" class="sub">${lab}</text>` : `<text x="${X(v)}" y="16" text-anchor="middle" class="sub">${lab} ${f(v)}</text>`);
   g += `<line x1="${X(s)}" x2="${X(s)}" y1="22" y2="${y + 24}" stroke="var(--accent)" stroke-width="2"/><text x="${X(s)}" y="16" text-anchor="middle" style="fill:var(--accent)">${esc(CD_UNDS[p.underlying] || p.underlying || "Spot")} ${f(s)}</text>`;
-  for (const [k, opt] of [[t.long_put, "PE"], [t.long_call, "CE"]])
+  for (const [k, opt] of [[t.long_put, "PE"], [t.long_call, "CE"]]) if (k != null)
     g += `<circle cx="${X(k)}" cy="${y}" r="6" fill="var(--panel)" stroke="var(--up)" stroke-width="2.5"/>${narrow ? "" : `<text x="${X(k)}" y="${y - 14}" text-anchor="middle" class="sub">buy ${f(k)}</text>`}`;
-  for (const [k, opt] of [[t.short_put, "PE"], [t.short_call, "CE"]])
+  for (const [k, opt] of [[t.short_put, "PE"], [t.short_call, "CE"]]) if (k != null)
     g += `<circle cx="${X(k)}" cy="${y}" r="7" fill="var(--down)"/><text x="${X(k)}" y="${narrow ? y - 14 : y + 24}" text-anchor="middle">${narrow ? f(k) : `sell ${f(k)} ${opt}`}</text>`;
   if (be.length === 2 && !narrow) for (const v of be)
     g += `<text x="${X(v)}" y="${y + 42}" text-anchor="middle" class="sub">BE ${f(v)}</text>`;
   return `<svg class="cd-ladder" viewBox="0 0 ${w} ${H}" style="height:${H}px" role="img" aria-label="Condor strikes against the index and its 1SD range">${g}</svg>`;
 }
 
-function cdChecks(p) {
+function cdChecks(p, open) {
   if (!p) return "";
+  const held = open && open.length ? open : null;
   const sd = p.sd || {}, cand = p.candidates || {};
   const tag = !p.zero_dte ? `<span class="cd-tag warn">Reference only · ${esc(p.expiry)} isn't today</span>`
     : p.ok ? `<span class="cd-tag ok">Ready · every hard rule passes</span>` : `<span class="cd-tag bad">Blocked</span>`;
@@ -3835,8 +3844,9 @@ function cdChecks(p) {
     <td class="num">${cdNum(g.bid, 2)}</td><td class="num">${cdNum(g.ask, 2)}</td><td class="num">${cdNum(g.oi)}</td></tr>`).join("");
   return `<div class="cd-box">
     <div class="cd-plan-h"><h4>Rule check</h4>${tag}<span class="hint">${esc((p.as_of || "").slice(11, 16))} · expiry ${esc(cdDay(p.expiry))}${p.zero_dte ? "" : ` · ${cdNum(p.minutes_left)} trading min left`}</span>
-      ${blockers.length ? `<span class="hint">· failing: ${esc(blockers.join(", "))}</span>` : ""}</div>
-    ${cdLadder(p, w)}
+      ${blockers.length ? `<span class="hint">· failing: ${esc(blockers.join(", "))}</span>` : ""}
+      ${held ? `<span class="hint">· ladder shows your open legs; the tables below are what a fresh entry would pick now</span>` : ""}</div>
+    ${cdLadder(p, w, held)}
     <div class="cd-metrics">
       <div><span class="k">1SD to expiry</span><b>${cdNum(sd.sd)} pts</b><span class="d">uses ${esc(sd.used || "–")} · A ${cdNum(sd.a)} / B ${cdNum(sd.b)}</span></div>
       <div><span class="k">ATM IV call / put</span><b>${sd.iv_ce ? cdNum(sd.iv_ce * 100, 1) : "–"} / ${sd.iv_pe ? cdNum(sd.iv_pe * 100, 1) : "–"}%</b><span class="d">straddle ${cdNum((sd.atm_ce || 0) + (sd.atm_pe || 0), 2)} at ${cdNum(sd.atm)}</span></div>
@@ -3927,7 +3937,7 @@ function renderCondor() {
   optEl("cdLegsFoot").innerHTML = (has ? foot("Open legs", unpriced ? null : legPl) : "") + (shut.length ? foot("Closed legs", shutPl) : "") +
     (pl && (has || shut.length) ? foot("Charges", -pl.charges, "cd-sub") + foot("Net day P&amp;L", unpriced || pl.unmarked?.length ? null : pl.total, "cd-net") : "");
   if (cd.plan && cd.plan.underlying && cd.plan.underlying !== j.underlying) cd.plan = null;
-  optEl("cdPlan").innerHTML = cdChecks(cd.plan || j.plan);
+  optEl("cdPlan").innerHTML = cdChecks(cd.plan || j.plan, j.legs);
   optEl("cdLogN").textContent = j.log.length;
   optEl("cdLogLast").textContent = j.log.length ? `${(j.log[0].at || "").slice(11, 16)} · ${j.log[0].text}` : "nothing yet today";
   optEl("cdLog").innerHTML = j.log.length ? j.log.map(e => `<div class="row"><time>${esc((e.at || "").slice(11, 19))}</time><span class="kind ${esc(e.kind)}">${esc(e.kind)}</span><span>${esc(e.text)}</span></div>`).join("")
