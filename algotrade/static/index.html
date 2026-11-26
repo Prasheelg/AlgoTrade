@@ -1024,7 +1024,8 @@
   .td .rows { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
   .td .rows span { display: flex; justify-content: space-between; gap: 8px; }
   .td .rows b { font-weight: 600; }
-  @media (max-width: 640px) { .today { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; } .td .v { font-size: 17px; } }
+  @media (max-width: 640px) { .today { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .td .v { font-size: 17px; white-space: normal; } .td.wide { grid-column: 1 / -1; } }
   /* Server power: a small popup under the top bar's power icon */
   .pw-pop { position: fixed; top: calc(62px + var(--sa-top, 0px)); right: 16px; z-index: 60; width: min(290px, calc(100vw - 24px));
             background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 12px;
@@ -1113,7 +1114,7 @@
     .st-row { grid-template-columns: minmax(0, 1fr) 120px; }
     .st-row input[type=number] { width: 110px; }
     .bt-ctl .btn.primary { width: 100%; margin: 0; justify-content: center; padding: 10px; border-radius: 10px; }
-    #settingsBtn, #powerBtn { order: 2; width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 11px; }
+    #settingsBtn, #powerBtn, #chartBtn { order: 2; width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 11px; }
     #settingsBtn span { display: none; }
     .mk-idx { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
@@ -1642,7 +1643,7 @@
     </div>
     <nav class="opt-tabs" id="revTabs" role="tablist" aria-label="Review sections">
       <button type="button" data-rt="results" role="tab">Results</button>
-      <button type="button" data-rt="scorecard" role="tab">Strategy scorecard</button>
+      <button type="button" data-rt="scorecard" role="tab">Scorecard</button>
       <button type="button" data-rt="backtest" role="tab">Backtest</button>
       <button type="button" data-rt="tax" role="tab">Tax</button>
     </nav></section>
@@ -1702,7 +1703,7 @@
     <section class="card scan"><div class="port-head">
       <span class="lbl">Kotak demat</span><span class="acct" id="portAcct">–</span>
       <span class="sv" id="portLive" hidden><span class="fresh"></span> <span id="portLiveTxt"></span></span>
-      <span class="hint" id="portHint">India (₹) account; the same whichever market is selected above</span>
+      <span class="hint" id="portHint">India (₹) account · NSE and MCX</span>
       <button class="btn primary" id="portBuy" type="button" title="Buy any NSE stock">+ Buy stock</button>
       <button class="btn" id="portRefresh" type="button" title="Read the account again now"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Reload</span></button>
     </div></section>
@@ -3196,7 +3197,7 @@ function renderPort() {
   const p = port, t = p.totals, f = p.funds;
   document.getElementById("portAcct").textContent = p.account || (p.credentials ? "–" : "not connected");
   document.getElementById("portHint").textContent = (p.as_of ? `as of ${p.as_of.replace("T", " ").slice(0, 16)}` +
-    (p.cached ? " (cached)" : "") + " · " : "") + "India (₹) account; the same whichever market is selected above";
+    (p.cached ? " (cached)" : "") + " · " : "") + "India (₹) account · NSE and MCX";
   const err = document.getElementById("portErr");
   err.hidden = !p.error; err.textContent = p.error || "";
   const live = document.getElementById("portLive"), nse = META?.markets.find(m => m.code === "IN");
@@ -5886,9 +5887,9 @@ function renderToday() {
       pl && !pl.error ? `${pl.open ?? 0} open position${pl.open === 1 ? "" : "s"}${pl.live ? "" : " · not live"}` : esc(pl?.error ?? "Kotak account")) +
     tile("signals", "Signals", `${sig.active ?? 0} active · ${sig.pending ?? 0} pending`, `${newToday} new today · NSE and MCX`) +
     tile("signals", "Scanners", "", `<span class="rows">${scans || "<span>…</span>"}</span>`, anyScanOff ? "warn" : "") +
-    tile("condor", "0DTE condor", "", `<span class="rows">${cds || "<span>…</span>"}</span>`) +
+    tile("condor", "0DTE condor", "", `<span class="rows">${cds || "<span>…</span>"}</span>`, "wide") +
     tile("", "Problems", probs ? `${probs} need${probs === 1 ? "s" : ""} attention` : "All clear",
-      probs ? "Details in the box at the top of the page" : healthAt ? `Checked ${healthAt}` : "", probs ? "warn" : "");
+      probs ? "Details in the box at the top of the page" : healthAt ? `Checked ${healthAt}` : "", `wide${probs ? " warn" : ""}`);
   box.querySelectorAll(".td .v:empty").forEach(v => v.remove());
 }
 document.getElementById("todayGrid").addEventListener("click", e => {
