@@ -996,6 +996,23 @@
 
   /* ---- Settings, calculator, journal, scorecard, backtest, tax, market overview ---- */
   #settingsBtn span { display: none; }
+  /* Server power: a small popup under the top bar's power icon */
+  .pw-pop { position: fixed; top: calc(62px + var(--sa-top, 0px)); right: 16px; z-index: 60; width: min(290px, calc(100vw - 24px));
+            background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 12px;
+            box-shadow: 0 10px 30px rgb(0 0 0 / .35); font-size: 13px; }
+  .pw-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .pw-head .btn { padding: 2px 7px; font-size: 12px; }
+  .pw-state { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+  .pw-state i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .pw-state.running i { background: var(--up); }
+  .pw-state.stopped i, .pw-state.none i { background: var(--down); }
+  .pw-state.pending i, .pw-state.stopping i { background: var(--warn); animation: pulse 1s ease-in-out infinite alternate; }
+  .pw-note { color: var(--muted); margin-top: 4px; line-height: 1.35; }
+  .pw-err { color: var(--down); margin-top: 4px; }
+  .pw-err:empty { display: none; }
+  .pw-acts { display: flex; gap: 8px; margin-top: 10px; }
+  .pw-acts .btn { flex: 1; justify-content: center; }
+  .pw-acts:not(:has(.btn:not([hidden]))) { display: none; }
   .opt-ticket { scroll-margin-top: var(--sticky-h, 76px); }   /* opened tickets scroll clear of the pinned bars */
   .st-group { margin-top: 14px; }
   .st-group > .lbl { display: block; margin-bottom: 6px; }
@@ -1057,7 +1074,7 @@
     .st-row { grid-template-columns: minmax(0, 1fr) 120px; }
     .st-row input[type=number] { width: 110px; }
     .bt-ctl .btn.primary { width: 100%; margin: 0; justify-content: center; padding: 10px; border-radius: 10px; }
-    #settingsBtn { order: 2; width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 11px; }
+    #settingsBtn, #powerBtn { order: 2; width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 11px; }
     #settingsBtn span { display: none; }
     .mk-idx { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
@@ -1514,6 +1531,15 @@
       <span id="tradeLbl">Auto-trade</span></label>
     <button class="btn icon" id="refresh" type="button" title="Refresh: re-check open signals against the latest prices" aria-label="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span>Refresh</span></button>
     <button class="btn icon" id="settingsBtn" type="button" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
+    <button class="btn icon" id="powerBtn" type="button" hidden title="Server power" aria-label="Server power" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg></button>
+    <div id="powerPop" class="pw-pop" role="dialog" aria-label="Server power" hidden>
+      <div class="pw-head"><span class="lbl">AWS server</span><button class="btn icon" type="button" id="pwClose" title="Close" aria-label="Close">✕</button></div>
+      <div class="pw-state" id="pwState"><i></i><b id="pwTxt">Checking…</b></div>
+      <div class="pw-note" id="pwNote"></div>
+      <div class="pw-err" id="pwErr" role="alert"></div>
+      <div class="pw-acts"><button class="btn primary" type="button" id="pwStart" hidden>Start server</button>
+        <button class="btn close-trade" type="button" id="pwStop" hidden>Stop server</button></div>
+    </div>
   </div>
   <div class="top-in top-strip"><div class="sbar" id="sbar" role="region" aria-label="Market status"></div>
   <div id="pnlPanel" class="shut" inert role="region" aria-label="Open positions"></div></div></header>
@@ -5320,7 +5346,7 @@ function renderSt() {
       <span class="h">It also goes out by itself after 15:45 IST on trading days. Telegram commands: /help in the group</span></div>
     </div>
     ${/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? "" : `<div class="st-group"><span class="lbl">Server</span>
-      <div class="st-row"><span class="t">Start or stop the AWS server</span><div class="c"><a class="btn" href="/_power">Power page</a></div>
+      <div class="st-row"><span class="t">Start or stop the AWS server</span><div class="c"><button class="btn" type="button" data-stx="power">Server power</button></div>
       <span class="h">It starts by itself at 08:30 IST and stops at 00:05 IST, Monday to Friday. When it's off, opening the dashboard shows the Start button</span></div>
     </div>`}
     <div class="st-group"><span class="lbl">Appearance</span>
@@ -5350,6 +5376,7 @@ stBox.addEventListener("click", async e => {
   if (a === "close") { st = null; renderSt(); return; }
   if (a === "snd-play") { sound.play(b.dataset.kind, true); return; }
   if (a === "snd-android") { window.AlgoTradeApp?.openNotificationSettings(); return; }
+  if (a === "power") { powerOpen(); return; }
   if (a === "logout") {
     if (!confirm("Log this device out?")) return;
     await fetch("/api/logout", { method: "POST" });
@@ -5741,7 +5768,80 @@ document.addEventListener("visibilitychange", () => {
   });
 }
 // Opened on the PC itself (no login there, so Settings hides Log out)
-fetch("/api/access").then(r => r.json()).then(a => { ACCESS.local = !!a.local; if (st) renderSt(); }).catch(() => {});
+fetch("/api/access").then(r => r.json()).then(a => {
+  ACCESS.local = !!a.local;
+  document.getElementById("powerBtn").hidden = ACCESS.local;
+  if (st) renderSt();
+}).catch(() => {});
+
+// ---- Server power popup: the AWS server's state with Start / Stop, from the Cloudflare Worker's /_power endpoints
+// (the same ones its full page uses; Start / Stop need the X-Power header) ----
+const PW_TEXT = {
+  running: ["Running", "The server is on."],
+  pending: ["Starting…", "The server is booting; the dashboard follows in about a minute."],
+  stopping: ["Stopping…", "The apps are shutting down and the databases are being backed up."],
+  stopped: ["Stopped", "The server is off: no scans, no alerts and no Auto-trade until it is started."],
+  none: ["No server", "There is no AlgoTrade server (it was deleted). Launch one from the PC with Start AlgoTrade.bat."],
+};
+const pw = { timer: null, busy: false };
+const pwEl = id => document.getElementById(id);
+document.body.append(pwEl("powerPop"));   // out of the top bar (its backdrop blur would pin a fixed child to the bar)
+async function powerRefresh() {
+  clearTimeout(pw.timer);
+  if (pwEl("powerPop").hidden) return;
+  let s;
+  try {
+    const r = await fetch("/_power/state", { cache: "no-store" });
+    s = await r.json();
+    if (!r.ok) throw new Error(s.error || r.status);
+    pwEl("pwErr").textContent = "";
+  } catch (e) {
+    pwEl("pwErr").textContent = "Couldn't read the server's state: " + e.message;
+    pw.timer = setTimeout(powerRefresh, 10000);
+    return;
+  }
+  const [label, note] = PW_TEXT[s.state] || [s.state, ""];
+  pwEl("pwState").className = "pw-state " + s.state;
+  pwEl("pwTxt").textContent = label;
+  pwEl("pwNote").textContent = s.state === "running" && !s.up ? "The server is on; the dashboard is still starting up." : note;
+  pwEl("pwStart").hidden = s.state !== "stopped";
+  pwEl("pwStop").hidden = s.state !== "running";
+  pw.timer = setTimeout(powerRefresh, s.state === "pending" || s.state === "stopping" ? 4000 : 15000);
+}
+async function powerAct(op) {
+  if (pw.busy) return;
+  if (op === "stop" && !confirm("Stop the server? Scans, alerts and Auto-trade stop until it is started again " +
+    "(this dashboard goes offline too).")) return;
+  pw.busy = true; pwEl("pwStart").disabled = pwEl("pwStop").disabled = true;
+  try {
+    const r = await fetch("/_power/" + op, { method: "POST", headers: { "X-Power": "1" } });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+  } catch (e) {
+    pwEl("pwErr").textContent = `Couldn't ${op} the server: ${e.message}`;
+  } finally {
+    pw.busy = false; pwEl("pwStart").disabled = pwEl("pwStop").disabled = false;
+    powerRefresh();
+  }
+}
+function powerOpen() {
+  pwEl("powerPop").hidden = false; pwEl("powerBtn").setAttribute("aria-expanded", "true");
+  pwEl("pwState").className = "pw-state"; pwEl("pwTxt").textContent = "Checking…"; pwEl("pwNote").textContent = "";
+  pwEl("pwStart").hidden = pwEl("pwStop").hidden = true;
+  powerRefresh();
+}
+function powerClose() {
+  pwEl("powerPop").hidden = true; pwEl("powerBtn").setAttribute("aria-expanded", "false");
+  clearTimeout(pw.timer);
+}
+pwEl("powerBtn").onclick = e => { e.stopPropagation(); pwEl("powerPop").hidden ? powerOpen() : powerClose(); };
+pwEl("pwClose").onclick = powerClose;
+pwEl("pwStart").onclick = () => powerAct("start");
+pwEl("pwStop").onclick = () => powerAct("stop");
+document.addEventListener("click", e => {   // a click outside closes it
+  if (!pwEl("powerPop").hidden && !e.target.closest("#powerPop, #powerBtn, [data-stx=power]")) powerClose();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !pwEl("powerPop").hidden) powerClose(); });
 
 // ---- Chart view: candles for any stock, index or option contract (/api/candles; TradingView Lightweight Charts) ----
 const CH_LIB = "https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js";
